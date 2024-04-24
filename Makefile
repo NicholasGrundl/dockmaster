@@ -67,3 +67,12 @@ publish.tag:
 .PHONY: jupyter
 jupyter: 
 	@jupyter lab --autoreload
+
+# .PHONY: flask.config
+# flask.config:
+# 	. ~/.bash_custom_functions;set_environment ~/flask.env
+
+.PHONY: flask.debug
+flask.debug:
+	@python -m flask --debug run
+

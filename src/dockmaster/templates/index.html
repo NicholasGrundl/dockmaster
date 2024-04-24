@@ -1,0 +1,60 @@
+<html>
+    <head>
+        <title>Dockmaster OAuth 2.0 </title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="assets/css/uikit.min.css" />
+        <link rel="stylesheet" href="assets/css/site.css" />
+        <script src="assets/js/jquery-3.6.0.min.js"></script>
+        <script src="assets/js/uikit.min.js"></script>
+        <script src="assets/js/uikit-icons.min.js"></script>
+        <script src="assets/js/app.js"></script>
+    </head>
+    <body>
+
+        <nav class="uk-navbar-container" uk-navbar>
+            <div id="auth-state-view" class="uk-navbar-left">
+                <ul class="uk-navbar-nav">
+                    <li>
+                        <a href="#">
+                            <span id="auth-state-badge" class="uk-badge uk-badge-warning">Unauthenticated</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+
+            <div id="auth-logout-view" class="uk-navbar-right uk-invisible">
+                <div class="uk-navbar-item uk-flex uk-flex-middle">
+                    <a href="#user_profile">
+                        <img id="auth-user-photo" class="uk-border-circle" width="40" height="40" src="" alt="User Photo">
+                    </a>
+                    <div class="uk-margin-left">
+                        <span id="auth-user-name" class="uk-text-bold"></span>
+                        <br>
+                        <span id="auth-user-email" class="uk-text-small uk-text-muted"></span>
+                    </div>
+
+                </div>
+                <div class="uk-navbar-item">
+                    <button id="auth-logout-button" class="uk-button uk-button-default">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+
+        <div id="auth-login-view" class="uk-flex uk-flex-center uk-flex-middle uk-height-viewport">
+            <div class="uk-card uk-card-default uk-card-body uk-width-1-3@m">
+                <h3 class="uk-card-title uk-text-center">
+                    <img src="assets/static/Generative_Dockmaster_Logo.ico" alt="Dockmaster Logo" class="uk-margin-small-right dockmaster-logo">
+                    Dockmaster OAuth 2.0
+                </h3>
+                <p class="uk-text-center">Please sign in to continue.</p>
+                <div class="uk-text-center">
+                    <span uk-icon="google"></span>
+                    <button id="auth-login-button" class="uk-button uk-button-default">Login</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

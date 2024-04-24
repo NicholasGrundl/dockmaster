@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Flask",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flask",
+            "env": {
+                "FLASK_APP": "projects/auth_service/dockmaster/src/dockmaster/service.py",
+                "FLASK_DEBUG": "1"
+            },
+            "args": ["run", "--debug"],
+            "jinja": true,
+            "autoStartBrowser": false
+        }
+    ]
+}
