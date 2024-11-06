@@ -62,3 +62,8 @@ publish.tag:
 .PHONY: jupyter
 jupyter: 
 	@jupyter lab --autoreload --no-browser
+
+.PHONY: fastapi.dev
+fastapi.dev:
+	@echo "Starting FastAPI server for development..."
+	@fastapi dev src/dockmaster/main.py --reload
