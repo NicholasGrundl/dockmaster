@@ -28,7 +28,7 @@ test.clean:
 
 .PHONY: test.unit
 test.unit: 
-	pytest -rfEP $(TEST_COMMANDS) test/unit
+	pytest -rfEP $(TEST_COMMANDS) tests
 
 #### Code Style ####
 FORMAT_DIRS = src/ test/
