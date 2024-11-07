@@ -10,6 +10,25 @@ from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class GoogleOAuth2Settings(BaseSettings):
+    """Configuration for Google OAuth2.0 
+    authorization_code flow."""
+    client_id: str
+    client_secret: str
+    scopes : list[str] = ["openid", "email", "profile"]
+    metadata_url: str = 'https://accounts.google.com/.well-known/openid-configuration'
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra='ignore',
+    )
+
+
+
+
+
+
+
+####################
 class GoogleSSOSettings(BaseSettings):
     """Configuration for Google SSO authentication."""
     client_secret_filepath: str  = Field(..., description="The filepath to Google OAuth 2.0 client secret")

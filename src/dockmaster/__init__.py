@@ -8,6 +8,19 @@ __maintainer__ = "Nick Grundl"
 __maintainer_email__ = '"Nick Grundl" <nicholasgrundl@gmail.com>'
 
 #####################
+# do the tutorial for passwords 
+# https://fastapi.tiangolo.com/tutorial/security/first-steps/
+#
+# see this repo for a simple cookie based OAuth code flow (with sso manager). Needs some changes requests.session is the cookie
+# https://github.com/authlib/demo-oauth-client/blob/master/fastapi-google-login/app.py
+#
+# This is a great tutorial to follow
+# https://github.com/lukasthaler/fastapi-oauth-examples
+#
+# Use the authlib python library to manage the google sso process...no need to rebuild for now
+# - could be a fun excercise to blog about state and nonce with a simple class and notebook?
+# https://github.com/lepture/authlib
+#
 # Consider these endpoints (from https://github.com/dmontagu/fastapi-auth)
 #
 # "/auth/token",

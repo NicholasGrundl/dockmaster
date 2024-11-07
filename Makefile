@@ -11,7 +11,7 @@ uninstall:
 
 #### Testing ####
 TEST_COMMANDS = \
-	--cov=tea \
+	--cov=dockmaster \
 	--cov-config=setup.cfg \
 	--cov-report html \
 	--cov-report term

@@ -16,6 +16,7 @@ flask
 #jwt and cryptography
 passlib[bcrypt]
 python-jose[cryptography]
+Authlib 
 
 # google sso
 google-auth
