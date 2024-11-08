@@ -15,7 +15,7 @@ class AuthenticationSessionManager:
     """
 
     def __init__(self, expiration_minutes: int = 5):
-        self.session: SessionInterface = MemorySession(create_session_id=create_session_id)
+        self.session: SessionInterface = MemorySession(session_id_fn=create_session_id)
         self.expiration_minutes = expiration_minutes
     
     def create_expiration_datetime(self)->datetime:

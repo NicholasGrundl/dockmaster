@@ -35,31 +35,62 @@ def memory_session() -> SessionInterface:
 def test_store_dict_data(memory_session: SessionInterface, session_data_dict: dict):
     """Test storing a dictionary"""
     session_data = session_data_dict
-    session_id = memory_session.store_session(session = session_data_dict)
+    session_id = memory_session.store_data(session = session_data_dict)
     assert isinstance(session_id, str)
     
-    retrieved_session = memory_session.retrieve_session(session_id)
+    retrieved_session = memory_session.retrieve_data(session_id)
     assert retrieved_session == session_data
     
-    removed_session = memory_session.remove_session(session_id)
+    removed_session = memory_session.remove_data(session_id)
     assert removed_session == session_data
-    assert memory_session.retrieve_session(session_id) is None
+    assert memory_session.retrieve_data(session_id) is None
 
 def test_store_pydantic_data(memory_session: SessionInterface, session_data_pydantic: BaseModel):
     """Test storing an AuthenticationFlowSession"""
     session_data = session_data_pydantic
-    session_id = memory_session.store_session(session = session_data)
+    session_id = memory_session.store_data(session = session_data)
     assert isinstance(session_id, str)
     
-    retrieved_session = memory_session.retrieve_session(session_id)
+    retrieved_session = memory_session.retrieve_data(session_id)
     assert retrieved_session == session_data
     
-    removed_session = memory_session.remove_session(session_id)
+    removed_session = memory_session.remove_data(session_id)
     assert removed_session == session_data
-    assert memory_session.retrieve_session(session_id) is None
+    assert memory_session.retrieve_data(session_id) is None
 
 def test_nonexistent_session(memory_session: SessionInterface):
     """Test retrieving a non-existent session"""
-    assert memory_session.retrieve_session("nonexistent") is None
-    assert memory_session.remove_session("nonexistent") is None
+    assert memory_session.retrieve_data("nonexistent") is None
+    assert memory_session.remove_data("nonexistent") is None
 
+
+# def test_dictionary_like_behavior(memory_session: SessionInterface, session_data_dict: dict):
+#     """Test dictionary like behavior"""
+#     session_data = session_data_dict
+#     session_id = memory_session.store_data(session = session_data)
+#     # Get and Delete methods
+#     assert memory_session[session_id] == session_data
+#     assert memory_session.get(session_id) == session_data
+#     assert memory_session.get("nonexistent") is None
+#     assert session_id in memory_session
+#     assert len(memory_session) == 1
+#     del memory_session[session_id]
+#     assert session_id not in memory_session
+#     assert len(memory_session) == 0
+
+#     # Set methods
+#     memory_session[session_id] = session_data
+#     assert memory_session[session_id] == session_data
+#     del memory_session[session_id]
+#     memory_session.set(session_id, session_data)
+#     assert memory_session[session_id] == session_data
+#     del memory_session[session_id]
+
+#     # Pop methods
+#     for i in range(5):
+#         memory_session[f"session_{i}"] = session_data
+#     assert len(memory_session) == 5
+#     assert memory_session.pop("session_0") == session_data
+#     assert len(memory_session) == 4
+#     memory_session.clear()
+#     assert len(memory_session) == 0

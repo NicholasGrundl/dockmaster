@@ -11,12 +11,12 @@ SessionID = str
 class SessionInterface(ABC):
     """Interface to various session storage backends"""
     @abstractmethod
-    def store_session(self, session: SessionData) -> SessionID:
+    def store_data(self, session: SessionData) -> SessionID:
         """Store a session in the cache, overwrite if present"""
         pass
         
     @abstractmethod
-    def retrieve_session(self, session_id: SessionID) -> SessionData | None:
+    def retrieve_data(self, session_id: SessionID) -> SessionData | None:
         """Retrieve a session from the cache if present as a view
         
         - validate session expiry
@@ -24,7 +24,7 @@ class SessionInterface(ABC):
         pass
         
     @abstractmethod
-    def remove_session(self, session_id: SessionID) -> SessionData | None:
+    def remove_data(self, session_id: SessionID) -> SessionData | None:
         """Remove a session from the cache return it if present """
         pass
         
