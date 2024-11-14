@@ -1,18 +1,4 @@
 #general
-requests
-
-#webapp
-google-auth
-google-api-python-client
-google-cloud-secret-manager
-click
-flask
-
-#data model
-pydantic
-isodate
-
-#general
 httpx
 click
 isodate
