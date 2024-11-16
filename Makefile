@@ -92,10 +92,10 @@ publish.info:
 	@echo "Docker image: $(DOCKER_IMAGE)"
 
 .PHONY: publish.setup
-publish.setup:
+publish.setup:m
 	@echo "---Recreating setup.cfg file "
 	@bash -c "./setup.cfg.sh"
-	git add setup.cfg src/dockyard/__init__.py
+	git add setup.cfg src/$(PACKAGE_NAME)/__init__.py
 	@echo "---Committing+Pushing setup file changes"
 	git commit -m"setup: creating a new setup.cfg from __init__.py" --allow-empty
 	git push -u origin HEAD

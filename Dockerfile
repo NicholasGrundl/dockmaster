@@ -23,9 +23,7 @@ RUN conda create -n myapp-backend python=${PYTHON_VERSION} pip -y
 ENV CONDA_DEFAULT_ENV=myapp-backend
 ENV PATH=${CONDA_DIR}/envs/${CONDA_DEFAULT_ENV}/bin:${PATH}
 COPY requirements.txt /tmp/requirements.txt
-COPY requirements-dev.txt /tmp/requirements-dev.txt
 RUN pip install -r /tmp/requirements.txt && \
-    pip install -r /tmp/requirements-dev.txt && \
     conda clean -afy && \
     find ${CONDA_DIR} -follow -type f -name '*.a' -delete && \
     find ${CONDA_DIR} -follow -type f -name '*.pyc' -delete && \
