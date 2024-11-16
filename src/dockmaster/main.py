@@ -31,7 +31,12 @@ oauth_client = GoogleOAuth2Client(
 )
 server_session: SessionInterface = MemorySession()
 
-
+@app.get('/auth/health')
+def health_check():
+    return {
+        "service" : "dockmaster",
+        'status': 'ok'
+    }
 
 @app.get('/discovery')
 def get_discovery(request: Request):
