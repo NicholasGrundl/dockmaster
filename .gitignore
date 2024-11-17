@@ -12,6 +12,9 @@ htmlcov/
 .cache/
 .pytest_cache
 
+# dotenv setup
+*.env
+.env*
 
 ##################
 # Python Package #
