@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import httpx
 from fastapi import FastAPI, Cookie
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi import HTTPException
 
 from .configuration import GoogleOAuth2Settings, get_google_settings
@@ -50,6 +50,7 @@ def get_config(request: Request):
     return google_settings
 
 
+@app.get('/')
 @app.get('/')
 def homepage(request: Request, session_id: Annotated[str | None, Cookie()] = None):
     #Proxy for a auth check via session_id
@@ -100,8 +101,7 @@ def homepage(request: Request, session_id: Annotated[str | None, Cookie()] = Non
     )
     return HTMLResponse(html_content)
 
-
-@app.get('/auth/login/google')
+@app.get('/login/google')
 def google_login(request: Request):
     """OAuth2 flow, step 1: have the user log into google to obtain an authorization code grant
     """
@@ -127,7 +127,7 @@ def google_login(request: Request):
     response.set_cookie('session_id', session_id, secure=True, httponly=True, samesite='lax') 
     return response
 
-@app.get('/auth/callback/google')
+@app.get('/callback/google')
 def google_callback(
     request: Request, 
     code: str, 
@@ -194,8 +194,40 @@ def google_callback(
     return response
 
 
-@app.get('/auth/logout')
+@app.get('/logout')
 def logout(request: Request):
     response = RedirectResponse(url='/')
     response.delete_cookie('session_id')
     return response
+
+@app.get('/principal')
+def get_principal(request: Request, session_id: Annotated[str | None, Cookie()] = None):
+    """Returnuser iof logged in or None"""
+    #Proxy for a auth check via session_id
+    if session_id is None:
+        app_logger.debug(f"Could not find credentials.")
+        response = JSONResponse(content={})
+        response.delete_cookie('session_id')
+        return response
+    
+    app_logger.debug(f"Found credentials in cookies. {session_id=}")
+    #verify session and remove cookie
+    session_data=server_session.retrieve_data(session_id)
+    if session_data is None:
+        app_logger.debug(f"Session data not found. Removing {session_id=}")
+        server_session.remove_data(session_id)
+        response = JSONResponse(content={})
+        response.delete_cookie('session_id')
+        return response
+    # Grab user and return it
+    app_logger.debug(f"Session data found. {list(session_data.keys())}")
+    #Only login if session_data is available
+    app_logger.debug(f"{session_id=}")
+    
+    #Obtain profile if available
+    user_id = session_data.get('user_id')
+    user_profile = session_data.get('user_profile',{})
+    image_url = user_profile.get('picture', None)
+    
+    return JSONResponse(content={'user_id': user_id, 'user_profile': user_profile, 'image_url': image_url})
+    
