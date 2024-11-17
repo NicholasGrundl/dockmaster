@@ -169,7 +169,7 @@ dev.shell: publish.info
 dev.run: publish.info 
 	@echo "Running dev container..."
 	@make docker.build
-	docker run --rm -it -p 127.0.0.1:8000:8000 \
+	docker run --rm -it -p 127.0.0.1:8000:8001 \
 	--name $(DOCKER_IMAGE)-dev --env-file ./.env \
 	$(DOCKER_IMAGE):$(DOCKER_TAG)
 

@@ -51,5 +51,5 @@ RUN useradd -m myapp && \
     chown -R myapp:myapp /app
 USER myapp
 
-EXPOSE 8000
-CMD ["python", "-m", "uvicorn", "dockmaster.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8001
+CMD ["python", "-m", "uvicorn", "dockmaster.main:app", "--host", "0.0.0.0", "--port", "8001"]
