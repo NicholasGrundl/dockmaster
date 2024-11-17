@@ -1,5 +1,6 @@
 """Google SSO managers and utilities."""
 import secrets
+from urllib.parse import urlencode
 
 import httpx
 from starlette.datastructures import URL
@@ -34,8 +35,6 @@ class GoogleOAuth2Client:
         """Get the scopes in a single string format"""
         return " ".join(self.scopes)
     
-
-
     def create_authorization_url(
         self, 
         authorization_endpoint : str, 
@@ -58,10 +57,10 @@ class GoogleOAuth2Client:
             'scope': self.get_scope(),
             'access_type': 'offline', # To receive a refresh token
             'state': state,
-            # 'nonce': nonce,
             'prompt': 'select_account'
         }
-        authorization_url = str(URL(authorization_endpoint).include_query_params(**params))
+        # Use urlencode instead of URL class to prevent double-quoting
+        authorization_url = f"{authorization_endpoint}?{urlencode(params)}"
         
         return authorization_url, state
     
@@ -100,6 +99,4 @@ class GoogleOAuth2Client:
             )
         except Exception as e:
             return {}
-        return id_token_payload    
-     
-    
+        return id_token_payload

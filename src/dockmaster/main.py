@@ -8,7 +8,7 @@ from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi import HTTPException
 
-from .configuration import GoogleOAuth2Settings
+from .configuration import GoogleOAuth2Settings, get_google_settings
 from .logger_config import setup_uvicorn_logger
 from .authenticate.google import GoogleOAuth2Client
 from .session.memory_session import MemorySession
@@ -21,7 +21,7 @@ def query_discovery(metadata_url):
     r = httpx.get(metadata_url)
     return r.json()
 
-google_settings = GoogleOAuth2Settings()
+google_settings = get_google_settings()
 discovery = query_discovery(google_settings.metadata_url)
 oauth_client = GoogleOAuth2Client(
     client_id=google_settings.client_id,
@@ -95,7 +95,7 @@ def homepage(request: Request, session_id: Annotated[str | None, Cookie()] = Non
         '<div>'
         '<h1> Dockmaster - Public </h1>'
         '<p> Login to access the console </p>'
-        '<a href="auth/login/google"><button>Login</button></a>'
+        '<a href="/auth/login/google"><button>Login</button></a>'
         '</div>'
     )
     return HTMLResponse(html_content)

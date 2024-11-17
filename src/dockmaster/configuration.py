@@ -6,7 +6,7 @@ import json
 from functools import lru_cache
 import secrets
 
-from pydantic import Field, HttpUrl
+from pydantic import Field, HttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,15 +17,23 @@ class GoogleOAuth2Settings(BaseSettings):
     client_secret: str
     scopes : list[str] = ["openid", "email", "profile"]
     metadata_url: str = 'https://accounts.google.com/.well-known/openid-configuration'
+
+    @field_validator('client_id', 'client_secret')
+    def strip_quotes(cls, v):
+        """Remove any quotes from the string values"""
+        if isinstance(v, str):
+            return v.strip('"\'')
+        return v
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra='ignore',
     )
 
-
-
-
-
+def get_google_settings(dotenv_filepath=None):
+    if dotenv_filepath is not None:
+        return GoogleOAuth2Settings(_env_file=dotenv_filepath)
+    return GoogleOAuth2Settings()
 
 
 ####################
