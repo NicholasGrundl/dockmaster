@@ -92,7 +92,7 @@ publish.info:
 	@echo "Docker image: $(DOCKER_IMAGE)"
 
 .PHONY: publish.setup
-publish.setup:m
+publish.setup:
 	@echo "---Recreating setup.cfg file "
 	@bash -c "./setup.cfg.sh"
 	git add setup.cfg src/$(PACKAGE_NAME)/__init__.py
@@ -169,7 +169,9 @@ dev.shell: publish.info
 dev.run: publish.info 
 	@echo "Running dev container..."
 	@make docker.build
-	docker run --rm -it -p 8000:8000 --name $(DOCKER_IMAGE)-dev $(DOCKER_IMAGE):$(DOCKER_TAG)
+	docker run --rm -it -p 127.0.0.1:8000:8000 \
+	--name $(DOCKER_IMAGE)-dev --env-file ./.env \
+	$(DOCKER_IMAGE):$(DOCKER_TAG)
 
 .PHONY: dev.clean
 dev.clean: publish.info
