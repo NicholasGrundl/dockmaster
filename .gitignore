@@ -13,8 +13,12 @@ htmlcov/
 .pytest_cache
 
 # dotenv setup
-*.env
-.env*
+.env
+.env.*
+!.env.example
+
+# secrets (GCP service account keys, etc.)
+secrets/
 
 ##################
 # Python Package #
