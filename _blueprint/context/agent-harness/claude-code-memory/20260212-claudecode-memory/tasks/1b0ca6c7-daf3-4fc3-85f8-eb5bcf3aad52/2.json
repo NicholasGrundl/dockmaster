@@ -1,0 +1,9 @@
+{
+  "id": "2",
+  "subject": "Move and split feature specs into _blueprint/features/",
+  "description": "Move mvp2-hardened-nanobot.md and kit-plan.md. Split kit-enhancements.md into 4 individual specs. Add metadata headers. Remove originals.",
+  "activeForm": "Moving and splitting feature specs",
+  "status": "in_progress",
+  "blocks": [],
+  "blockedBy": []
+}

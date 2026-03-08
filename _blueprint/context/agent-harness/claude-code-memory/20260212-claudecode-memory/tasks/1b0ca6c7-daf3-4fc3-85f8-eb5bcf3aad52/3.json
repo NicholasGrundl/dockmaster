@@ -1,0 +1,9 @@
+{
+  "id": "3",
+  "subject": "Create master TODO.md",
+  "description": "Consolidate all items from roadmap-tracker, feature-backlog, kit-enhancements, mvp2 plan into single flat TODO.md with checkboxes. Create planning/.gitkeep.",
+  "activeForm": "Creating master TODO",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

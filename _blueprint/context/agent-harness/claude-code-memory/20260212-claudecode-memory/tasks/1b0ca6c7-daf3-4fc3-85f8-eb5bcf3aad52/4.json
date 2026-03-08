@@ -1,0 +1,9 @@
+{
+  "id": "4",
+  "subject": "Create _blueprint/AGENTS.md and symlinks",
+  "description": "Write AGENTS.md using user's draft + feature spec template + workflow guidance. Symlink CLAUDE.md and GEMINI.md to it.",
+  "activeForm": "Creating AGENTS.md and symlinks",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

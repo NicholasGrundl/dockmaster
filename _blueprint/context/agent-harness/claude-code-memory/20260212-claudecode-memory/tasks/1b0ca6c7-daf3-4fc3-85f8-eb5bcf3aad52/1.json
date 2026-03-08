@@ -1,0 +1,9 @@
+{
+  "id": "1",
+  "subject": "Move agent identity files to agents/nanobot/",
+  "description": "git mv kit-soul.md and kit-MEMORY.md from _blueprint/roadmap/ to agents/nanobot/. Update agents/README.md.",
+  "activeForm": "Moving agent identity files",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

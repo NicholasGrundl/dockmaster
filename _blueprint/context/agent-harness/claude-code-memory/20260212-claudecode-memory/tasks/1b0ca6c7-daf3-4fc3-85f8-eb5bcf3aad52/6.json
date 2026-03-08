@@ -1,0 +1,9 @@
+{
+  "id": "6",
+  "subject": "Update all cross-references",
+  "description": "Update SYLLABUS.md, README.md, roadmap-tracker.md, feature-backlog.md, docs/decisions.md, agents/README.md to reflect new file locations.",
+  "activeForm": "Updating cross-references",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}
