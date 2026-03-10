@@ -11,7 +11,8 @@ Includes:
 
 ## Current Status
 
-- **Phase 0 (Scaffold)**: Ongoing
+- **Phase 1 (Scaffold)**: Complete
+- **Phase 2–6**: Planned — see implementation docs in `_blueprint/features/`
 
 See `_blueprint/roadmap/ROADMAP.md` for the full task list.
 
@@ -32,6 +33,8 @@ See `_blueprint/roadmap/ROADMAP.md` for the full task list.
 
 1. `_blueprint/roadmap/ROADMAP.md` — master task list (what to work on)
 2. `_blueprint/AGENTS.md` — how the blueprint directory is organized
+3. `_blueprint/prompts/PROMPT-development-approaches.md` — development methodology (tracer bullet + selective TDD)
+4. `_blueprint/implementation-progress.md` — session-to-session implementation state
 
 ## Conventions
 
@@ -56,8 +59,13 @@ template, and the ideation-to-implementation workflow.
 
 - **Framework**: pytest. Use pytest-family packages (e.g. `pytest-mock`) instead
   of `unittest` equivalents.
-- **Approach**: USe Red Greed based test driven development. Always start by writing a failing test but one that contians the behavior we would like to see pass first. Then write the code so the tests "pass" and turn green indicating completion. Sometimes we may need to modify tests if our implementation changes while coding.
-- **Fixtures**: Always start test writing by considering lifecycles and fixtures for testing. Always use conftest and the pytest ecosystem patterns to setup fixtures for our tests.
+- **Approach**: Tracer bullet + selective TDD. Use tracer bullet (real GCP, then
+  capture fixtures) for integration-heavy modules. Use Red-Green TDD for
+  pure-logic modules with no external dependencies. See
+  `_blueprint/prompts/PROMPT-development-approaches.md` for the full methodology.
+- **Fixtures**: Always start test writing by considering lifecycles and fixtures
+  for testing. Always use conftest and the pytest ecosystem patterns to setup
+  fixtures. Capture real GCP responses as fixture files during Pass 1.
 - **When to run**: Run existing tests after code changes. If a package has no
   tests, surface this and ask whether tests should be added.
 - **When to write**: Suggest tests for new functionality but wait for approval
@@ -65,6 +73,8 @@ template, and the ideation-to-implementation workflow.
 - **Scope**: Run relevant tests first. If they pass, run the full suite to catch
   regressions.
 - **Invocation**: Always `uv run pytest` (never bare `pytest`).
+- **Markers**: Use `@pytest.mark.integration` for tests requiring real GCP.
+  Default `uv run pytest` runs everything except integration tests.
 
 ## Git
 
