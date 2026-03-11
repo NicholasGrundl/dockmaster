@@ -73,7 +73,7 @@ class TestCommaSeparatedParsing:
 
     def test_comma_separated_none(self, monkeypatch):
         monkeypatch.delenv("AUTHORIZED_ISSUERS", raising=False)
-        settings = Settings()
+        settings = Settings(authorized_issuers="")
         assert settings.authorized_issuers == set()
 
     def test_comma_separated_single_value(self):

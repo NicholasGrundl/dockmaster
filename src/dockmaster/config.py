@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     # --- Session ---
     redis_url: str | None = None
     session_secret_key: str = "change-me-in-production"
+    session_ttl: int = 3600
 
     @model_validator(mode="after")
     def postprocess(self) -> "Settings":
