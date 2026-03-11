@@ -39,7 +39,7 @@ session before touching any code.
 | Module touches external services (GCP, Google APIs, HTTP) | **Tracer Bullet** |
 | Pure logic, no external dependencies | **TDD (Red / Green / Refactor)** |
 
-Modules that qualify for immediate TDD (no external deps needed):
+Some examples of modules that qualify for immediate TDD (no external deps needed):
 
 | Module | Why |
 |---|---|
@@ -64,8 +64,7 @@ approach.
 - Write **one integration test** per phase using FastAPI `TestClient` — the golden source of
   "it works end to end."
 - Run against real GCP (real IAM API, real Secret Manager, real Google OAuth).
-- **Capture every GCP/Google API request+response as a fixture file** immediately after the call
-  succeeds — don't defer this. See Fixture Capture Strategy below.
+- **Capture every GCP/Google API request+response as a fixture file** immediately after the call succeeds — don't defer this. See Fixture Capture Strategy below.
 - Tag integration tests `@pytest.mark.integration`.
 - **Phase gate**: integration test is GREEN before moving to Pass 2.
 
