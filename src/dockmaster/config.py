@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     )
 
     # --- Service ---
-    issuer: str | None = None
+    sa_key_file: str | None = None
     secrets_project: str | None = None
     log_level: str = "INFO"
 

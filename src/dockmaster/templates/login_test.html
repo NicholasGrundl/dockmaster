@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dockmaster — Test UI</title>
+    <style>
+        body { font-family: monospace; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { font-size: 1.4rem; }
+        .actions { margin: 1rem 0; }
+        .actions a, .actions button { margin-right: 0.5rem; padding: 0.4rem 0.8rem; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; font-size: 0.85rem; }
+        .status { margin: 1rem 0; padding: 0.5rem; border-left: 3px solid #ccc; }
+        .status.logged-in { border-color: #2a2; }
+        .status.logged-out { border-color: #a22; }
+        #refresh-result { margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <h1>Dockmaster Test UI</h1>
+
+    {% if principal and principal.email %}
+    <div class="status logged-in">
+        Logged in as <strong>{{ principal.email }}</strong>
+        {% if principal.name %} ({{ principal.name }}){% endif %}
+    </div>
+    {% else %}
+    <div class="status logged-out">
+        Not logged in
+    </div>
+    {% endif %}
+
+    <div class="actions">
+        <a href="/auth/login">Login</a>
+        <a href="/auth/logout">Logout</a>
+    </div>
+
+    <h2>Session Data</h2>
+    <pre>{{ principal_json }}</pre>
+
+    <h2>Refresh Token Exchange</h2>
+    <form id="refresh-form">
+        <label>Refresh Token:<br>
+            <input type="text" name="refresh_token" size="60" placeholder="paste refresh_token here">
+        </label><br><br>
+        <label>Service (optional):<br>
+            <input type="text" name="service" size="30" placeholder="e.g. my-service">
+        </label><br><br>
+        <button type="submit">POST /auth/refresh</button>
+    </form>
+    <pre id="refresh-result">—</pre>
+
+    <script>
+        document.getElementById('refresh-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const body = { refresh_token: form.refresh_token.value };
+            if (form.service.value) body.service = form.service.value;
+
+            const el = document.getElementById('refresh-result');
+            el.textContent = 'Loading...';
+            try {
+                const resp = await fetch('/auth/refresh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await resp.json();
+                el.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                el.textContent = 'Error: ' + err.message;
+            }
+        });
+    </script>
+</body>
+</html>

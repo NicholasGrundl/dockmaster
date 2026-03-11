@@ -7,23 +7,27 @@ session before touching any code.
 
 ## Step 0 — Orient Yourself (every session, no exceptions)
 
-1. Read `_blueprint/implementation-progress.md` — the canonical session-to-session state log. It
-   tells you what phase we're on, what's done, what's in-progress, and any open decisions.
-2. Read the implementation doc for the current phase:
-   `_blueprint/features/implementation-phase{N}-<name>.md`
-   These are the authoritative specs. Do NOT read `_blueprint/features/planning/` — those are
-   legacy Flask reference docs and will conflict with the v2 design.
+1. Read `_blueprint/implementation-progress.md` — the canonical session-to-session state log. It tells you what phase we're on what's done, what's in-progress, and any open decisions.
+2. Read the implementation doc for the current phase: `_blueprint/features/implementation-phase{N}-<name>.md`
+These are the authoritative specs. Do NOT read `_blueprint/features/planning/` — those are legacy Flask reference docs and will conflict with the v2 design.
+
 3. Determine which situation you're in:
 
-   **A) The progress file has incomplete sub-tasks for the current phase.**
-   Pick up where the last session left off. Confirm with the user: "The progress file shows
-   sub-task X is next — should I continue from there?" Then go to Step 2.
+**A) The progress file has incomplete sub-tasks for the current phase.**
+Pick up where the last session left off. Confirm with the user: "The progress file shows sub-task X is next — should I continue from there?" Then go to Step 2.
 
-   **B) A phase is complete, or sub-tasks haven't been written yet for the current phase.**
-   Go to Step 1 to plan and populate sub-tasks.
+**B) A phase is complete, or sub-tasks haven't been written yet for the current phase.**
+Go to Step 1 to plan and populate sub-tasks.
 
-   **C) The progress file is ambiguous.** Ask the user before proceeding.
+**C) The progress file is ambiguous.** 
+Ask the user before proceeding.
 
+<note>
+If you need to do some deeper exploration of the source code to verify the state attempt to do so with the `smart tree` skill
+- if `smart tree` skil is not available try to explore using the `tree` command line bash tool (if you are unfamiliar run its `tree --help` command first)
+- if the `tree` package is unavailable or uninstalled, use the `find` bash function with its advanced args to listing dirs only, certain files only, etc.
+- the goal is to use concise file tree like outputs to rapidly gist the source code, whats in it, etc. assuming our filenames are sensible.
+</note>
 ---
 
 ## Step 1 — Plan the Session (new phase or empty task list)

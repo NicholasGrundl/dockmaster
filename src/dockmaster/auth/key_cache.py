@@ -9,10 +9,26 @@ import time
 from pathlib import Path
 
 import httpx
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 _log = logging.getLogger(__name__)
+
+
+def _cert_to_public_key_pem(pem: str) -> str:
+    """Extract the public key PEM from an X.509 certificate PEM.
+
+    If the input is already a public key (BEGIN PUBLIC KEY), return as-is.
+    """
+    if "BEGIN CERTIFICATE" in pem:
+        cert = x509.load_pem_x509_certificate(pem.encode())
+        return cert.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+    return pem
 
 
 class KeyCache:
@@ -56,21 +72,26 @@ class ServiceAccountKeyCache(KeyCache):
 
     Each source failure is non-fatal — a warning is logged and the other
     source is still loaded.
+
+    Credentials: pass SA key data (dict) for explicit auth, or None to
+    fall back to Application Default Credentials (ADC).
     """
 
     def __init__(
         self,
-        credentials: str | dict,
+        credentials: str | dict | None = None,
         project: str | None = None,
         expiry: int = 300,
     ) -> None:
         super().__init__(expiry=expiry)
         if isinstance(credentials, str):
-            cred_data: dict = json.loads(Path(credentials).read_text())
-        else:
+            cred_data: dict | None = json.loads(Path(credentials).read_text())
+        elif isinstance(credentials, dict):
             cred_data = dict(credentials)
+        else:
+            cred_data = None
         self._cred_data = cred_data
-        self._project = project or cred_data.get("project_id", "")
+        self._project = project or (cred_data.get("project_id", "") if cred_data else "")
 
     def update(self) -> None:
         new_keys: dict[str, str] = {}
@@ -79,16 +100,22 @@ class ServiceAccountKeyCache(KeyCache):
         try:
             resp = httpx.get("https://www.googleapis.com/oauth2/v1/certs", timeout=30)
             resp.raise_for_status()
-            new_keys.update(resp.json())
+            for kid, cert_pem in resp.json().items():
+                new_keys[kid] = _cert_to_public_key_pem(cert_pem)
         except Exception:
             _log.warning("Failed to fetch Google OIDC certs", exc_info=True)
 
         # --- GCP IAM service account keys ---
         try:
-            creds = service_account.Credentials.from_service_account_info(
-                self._cred_data,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"],
-            )
+            if self._cred_data:
+                creds = service_account.Credentials.from_service_account_info(
+                    self._cred_data,
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                )
+            else:
+                import google.auth
+
+                creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
             iam = build("iam", "v1", credentials=creds)
             request = iam.projects().serviceAccounts().list(name=f"projects/{self._project}", pageSize=50)
             while request is not None:
@@ -117,8 +144,8 @@ class ServiceAccountKeyCache(KeyCache):
                                 )
                                 .execute()
                             )
-                            pem = base64.b64decode(key_data["publicKeyData"]).decode()
-                            new_keys[kid] = pem
+                            raw_pem = base64.b64decode(key_data["publicKeyData"]).decode()
+                            new_keys[kid] = _cert_to_public_key_pem(raw_pem)
                     except Exception:
                         _log.warning("Failed to fetch keys for SA %s", sa_email, exc_info=True)
                 request = iam.projects().serviceAccounts().list_next(request, result)

@@ -10,7 +10,7 @@ class TestSettingsDefaults:
         """All defaults should be sensible when no env vars are provided."""
         # Clear any env vars that might interfere
         for var in [
-            "ISSUER",
+            "SA_KEY_FILE",
             "SECRETS_PROJECT",
             "LOG_LEVEL",
             "AUTHORIZED_ISSUERS",
@@ -31,7 +31,7 @@ class TestSettingsDefaults:
         settings = Settings(_env_file=None)
 
         # Service defaults
-        assert settings.issuer is None
+        assert settings.sa_key_file is None
         assert settings.secrets_project is None
         assert settings.log_level == "INFO"
 

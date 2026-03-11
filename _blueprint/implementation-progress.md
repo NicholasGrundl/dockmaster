@@ -2,9 +2,11 @@
 
 *Last updated: 2026-03-11*
 
-## Current Phase: Phase 4a — OAuth Login + Session
+## Current Phase: Phase 4b — Refresh + SM + Test UI
 **Pass**: 2 (unit tests written, all passing)
 **Status**: COMPLETE ✅
+
+### Phase 4a: COMPLETE ✅
 
 ## Phase 4a sub-tasks
 - [x] GCP setup checklist — OAuth consent screen, client ID, SM secret, redirect URI, test users
@@ -19,12 +21,15 @@
 - [x] Fixture capture guide written: `_blueprint/context/gcp-dev-setup/GUIDE-capture-oauth-fixtures.md`
 - [x] Tracer bullet: captured 4 OAuth fixtures (token_exchange, userinfo, token_refresh, tokeninfo)
 
-## Phase 4b sub-tasks (next session)
-- [ ] Secret Manager client for client secret lookup (moved forward from Phase 5)
-- [ ] Refresh route: `POST /auth/refresh` (full 8-step flow)
-- [ ] `tests/test_refresh.py` — mocked Google + SM using captured fixtures
-- [ ] Test UI: `/ui/test` Jinja2 template + route
-- [ ] Lint + full suite green
+## Phase 4b sub-tasks
+- [x] `SecretsStorage` class (partial — `_load_secret` + `get_client_secret`) in `src/dockmaster/rbac/storage.py`
+- [x] Refresh route `POST /auth/refresh` (8-step flow) + `SecretsStorage` wiring in lifespan
+- [x] `tests/test_refresh.py` — 14 tests GREEN (mocked Google + SM using captured fixture shapes)
+- [x] Test UI: `/ui/test` minimal HTML template + route (no Jinja2 dep — manual rendering)
+- [x] Lint + full suite green — 117 tests, ruff clean
+- [x] Tracer bullet: SM fixture capture + E2E refresh validation (follow `GUIDE-capture-phase4b-fixtures.md`)
+- [x] Manual UI testing: login ✅, session data ✅, refresh ✅, logout ✅, domain rejection ✅
+- [ ] Post-4b: UI polish pass (deferred)
 
 ## Post-4b: Clean up + guides
 - [ ] Fresh GCP setup from scratch (new client secret, rotate SA key) — purge any leaked secrets
@@ -46,12 +51,13 @@
 - [x] `tests/fixtures/gcp/google_oauth/userinfo.json` — UserInfo API response
 - [x] `tests/fixtures/gcp/google_oauth/token_refresh.json` — refresh → new tokens
 - [x] `tests/fixtures/gcp/google_oauth/tokeninfo.json` — tokeninfo validation
-- [ ] `tests/fixtures/gcp/secret_manager/get_client_secret.json` — SM lookup (Phase 4b)
+- [ ] `tests/fixtures/gcp/secret_manager/get_client_secret.json` — SM lookup (Phase 4b, capture via GUIDE-capture-phase4b-fixtures.md)
 
 ## Test status
 - `tests/test_sessions.py` GREEN (9 tests)
 - `tests/test_login.py` GREEN (11 tests)
-- Full suite: 103 tests GREEN
+- `tests/test_refresh.py` GREEN (14 tests)
+- Full suite: 117 tests GREEN
 
 ## Decisions log
 - 2026-03-11: Phase 4 split into 4a (sessions + login) and 4b (refresh + SM + UI)
@@ -62,6 +68,14 @@
 - 2026-03-11: `SessionMiddleware` from Starlette added (required by Authlib for OAuth state)
 - 2026-03-11: `create_app()` calls `get_settings()` directly for middleware config (not overridable via DI)
 - 2026-03-11: SA IAM role for key enumeration deferred — code handles failure gracefully
+
+## New files (Phase 4b)
+- `src/dockmaster/rbac/__init__.py`
+- `src/dockmaster/rbac/storage.py` — `SecretsStorage` (partial: `_load_secret`, `_load_secret_raw`, `get_client_secret`)
+- `src/dockmaster/routes/refresh.py` — `POST /auth/refresh` (8-step flow)
+- `src/dockmaster/routes/ui.py` — `GET /ui/test` (minimal HTML test page)
+- `src/dockmaster/templates/login_test.html` — test UI template
+- `tests/test_refresh.py` — 14 tests
 
 ## New files (Phase 4a)
 - `src/dockmaster/sessions/protocol.py` — `SessionStore` Protocol
@@ -76,6 +90,5 @@
 - Phase 2: COMPLETE (JWT infrastructure — ServiceUser, ServiceRealm, KeyCache, middleware, routes — 67 tests)
 - Phase 3: COMPLETE (Token exchange — token_validator, exchange endpoint — 16 new tests, 83 total)
 
-## Next: fixture capture
-Follow `_blueprint/context/gcp-dev-setup/GUIDE-capture-oauth-fixtures.md` to capture real
-Google OAuth responses. Then Phase 4a is COMPLETE — commit and move to Phase 4b.
+## Next session: pick up at
+"Post-4b cleanup: UI polish pass, then fresh GCP setup + guides. After that, Phase 5 (RBAC)."

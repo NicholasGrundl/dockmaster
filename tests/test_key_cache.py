@@ -155,8 +155,8 @@ class TestServiceAccountKeyCacheUpdate:
         sa_kid = key_name.split("/")[-1]
         assert sa_kid in cache._keys
 
-        # SA PEM is a real certificate
-        assert "BEGIN CERTIFICATE" in cache._keys[sa_kid]
+        # SA PEM is a public key (extracted from X.509 cert)
+        assert "BEGIN PUBLIC KEY" in cache._keys[sa_kid]
 
     def test_not_expired_after_update(
         self,
