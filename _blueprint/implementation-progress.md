@@ -4,7 +4,7 @@
 
 ## Current Phase: Phase 4a — OAuth Login + Session
 **Pass**: 2 (unit tests written, all passing)
-**Status**: NEAR COMPLETE — fixture capture remaining
+**Status**: COMPLETE ✅
 
 ## Phase 4a sub-tasks
 - [x] GCP setup checklist — OAuth consent screen, client ID, SM secret, redirect URI, test users
@@ -17,7 +17,7 @@
 - [x] `tests/test_login.py` — 11 tests GREEN (mocked OAuth)
 - [x] Lint + full suite: 103 tests GREEN
 - [x] Fixture capture guide written: `_blueprint/context/gcp-dev-setup/GUIDE-capture-oauth-fixtures.md`
-- [ ] Tracer bullet: follow guide to capture real Google OAuth fixtures  <- next (manual)
+- [x] Tracer bullet: captured 4 OAuth fixtures (token_exchange, userinfo, token_refresh, tokeninfo)
 
 ## Phase 4b sub-tasks (next session)
 - [ ] Secret Manager client for client secret lookup (moved forward from Phase 5)
@@ -42,10 +42,10 @@
 - [x] `.env` fully populated
 
 ## Fixtures to capture (Phase 4)
-- [ ] `tests/fixtures/gcp/google_oauth/token_exchange.json` — code → tokens
-- [ ] `tests/fixtures/gcp/google_oauth/userinfo.json` — UserInfo API response
-- [ ] `tests/fixtures/gcp/google_oauth/token_refresh.json` — refresh → new tokens
-- [ ] `tests/fixtures/gcp/google_oauth/tokeninfo.json` — tokeninfo validation
+- [x] `tests/fixtures/gcp/google_oauth/token_exchange.json` — code → tokens
+- [x] `tests/fixtures/gcp/google_oauth/userinfo.json` — UserInfo API response
+- [x] `tests/fixtures/gcp/google_oauth/token_refresh.json` — refresh → new tokens
+- [x] `tests/fixtures/gcp/google_oauth/tokeninfo.json` — tokeninfo validation
 - [ ] `tests/fixtures/gcp/secret_manager/get_client_secret.json` — SM lookup (Phase 4b)
 
 ## Test status

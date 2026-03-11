@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://www.googleapis.com/oauth2/v3/userinfo",
+    "headers": {
+      "Authorization": "Bearer REDACTED_ACCESS_TOKEN"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "sub": "REDACTED_SUB",
+      "name": "Nicholas Grundl",
+      "given_name": "Nicholas",
+      "family_name": "Grundl",
+      "picture": "REDACTED_PICTURE_URL",
+      "email": "nicholasgrundl@insilicostrategy.com",
+      "email_verified": true,
+      "hd": "insilicostrategy.com"
+    }
+  }
+}

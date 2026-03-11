@@ -1,0 +1,23 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "https://oauth2.googleapis.com/token",
+    "headers": {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    "body": "grant_type=refresh_token&refresh_token=REDACTED&client_id=REDACTED&client_secret=REDACTED"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "access_token": "REDACTED_ACCESS_TOKEN",
+      "expires_in": 3599,
+      "scope": "https://www.googleapis.com/auth/userinfo.profile openid https://www.googleapis.com/auth/userinfo.email",
+      "token_type": "Bearer",
+      "id_token": "REDACTED_ID_TOKEN"
+    }
+  }
+}
