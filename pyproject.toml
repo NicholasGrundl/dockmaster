@@ -21,6 +21,7 @@ dependencies = [
     "google-api-python-client>=2.0",
     "google-cloud-secret-manager>=2.0",
     "structlog>=24.0",
+    "pytest-mock>=3.15.1",
 ]
 
 [project.optional-dependencies]

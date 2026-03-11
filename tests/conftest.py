@@ -1,6 +1,7 @@
 """Shared pytest fixtures for dockmaster tests."""
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from dockmaster.auth.jwt_signer import ServiceUser
+from dockmaster.auth.jwt_verifier import ServiceRealm
+from dockmaster.auth.key_cache import KeyCache
 from dockmaster.config import Settings, get_settings
 from dockmaster.main import create_app
 
@@ -97,6 +101,62 @@ def google_oidc_certs():
     if path.exists():
         return json.loads(path.read_text())
     pytest.skip("Fixture not captured yet: google_oidc/v1_certs.json")
+
+
+@pytest.fixture
+def iam_list_keys_sa0():
+    """Load captured IAM list keys fixture for sa0."""
+    path = GCP_FIXTURES_DIR / "iam" / "list_keys__sa0.json"
+    if path.exists():
+        return json.loads(path.read_text())
+    pytest.skip("Fixture not captured yet: iam/list_keys__sa0.json")
+
+
+@pytest.fixture
+def iam_get_public_key_sa0_key0():
+    """Load captured IAM get public key fixture for sa0/key0."""
+    path = GCP_FIXTURES_DIR / "iam" / "get_public_key__sa0_key0.json"
+    if path.exists():
+        return json.loads(path.read_text())
+    pytest.skip("Fixture not captured yet: iam/get_public_key__sa0_key0.json")
+
+
+# ---------------------------------------------------------------------------
+# Auth singletons for endpoint/middleware tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def fake_realm(fake_sa_key_data, rsa_public_key_pem) -> ServiceRealm:
+    """ServiceRealm backed by the test RSA key pair."""
+    kid = fake_sa_key_data["private_key_id"]
+
+    class FixedKeyCache(KeyCache):
+        def update(self) -> None:
+            self._keys = {kid: rsa_public_key_pem}
+            self._updated_at = time.time()
+
+    return ServiceRealm(key_cache=FixedKeyCache())
+
+
+@pytest.fixture
+def signer(fake_sa_key_data) -> ServiceUser:
+    """ServiceUser that signs with the test RSA private key."""
+    return ServiceUser(fake_sa_key_data)
+
+
+@pytest.fixture
+def valid_token(signer) -> str:
+    """A valid signed JWT for use in Authorization headers."""
+    return signer.get_token(subject="test@example.com", service_name="test-service")
+
+
+@pytest.fixture
+def auth_client(app: FastAPI, fake_realm: ServiceRealm) -> TestClient:
+    """TestClient with app.state.realm wired to the fake realm."""
+    with TestClient(app) as client:
+        app.state.realm = fake_realm
+        yield client
 
 
 @pytest.fixture

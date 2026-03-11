@@ -33,7 +33,10 @@ class ServiceRealm:
         if not token or token.count(".") != 2:
             raise ValueError("Token must have three dot-separated parts")
 
-        header = jwt.get_unverified_header(token)
+        try:
+            header = jwt.get_unverified_header(token)
+        except jwt.exceptions.DecodeError as exc:
+            raise ValueError(f"Invalid token header: {exc}") from exc
         kid = header.get("kid")
 
         if kid:

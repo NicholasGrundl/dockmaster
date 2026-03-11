@@ -28,7 +28,7 @@ class TestSettingsDefaults:
         ]:
             monkeypatch.delenv(var, raising=False)
 
-        settings = Settings()
+        settings = Settings(_env_file=None)
 
         # Service defaults
         assert settings.issuer is None
