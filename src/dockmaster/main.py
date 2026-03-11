@@ -12,6 +12,7 @@ from dockmaster.auth.key_cache import ServiceAccountKeyCache
 from dockmaster.config import get_settings
 from dockmaster.logging import setup_logging
 from dockmaster.routes.claims import router as claims_router
+from dockmaster.routes.exchange import router as exchange_router
 from dockmaster.routes.health import root_info, router as health_router
 from dockmaster.routes.keys import router as keys_router
 
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     application.include_router(health_router, prefix="/auth")
     application.include_router(keys_router, prefix="/auth")
     application.include_router(claims_router, prefix="/auth")
+    application.include_router(exchange_router, prefix="/auth")
     application.add_api_route("/", root_info, methods=["GET"], tags=["info"])
     return application
 

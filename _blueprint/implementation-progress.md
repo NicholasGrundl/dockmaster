@@ -2,33 +2,40 @@
 
 *Last updated: 2026-03-11*
 
-## Current Phase: Phase 2 — JWT Infrastructure
+## Current Phase: Phase 3 — Token Exchange
 **Pass**: 2 (unit tests written, all passing)
 **Status**: COMPLETE ✅
 
-## Completed sub-tasks
-- [x] Dep swap: replace `python-jose` with `PyJWT` + `cryptography`, add `pytest-mock`, add pytest markers
-- [x] RSA test fixtures: session-scoped key pair in conftest + `tests/fixtures/fake_sa_key.json`
-- [x] ServiceUser TDD (RED → GREEN) — `src/dockmaster/auth/jwt_signer.py` (11 tests)
-- [x] ServiceRealm TDD (RED → GREEN) — `src/dockmaster/auth/jwt_verifier.py` (7 tests)
-- [x] KeyCache base class TDD (TTL only) — `src/dockmaster/auth/key_cache.py` (9 tests)
-- [x] GCP fixtures captured manually — IAM + OIDC certs in `tests/fixtures/gcp/`
-- [x] `ServiceAccountKeyCache.update()` — GCP IAM key enumeration + Google OIDC certs (8 tests)
-- [x] Auth middleware — `get_current_user` FastAPI dependency (`src/dockmaster/auth/middleware.py`)
-- [x] Routes — `GET /auth/key/{kid}` and `GET /auth/claims`
-- [x] Lifespan wiring — singletons in `app.state`
-- [x] Full suite: 67 tests GREEN ✅
+## Sub-tasks
+- [x] Settings update — `access_token_endpoint` URL updated to `https://oauth2.googleapis.com/tokeninfo` (D2)
+- [x] `token_validator.py` TDD — `validate_access_token()` async function with mocked httpx (4 tests)
+- [x] `ExchangeResponse` model + `routes/exchange.py` — full 8-step flow (JWT-first → tokeninfo fallback → can_issue → sign)
+- [x] Route wired in `main.py` — `exchange_router` registered at `/auth`
+- [x] `tests/test_exchange.py` — 12 tests (JWT path, access token path, error cases)
+- [x] `tests/test_token_validator.py` — 4 tests (valid, non-200, audience mismatch, URL construction)
+- [x] Lint + full suite: 83 tests GREEN ✅
 
-## Fixtures captured
-- `tests/fixtures/gcp/iam/list_service_accounts.json` ✅
-- `tests/fixtures/gcp/iam/list_keys__sa0.json` ✅
-- `tests/fixtures/gcp/iam/get_public_key__sa0_key0.json` ✅
-- `tests/fixtures/gcp/google_oidc/v1_certs.json` ✅
+## Test status
+- `tests/test_token_validator.py` GREEN (4 tests)
+- `tests/test_exchange.py` GREEN (12 tests)
+- Full suite: 83 tests GREEN
+
+## Decisions log
+- 2026-03-11: `access_token_endpoint` default changed from v1 URL to `oauth2.googleapis.com/tokeninfo` per D2
+- 2026-03-11: Exchange route uses `Depends(get_settings)` for proper test overrides (not direct `get_settings()` call)
+- 2026-03-11: `ExchangeResponse` includes `claims: dict` field matching design spec
+- 2026-03-11: Issuer check only applies to JWT path (tokeninfo has no `iss` field)
+- 2026-03-11: Pass 1 tracer bullet skipped — no real GCP calls needed (tokeninfo is mocked, JWT uses test keys)
 
 ## Open items / notes
-- SA key permissions TBD — the dockmaster SA may need role adjustments for IAM key enumeration
-  (see `.envrc` and `_blueprint/context/gcp-dev-setup/` for setup context)
-- Pass 3 (Fake classes) skipped — mocks in tests are sufficient for current scope
+- No integration test against real Google tokeninfo — all tests use mocked httpx
+- `_ExchangeTestClient` helper in test_exchange.py works around lifespan re-triggering real GCP clients
+- SA key permissions TBD from Phase 2 still open
 
-## Next session: Phase 3 — Token Exchange
-Read `_blueprint/features/implementation-phase3-*.md` and begin Pass 1 tracer bullet.
+## Completed phases
+- Phase 1: COMPLETE (scaffold, config, health endpoint, conftest)
+- Phase 2: COMPLETE (JWT infrastructure — ServiceUser, ServiceRealm, KeyCache, middleware, routes — 67 tests)
+- Phase 3: COMPLETE (Token exchange — token_validator, exchange endpoint — 16 new tests, 83 total)
+
+## Next session: Phase 4 — OAuth Login + Session
+Read `_blueprint/features/implementation-phase4-*.md` and begin planning.

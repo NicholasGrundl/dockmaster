@@ -8,10 +8,11 @@
 
 ## Current implementation status
 - Phase 1: COMPLETE (scaffold, config, health endpoint, conftest)
-- Phase 2–6: PLANNED — implementation docs in `_blueprint/features/implementation-phase{N}-*.md`
-- Next: Phase 2 (JWT Infrastructure) — start with Pass 1 tracer bullet
+- Phase 2: COMPLETE (JWT infrastructure — ServiceUser, ServiceRealm, KeyCache, middleware, routes — 67 tests)
+- Phase 3: COMPLETE (Token exchange — token_validator, exchange endpoint — 83 total tests)
+- Phase 4–6: PLANNED — implementation docs in `_blueprint/features/implementation-phase{N}-*.md`
+- Next: Phase 4 (OAuth Login + Session)
 
 ## Key files to read at session start
 - `_blueprint/implementation-progress.md` — session state (created at start of Phase 2)
-- `_blueprint/prompts/PROMPT-development-approaches.md` — development methodology
 - `_blueprint/features/implementation-phase{N}-*.md` — current phase spec

@@ -191,9 +191,7 @@ class TestServiceAccountKeyCacheUpdate:
         iam_list_keys_sa0,
         iam_get_public_key_sa0_key0,
     ):
-        mocker.patch(
-            "dockmaster.auth.key_cache.httpx.get", side_effect=Exception("network error")
-        )
+        mocker.patch("dockmaster.auth.key_cache.httpx.get", side_effect=Exception("network error"))
         _wire_iam(
             mock_iam,
             iam_list_service_accounts["response"]["body"],
@@ -219,9 +217,7 @@ class TestServiceAccountKeyCacheUpdate:
         mock_resp = mocker.MagicMock()
         mock_resp.json.return_value = oidc_body
         mocker.patch("dockmaster.auth.key_cache.httpx.get", return_value=mock_resp)
-        mocker.patch(
-            "dockmaster.auth.key_cache.build", side_effect=Exception("IAM unavailable")
-        )
+        mocker.patch("dockmaster.auth.key_cache.build", side_effect=Exception("IAM unavailable"))
         mocker.patch("dockmaster.auth.key_cache.service_account")
 
         cache = ServiceAccountKeyCache(credentials=fake_sa_key_data)

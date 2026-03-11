@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     client_id_suffix: str = ".apps.googleusercontent.com"
 
     # --- Google Endpoints ---
-    access_token_endpoint: str = "https://www.googleapis.com/oauth2/v1/tokeninfo"
+    access_token_endpoint: str = "https://oauth2.googleapis.com/tokeninfo"
     refresh_token_endpoint: str = "https://www.googleapis.com/oauth2/v4/token"
     userinfo_endpoint: str = "https://www.googleapis.com/oauth2/v3/userinfo"
 

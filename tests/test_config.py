@@ -47,7 +47,7 @@ class TestSettingsDefaults:
         assert settings.client_id_suffix == ".apps.googleusercontent.com"
 
         # Google endpoint defaults
-        assert settings.access_token_endpoint == "https://www.googleapis.com/oauth2/v1/tokeninfo"
+        assert settings.access_token_endpoint == "https://oauth2.googleapis.com/tokeninfo"
         assert settings.refresh_token_endpoint == "https://www.googleapis.com/oauth2/v4/token"
         assert settings.userinfo_endpoint == "https://www.googleapis.com/oauth2/v3/userinfo"
 

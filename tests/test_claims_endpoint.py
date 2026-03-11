@@ -3,9 +3,7 @@
 
 class TestGetClaims:
     def test_valid_auth_returns_claims(self, auth_client, valid_token):
-        response = auth_client.get(
-            "/auth/claims", headers={"Authorization": f"Bearer {valid_token}"}
-        )
+        response = auth_client.get("/auth/claims", headers={"Authorization": f"Bearer {valid_token}"})
         assert response.status_code == 200
         claims = response.json()
         assert "sub" in claims
@@ -18,10 +16,6 @@ class TestGetClaims:
         assert response.status_code == 401
 
     def test_expired_token_returns_401(self, signer, auth_client):
-        token = signer.get_token(
-            subject="test@example.com", service_name="test-service", expiry=-1
-        )
-        response = auth_client.get(
-            "/auth/claims", headers={"Authorization": f"Bearer {token}"}
-        )
+        token = signer.get_token(subject="test@example.com", service_name="test-service", expiry=-1)
+        response = auth_client.get("/auth/claims", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 401

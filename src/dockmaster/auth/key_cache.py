@@ -77,9 +77,7 @@ class ServiceAccountKeyCache(KeyCache):
 
         # --- Google OIDC certs ---
         try:
-            resp = httpx.get(
-                "https://www.googleapis.com/oauth2/v1/certs", timeout=30
-            )
+            resp = httpx.get("https://www.googleapis.com/oauth2/v1/certs", timeout=30)
             resp.raise_for_status()
             new_keys.update(resp.json())
         except Exception:
@@ -92,9 +90,7 @@ class ServiceAccountKeyCache(KeyCache):
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
             iam = build("iam", "v1", credentials=creds)
-            request = iam.projects().serviceAccounts().list(
-                name=f"projects/{self._project}", pageSize=50
-            )
+            request = iam.projects().serviceAccounts().list(name=f"projects/{self._project}", pageSize=50)
             while request is not None:
                 result = request.execute()
                 for account in result.get("accounts", []):
@@ -124,9 +120,7 @@ class ServiceAccountKeyCache(KeyCache):
                             pem = base64.b64decode(key_data["publicKeyData"]).decode()
                             new_keys[kid] = pem
                     except Exception:
-                        _log.warning(
-                            "Failed to fetch keys for SA %s", sa_email, exc_info=True
-                        )
+                        _log.warning("Failed to fetch keys for SA %s", sa_email, exc_info=True)
                 request = iam.projects().serviceAccounts().list_next(request, result)
         except Exception:
             _log.warning("Failed to enumerate SA keys from IAM", exc_info=True)
