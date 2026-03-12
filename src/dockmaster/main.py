@@ -22,6 +22,7 @@ from dockmaster.routes.exchange import router as exchange_router
 from dockmaster.routes.health import root_info, router as health_router
 from dockmaster.routes.keys import router as keys_router
 from dockmaster.routes.login import router as login_router
+from dockmaster.routes.permissions import router as permissions_router
 from dockmaster.routes.refresh import router as refresh_router
 from dockmaster.routes.ui import protected_router as ui_protected_router
 from dockmaster.routes.ui import public_router as ui_public_router
@@ -118,8 +119,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         sm_client = SecretManagerServiceClient(credentials=gcp_creds)
         app.state.secrets_storage = SecretsStorage(client=sm_client, project=settings.secrets_project)
         log.info("secrets_storage_initialized", project=settings.secrets_project)
+
+        from dockmaster.rbac.authority import Authority
+
+        app.state.authority = Authority(
+            storage=app.state.secrets_storage,
+            cache_ttl=settings.rbac_cache_ttl,
+        )
+        log.info("rbac_authority_initialized", cache_ttl=settings.rbac_cache_ttl)
     else:
         app.state.secrets_storage = None
+        app.state.authority = None
         log.warning("SECRETS_PROJECT not set — Secret Manager lookups will return 503")
 
     yield
@@ -143,6 +153,7 @@ def create_app() -> FastAPI:
     application.include_router(exchange_router, prefix="/auth")
     application.include_router(login_router, prefix="/auth")
     application.include_router(refresh_router, prefix="/auth")
+    application.include_router(permissions_router, prefix="/auth")
     application.include_router(ui_public_router, prefix="/ui")
     application.include_router(ui_protected_router, prefix="/ui")
     application.add_api_route("/", root_info, methods=["GET"], tags=["info"])

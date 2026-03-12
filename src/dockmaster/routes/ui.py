@@ -46,9 +46,7 @@ async def _get_session_user(request: Request, settings: Settings) -> dict | None
         return None
 
 
-async def require_ui_session(
-    request: Request, settings: Settings = Depends(get_settings)
-) -> dict:
+async def require_ui_session(request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """Dependency that ensures the user has an active session.
 
     Redirects to /ui/login if not authenticated.

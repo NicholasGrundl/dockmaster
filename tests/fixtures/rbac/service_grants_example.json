@@ -1,0 +1,17 @@
+{
+  "service": "data-pipeline",
+  "grants": [
+    {
+      "subject": "alice@example.com",
+      "roles": ["viewer", "editor"]
+    },
+    {
+      "subject": "bob@example.com",
+      "roles": ["viewer"]
+    },
+    {
+      "subject": "pipeline-sa@project.iam.gserviceaccount.com",
+      "roles": ["admin"]
+    }
+  ]
+}

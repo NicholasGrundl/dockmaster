@@ -24,10 +24,14 @@ def _cert_to_public_key_pem(pem: str) -> str:
     """
     if "BEGIN CERTIFICATE" in pem:
         cert = x509.load_pem_x509_certificate(pem.encode())
-        return cert.public_key().public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ).decode()
+        return (
+            cert.public_key()
+            .public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+            .decode()
+        )
     return pem
 
 

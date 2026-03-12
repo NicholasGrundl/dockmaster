@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # --- UI ---
     ui_config_path: str | None = None
 
+    # --- RBAC ---
+    rbac_cache_ttl: int = 300
+
     # --- Session ---
     redis_url: str | None = None
     session_secret_key: str = "change-me-in-production"

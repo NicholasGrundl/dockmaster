@@ -2,7 +2,52 @@
 
 *Last updated: 2026-03-12*
 
-## Current Phase: Phase 4c — UI Polish + Admin Dashboard
+## Current Phase: Phase 5 — RBAC
+**Approach**: TDD (all modules are pure logic with mocked SM client)
+**Status**: COMPLETE ✅
+
+## Phase 5 sub-tasks
+- [x] 1. Fixture files — `tests/fixtures/rbac/role_viewer.json`, `service_grants_example.json`
+- [x] 2. Pydantic models + tests (TDD) — `Role`, `Grant`, `ServiceGrants` + 12 tests GREEN
+- [x] 3. Settings — `RBAC_CACHE_TTL: int = 300` added to config
+- [x] 4. SecretsStorage RBAC methods + tests (TDD) — get/put/delete for roles + grants, `_save_secret`/`_delete_secret` + 11 tests GREEN
+- [x] 5. Authority + tests (TDD) — TTL cache, `has_permission()` with `run_in_executor`, `clear_cache()` + 10 tests GREEN
+- [x] 6. Permission routes + lifespan wiring + tests — `GET /auth/has/{s}/{t}/{p}`, `GET /auth/has` query, Authority singleton + 10 tests GREEN
+- [x] 7. Lint + full suite green — 177 tests GREEN, ruff clean
+- [x] 8. GCP Secret Manager guide — `docs/GUIDE-secret-manager.md`
+- [x] 9. Update progress file
+
+## New files (Phase 5)
+- `src/dockmaster/rbac/models.py` — `Role`, `Grant`, `ServiceGrants` Pydantic models
+- `src/dockmaster/rbac/authority.py` — `Authority` permission resolver with TTL cache
+- `src/dockmaster/routes/permissions.py` — `GET /auth/has` endpoints (path + query variants)
+- `tests/test_rbac_models.py` — 12 tests
+- `tests/test_storage.py` — 11 tests
+- `tests/test_authority.py` — 10 tests
+- `tests/test_permissions.py` — 10 tests
+- `tests/fixtures/rbac/role_viewer.json`
+- `tests/fixtures/rbac/service_grants_example.json`
+- `docs/GUIDE-secret-manager.md`
+
+## Modified files (Phase 5)
+- `src/dockmaster/config.py` — added `rbac_cache_ttl: int = 300`
+- `src/dockmaster/rbac/storage.py` — added `_save_secret`, `_delete_secret`, `get_role`, `put_role`, `delete_role`, `get_service_grants`, `put_service_grants`, `delete_service_grants`
+- `src/dockmaster/main.py` — Authority singleton in lifespan, permissions router registered
+
+## Decisions log (Phase 5)
+- 2026-03-12: No real GCP fixture capture needed — SM is gRPC-based, tests mock the Python client object directly
+- 2026-03-12: `put_*`/`delete_*` methods implemented now (spec deferred to Phase 6) since Phase 6 is imminent
+- 2026-03-12: `_save_secret` uses idempotent create (swallows `AlreadyExists`) then adds version
+- 2026-03-12: Auth on permission endpoints uses existing `get_current_user` dependency (HTTPBearer + JWT verification)
+
+## Test status (Phase 5)
+- `tests/test_rbac_models.py` GREEN (12 tests)
+- `tests/test_storage.py` GREEN (11 tests)
+- `tests/test_authority.py` GREEN (10 tests)
+- `tests/test_permissions.py` GREEN (10 tests)
+- Full suite: 177 tests GREEN
+
+## Previous Phase: Phase 4c — UI Polish + Admin Dashboard
 **Pass**: 1 (complete — UI infrastructure, pages, tests all done)
 **Status**: COMPLETE ✅
 
@@ -136,6 +181,7 @@
 - Phase 4a: COMPLETE (OAuth login + sessions — 20 new tests, 103 total)
 - Phase 4b: COMPLETE (Refresh + SecretsStorage + test UI — 14 new tests, 117 total)
 - Phase 4c: COMPLETE (Admin dashboard + UI polish — 17 new tests, 134 total)
+- Phase 5: COMPLETE (RBAC — models, storage, authority, permission endpoints — 43 new tests, 177 total)
 
 ## Next session: pick up at
-"Phase 5 (RBAC). GCP rotation + guides deferred to Phase 7 (Deployment + GCP Cleanup, after all feature phases complete)."
+"Phase 6 (RBAC Management — admin endpoints + admin UI pages)."

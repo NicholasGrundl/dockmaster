@@ -13,11 +13,11 @@
 - Phase 4a: COMPLETE (OAuth login + sessions — 103 total tests)
 - Phase 4b: COMPLETE (Refresh + SecretsStorage + test UI — 117 total tests)
 - Phase 4c: COMPLETE (Admin dashboard + UI polish — 134 total tests)
-- Phase 5: PLANNED (RBAC — data model, Authority, permission endpoints)
+- Phase 5: COMPLETE (RBAC — models, storage, authority, permission endpoints — 177 total tests)
 - Phase 6: PLANNED (RBAC Management — admin endpoints + admin UI pages)
 - Phase 6b: PLANNED (CLI + OAuth login flow)
 - Phase 7: PLANNED (Deployment + GCP Cleanup — after all feature phases)
-- Next: Phase 5 (RBAC)
+- Next: Phase 6 (RBAC Management)
 
 ## Key files to read at session start
 - `_blueprint/implementation-progress.md` — session state (created at start of Phase 2)

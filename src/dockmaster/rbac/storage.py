@@ -5,18 +5,16 @@ from __future__ import annotations
 import json
 
 import structlog
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import AlreadyExists, NotFound
 from google.cloud.secretmanager_v1 import SecretManagerServiceClient
+
+from dockmaster.rbac.models import Role, ServiceGrants
 
 logger = structlog.get_logger("dockmaster.rbac.storage")
 
 
 class SecretsStorage:
-    """GCP Secret Manager backend.
-
-    Phase 4b: ``get_client_secret`` for OAuth refresh flow.
-    Phase 5 will add ``get_role``, ``put_role``, ``get_service_grants``, etc.
-    """
+    """GCP Secret Manager backend for RBAC data and client secrets."""
 
     def __init__(self, client: SecretManagerServiceClient, project: str) -> None:
         self._client = client
@@ -30,6 +28,13 @@ class SecretsStorage:
         """Return the resource name for the latest version of a secret."""
         return f"projects/{self._project}/secrets/{secret_id}/versions/latest"
 
+    def _secret_name(self, secret_id: str) -> str:
+        """Return the resource name for a secret (no version)."""
+        return f"projects/{self._project}/secrets/{secret_id}"
+
+    def _parent(self) -> str:
+        return f"projects/{self._project}"
+
     def _load_secret(self, secret_id: str) -> dict:
         """Access the latest version of a secret and parse as JSON."""
         name = self._secret_path(secret_id)
@@ -42,6 +47,66 @@ class SecretsStorage:
         name = self._secret_path(secret_id)
         response = self._client.access_secret_version(request={"name": name})
         return response.payload.data.decode("utf-8")
+
+    def _save_secret(self, secret_id: str, data: dict) -> None:
+        """Create secret (if needed) and add a new version with JSON payload."""
+        # Idempotent create
+        try:
+            self._client.create_secret(
+                request={
+                    "parent": self._parent(),
+                    "secret_id": secret_id,
+                    "secret": {"replication": {"automatic": {}}},
+                }
+            )
+        except AlreadyExists:
+            pass
+
+        payload = json.dumps(data).encode("utf-8")
+        self._client.add_secret_version(
+            request={
+                "parent": self._secret_name(secret_id),
+                "payload": {"data": payload},
+            }
+        )
+
+    def _delete_secret(self, secret_id: str) -> None:
+        """Delete a secret entirely. Raises NotFound if it doesn't exist."""
+        self._client.delete_secret(request={"name": self._secret_name(secret_id)})
+
+    # ------------------------------------------------------------------
+    # RBAC: Roles
+    # ------------------------------------------------------------------
+
+    def get_role(self, name: str) -> Role:
+        """Load a role from Secret Manager. Secret ID: ``role-{name}``."""
+        data = self._load_secret(f"role-{name}")
+        return Role.model_validate(data)
+
+    def put_role(self, name: str, role: Role) -> None:
+        """Save a role to Secret Manager. Secret ID: ``role-{name}``."""
+        self._save_secret(f"role-{name}", role.model_dump())
+
+    def delete_role(self, name: str) -> None:
+        """Delete a role from Secret Manager. Secret ID: ``role-{name}``."""
+        self._delete_secret(f"role-{name}")
+
+    # ------------------------------------------------------------------
+    # RBAC: ServiceGrants
+    # ------------------------------------------------------------------
+
+    def get_service_grants(self, service: str) -> ServiceGrants:
+        """Load service grants. Secret ID: ``service-grants-{service}``."""
+        data = self._load_secret(f"service-grants-{service}")
+        return ServiceGrants.model_validate(data)
+
+    def put_service_grants(self, service: str, grants: ServiceGrants) -> None:
+        """Save service grants. Secret ID: ``service-grants-{service}``."""
+        self._save_secret(f"service-grants-{service}", grants.model_dump())
+
+    def delete_service_grants(self, service: str) -> None:
+        """Delete service grants. Secret ID: ``service-grants-{service}``."""
+        self._delete_secret(f"service-grants-{service}")
 
     # ------------------------------------------------------------------
     # Phase 4b: client secret lookup

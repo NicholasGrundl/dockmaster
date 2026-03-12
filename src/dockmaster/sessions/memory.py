@@ -35,7 +35,4 @@ class InMemorySessionStore:
         expired = [sid for sid, (_, expiry) in self._store.items() if now > expiry]
         for sid in expired:
             del self._store[sid]
-        return {
-            sid: {**data, "_expiry": expiry}
-            for sid, (data, expiry) in self._store.items()
-        }
+        return {sid: {**data, "_expiry": expiry} for sid, (data, expiry) in self._store.items()}
