@@ -20,9 +20,10 @@ Phase 1: Config + Health + App Skeleton ............... ✅ COMPLETE
 Phase 2: JWT Infrastructure .......................... ✅ COMPLETE
 Phase 3: Token Exchange .............................. ✅ COMPLETE
 Phase 4: OAuth Login + Session ....................... ✅ COMPLETE (4a, 4b, 4c)
-Phase 5: RBAC ........................................ PLANNED
+Phase 5: RBAC ........................................ ✅ COMPLETE
 Phase 6: RBAC Management (endpoints + admin UI) ...... PLANNED
 Phase 6b: CLI + OAuth login flow ..................... PLANNED
+Phase 6c: Auth Surface Audit ......................... PLANNED
 Phase 7: Deployment + GCP Cleanup .................... PLANNED
 ```
 
@@ -115,7 +116,7 @@ Phase 7: Deployment + GCP Cleanup .................... PLANNED
 
 ---
 
-## Phase 5: RBAC — PLANNED
+## Phase 5: RBAC — ✅ COMPLETE
 
 > Role-based access control with RBAC data model, permission resolution engine, and permission-check endpoints. Extends existing SecretsStorage with RBAC read methods.
 
@@ -177,6 +178,23 @@ Phase 7: Deployment + GCP Cleanup .................... PLANNED
 **Dependencies:** `typer>=0.9`, `platformdirs`
 
 **GCP Guide:** None
+
+---
+
+## Phase 6c: Auth Surface Audit — PLANNED
+
+> Comprehensive audit of all HTTP endpoints and auth decision paths before deployment. Produces a unified Mermaid DAG showing every request path through the system, an endpoint inventory, reverse proxy (Caddy) readiness check, and gap analysis.
+
+**Spec**: [`features/implementation-phase6c-auth-audit.md`](../features/implementation-phase6c-auth-audit.md)
+
+**Deliverables:**
+- Endpoint inventory table (every route, auth mechanism, public/protected)
+- Unified Mermaid DAG of all auth decision paths (entry → auth check → outcome)
+- Caddy reverse proxy readiness doc (headers, cookies, redirects, TLS)
+- Gap analysis with risk ratings
+- Audit + document only — no code changes
+
+**Dependencies:** Phases 6 and 6b complete (audit the full surface area)
 
 ---
 
