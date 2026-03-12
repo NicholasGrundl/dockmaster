@@ -31,7 +31,8 @@
 - [x] Manual UI testing: login ✅, session data ✅, refresh ✅, logout ✅, domain rejection ✅
 - [x] Post-4b: UI polish pass (done in Phase 4c)
 
-## Post-4b: Clean up + guides
+## Post-4b: Clean up + guides — DEFERRED TO PHASE 7
+> Moved to Phase 7 (Deployment + GCP Cleanup). Will be planned after Phase 6b is complete.
 - [ ] Fresh GCP setup from scratch (new client secret, rotate SA key) — purge any leaked secrets
 - [ ] GCP setup guide doc (`docs/GUIDE-gcp-setup.md`)
 - [ ] Local dev testing guide (`docs/GUIDE-local-dev.md`) — `.env`, uvicorn, curl/notebook walkthrough
@@ -137,4 +138,4 @@
 - Phase 4c: COMPLETE (Admin dashboard + UI polish — 17 new tests, 134 total)
 
 ## Next session: pick up at
-"Post-4b cleanup (GCP rotation + guides), then Phase 5 (RBAC). Admin actions (session revoke) deferred to Phase 5 when RBAC layer exists."
+"Phase 5 (RBAC). GCP rotation + guides deferred to Phase 7 (Deployment + GCP Cleanup, after all feature phases complete)."

@@ -23,6 +23,7 @@ Phase 4: OAuth Login + Session ....................... ✅ COMPLETE (4a, 4b, 4c)
 Phase 5: RBAC ........................................ PLANNED
 Phase 6: RBAC Management (endpoints + admin UI) ...... PLANNED
 Phase 6b: CLI + OAuth login flow ..................... PLANNED
+Phase 7: Deployment + GCP Cleanup .................... PLANNED
 ```
 
 ---
@@ -176,3 +177,22 @@ Phase 6b: CLI + OAuth login flow ..................... PLANNED
 **Dependencies:** `typer>=0.9`, `platformdirs`
 
 **GCP Guide:** None
+
+---
+
+## Phase 7: Deployment + GCP Cleanup — PLANNED
+
+> GCP credential rotation, setup/dev guides, and deployment configuration. Plan this phase after Phase 6b is complete.
+
+**Spec**: To be created during Phase 7 planning
+
+**Deliverables (tentative — needs planning):**
+- Rotate all GCP secrets (new client secret, rotate SA keys) — purge any credentials exposed during development
+- GCP setup guide (`docs/GUIDE-gcp-setup.md`) — from-scratch setup instructions
+- Local dev testing guide (`docs/GUIDE-local-dev.md`) — `.env`, uvicorn, curl/notebook walkthrough
+- Deployment configuration (Docker Compose, Caddy reverse proxy, DO droplet)
+- Admin SA (`dockmaster-admin`) setup guide
+
+**Dependencies:** All feature phases complete (5, 6, 6b)
+
+**GCP Guide:** This phase IS the guide phase

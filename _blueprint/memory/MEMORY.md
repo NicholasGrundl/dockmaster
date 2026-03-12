@@ -16,7 +16,8 @@
 - Phase 5: PLANNED (RBAC — data model, Authority, permission endpoints)
 - Phase 6: PLANNED (RBAC Management — admin endpoints + admin UI pages)
 - Phase 6b: PLANNED (CLI + OAuth login flow)
-- Next: Post-4b cleanup (GCP rotation + guides), then Phase 5
+- Phase 7: PLANNED (Deployment + GCP Cleanup — after all feature phases)
+- Next: Phase 5 (RBAC)
 
 ## Key files to read at session start
 - `_blueprint/implementation-progress.md` — session state (created at start of Phase 2)
