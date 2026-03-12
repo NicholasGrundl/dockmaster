@@ -10,8 +10,13 @@
 - Phase 1: COMPLETE (scaffold, config, health endpoint, conftest)
 - Phase 2: COMPLETE (JWT infrastructure — ServiceUser, ServiceRealm, KeyCache, middleware, routes — 67 tests)
 - Phase 3: COMPLETE (Token exchange — token_validator, exchange endpoint — 83 total tests)
-- Phase 4–6: PLANNED — implementation docs in `_blueprint/features/implementation-phase{N}-*.md`
-- Next: Phase 4 (OAuth Login + Session)
+- Phase 4a: COMPLETE (OAuth login + sessions — 103 total tests)
+- Phase 4b: COMPLETE (Refresh + SecretsStorage + test UI — 117 total tests)
+- Phase 4c: COMPLETE (Admin dashboard + UI polish — 134 total tests)
+- Phase 5: PLANNED (RBAC — data model, Authority, permission endpoints)
+- Phase 6: PLANNED (RBAC Management — admin endpoints + admin UI pages)
+- Phase 6b: PLANNED (CLI + OAuth login flow)
+- Next: Post-4b cleanup (GCP rotation + guides), then Phase 5
 
 ## Key files to read at session start
 - `_blueprint/implementation-progress.md` — session state (created at start of Phase 2)

@@ -12,7 +12,12 @@ Includes:
 ## Current Status
 
 - **Phase 1 (Scaffold)**: Complete
-- **Phase 2–6**: Planned — see implementation docs in `_blueprint/features/`
+- **Phase 2 (JWT Infrastructure)**: Complete
+- **Phase 3 (Token Exchange)**: Complete
+- **Phase 4 (OAuth Login + Session)**: Complete (4a, 4b, 4c — 134 tests)
+- **Phase 5 (RBAC)**: Planned
+- **Phase 6 (RBAC Management)**: Planned
+- **Phase 6b (CLI + OAuth Login)**: Planned
 
 See `_blueprint/roadmap/ROADMAP.md` for the full task list.
 
@@ -100,3 +105,61 @@ template, and the ideation-to-implementation workflow.
 ## Design Philosophy
 
 - Prefer idempotent tooling with clear error messages over silent failures.
+
+<!-- COMPOSABLE: Update this section as patterns are established or change during implementation -->
+## Established Patterns
+
+### Settings (`src/dockmaster/config.py`)
+
+- All config lives in `Settings(BaseSettings)` — env vars or `.env` file.
+- Comma-separated fields are typed `str | set[str]` and parsed to `set[str]` in
+  `model_validator(mode="after")` via `_parse_comma_separated()`.
+- Tests override settings via `app.dependency_overrides[get_settings] = lambda: test_settings`.
+  Never patch `get_settings` directly.
+
+### Lifespan singletons (`src/dockmaster/main.py`)
+
+- Expensive objects (GCP clients, key caches, `ServiceUser`, `Authority`) are created once in the
+  `lifespan()` context manager and attached to `app.state`.
+- In tests, if a singleton needs overriding, set `app.state.X = FakeX()` before the
+  `with TestClient(app)` block.
+
+### Routes
+
+- Route modules live in `src/dockmaster/routes/`, each with `router = APIRouter()`.
+- Registered in `create_app()` with a prefix: `app.include_router(router, prefix="/auth")`.
+- Follow `src/dockmaster/routes/health.py` as the reference pattern.
+
+### Test fixtures (`tests/conftest.py`)
+
+Three base fixtures exist — extend, don't replace:
+
+- `test_settings` — `Settings` with safe defaults, no real GCP credentials
+- `app` — `FastAPI` wired with `test_settings` via `dependency_overrides`
+- `client` — `TestClient` wrapping `app`
+
+Phase-specific fixtures go in `tests/conftest.py` if shared, or a phase-local `conftest.py` if
+isolated.
+
+### Run commands
+
+```bash
+uv run pytest                     # all unit tests (fast, no GCP)
+uv run pytest -m integration      # integration tests (requires GCP)
+just lint                         # ruff check + ty
+just format                       # ruff format
+```
+
+<!-- COMPOSABLE: Update this table as tech decisions are made or changed -->
+## Tech Stack
+
+| Concern | Choice | Notes |
+|---|---|---|
+| JWT signing/verification | `PyJWT` + `cryptography` | Not `google-auth` |
+| HTTP client (async) | `httpx` | All Google API calls |
+| Settings | `pydantic-settings` `BaseSettings` | Env vars → Pydantic |
+| Logging | `structlog` | Already wired in lifespan |
+| CLI | `typer` | Phase 6b |
+| Session signing | `itsdangerous` | Phase 4 |
+| OAuth client | `authlib` | Phase 4 |
+| Test framework | `pytest` + `pytest-mock` | Always `uv run pytest` |

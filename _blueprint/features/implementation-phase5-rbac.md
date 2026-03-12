@@ -11,7 +11,7 @@ changelog:
 
 **Status**: Ready to implement
 **Phase**: 5
-**Last updated**: 2026-03-09
+**Last updated**: 2026-03-12
 
 ---
 
@@ -89,13 +89,17 @@ class ServiceGrants(BaseModel):
 
 ### `src/dockmaster/rbac/storage.py` — SecretsStorage
 
-- [ ] Constructor: `__init__(client: SecretManagerServiceClient, project: str)`
-- [ ] `_secret_path(secret_id: str) -> str` — returns `projects/{project}/secrets/{secret_id}/versions/latest`
-- [ ] `_load_secret(secret_id: str) -> dict` — access secret version, decode UTF-8, parse JSON
-- [ ] `_save_secret(secret_id: str, data: dict) -> None`:
+> **Already exists (Phase 4b):** `SecretsStorage` class with `__init__`, `_load_secret`,
+> `_load_secret_raw`, and `get_client_secret` is already implemented at
+> `src/dockmaster/rbac/storage.py`. The constructor, `_secret_path` equivalent, and
+> `_load_secret` are done. Only the items below still need implementation.
+
+- [x] Constructor: `__init__(client: SecretManagerServiceClient, project: str)` — **already exists**
+- [x] `_load_secret(secret_id: str) -> dict` — **already exists**
+- [ ] `_save_secret(secret_id: str, data: dict) -> None` — **deferred to Phase 6** (requires admin SA with write access)
   - [ ] Create secret if not exists (`replication: {automatic: {}}`)
   - [ ] Add new version with JSON-serialized data
-- [ ] `_delete_secret(secret_id: str) -> None` — delete secret + all versions; swallow NotFound
+- [ ] `_delete_secret(secret_id: str) -> None` — **deferred to Phase 6** (requires admin SA with write access)
 
 **Role methods:**
 - [ ] `get_role(name: str) -> Role` — load `role-{name}`, parse as `Role`
@@ -149,16 +153,28 @@ class ServiceGrants(BaseModel):
 
 ### App lifespan wiring (`src/dockmaster/main.py`)
 
-- [ ] Create `SecretManagerServiceClient` singleton (uses ISSUER credentials or ADC)
-- [ ] Create `SecretsStorage` singleton
+> **Already exists (Phase 4b):** `SecretManagerServiceClient` and `SecretsStorage` singletons
+> are already created in the lifespan and attached to `app.state`. Only the `Authority`
+> singleton and route registration are new.
+
+- [x] Create `SecretManagerServiceClient` singleton — **already exists**
+- [x] Create `SecretsStorage` singleton — **already exists**
 - [ ] Create `Authority` singleton with `RBAC_CACHE_TTL` from settings
-- [ ] Attach to `app.state`
+- [ ] Attach `Authority` to `app.state`
 - [ ] Register `/auth/has` routes
 
 ### Settings additions (`src/dockmaster/config.py`)
 
-- [ ] `SECRETS_PROJECT: str` — GCP project for Secret Manager (required)
+> **Already exists (Phase 4b):** `secrets_project` is already in Settings.
+
+- [x] `SECRETS_PROJECT: str` — **already exists** (added Phase 4b as `secrets_project`)
 - [ ] `RBAC_CACHE_TTL: int = 300` — Authority cache TTL in seconds
+
+### GCP SA Note
+
+Phase 5 only performs **read operations** against Secret Manager (loading roles and grants).
+The existing runtime SA (`dockmaster`) with `roles/secretmanager.secretAccessor` is sufficient.
+No admin SA is needed for Phase 5. See decision log: "GCP SA key split — Read-only vs Admin".
 
 ### Tests
 

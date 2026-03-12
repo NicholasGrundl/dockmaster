@@ -1,17 +1,18 @@
 ---
 state: Finalized
 changelog:
+  "2026-03-12": "Alignment session: split CLI into Phase 6b, redesign admin auth (RBAC-first, no API key), add capability gate, update settings"
   "2026-03-09": "Created from gap analysis of legacy vs phase6-rbac-management-v2.md"
 ---
 
-# Phase 6: RBAC Management + CLI — Implementation Guide
+# Phase 6: RBAC Management — Implementation Guide
 
-> Concrete coding checklist and gap-analysis notes for implementing Phase 6.
-> Reference alongside: `phase6-rbac-management-v2.md` (design spec).
+> Concrete coding checklist for implementing Phase 6 (admin endpoints + admin UI).
+> CLI moved to Phase 6b. Reference alongside: `phase6-rbac-management-v2.md` (design spec).
 
 **Status**: Ready to implement
 **Phase**: 6
-**Last updated**: 2026-03-09
+**Last updated**: 2026-03-12
 
 ---
 
@@ -19,22 +20,13 @@ changelog:
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| D1 | CLI goes through API (not direct SM access) | Architectural decision; legacy direct-SM access is backlog item |
-| D2 | `service grant` supports multiple roles in one call (space-separated) | Matches legacy power-user behavior; see CLI UX backlog note |
-| D3 | `service revoke <service> <subject>` with no role arg = revoke all | Cleaner than legacy's `:*` wildcard syntax |
-| D4 | CLI output: JSON | Machine-friendly; no extra dependency; consistent with API |
+| D1 | CLI moved to Phase 6b | Phase 6 delivers admin endpoints + UI. CLI (with OAuth login flow) is a follow-up. |
+| D2 | No DOCKMASTER_ADMIN_KEY (shared API key) | Dropped. Auth uses RBAC role + env whitelist fallback. SA keys stay server-side only. |
+| D3 | Admin SA key = capability gate for writes | If `ADMIN_SA_KEY_FILE` is not set, write endpoints return 503. Read-only admin endpoints still work. |
+| D4 | Admin auth: RBAC-first + env whitelist fallback | `has_permission(email, 'dockmaster', 'admin')` first. `DOCKMASTER_ADMIN_EMAILS` for bootstrap/emergency. |
 | D5 | `SecretsStorage` list methods added in Phase 6 | Natural place — first needed here |
 | D6 | Cache invalidated after every write operation | Ensures RBAC changes take effect immediately on the handling instance |
-
----
-
-## CLI UX Backlog Note
-
-The positional argument ordering (`dockmaster service grant <service> <subject> <role1> [role2...]`) is functional but the order may not be intuitive. Consider a future UX pass before the CLI is widely adopted:
-- Option: named flags instead of positionals (`--service`, `--subject`, `--role`)
-- Option: interactive prompting for required args
-- Option: a config file approach for bulk operations
-Add to `_blueprint/roadmap/feature-backlog.md` when this implementation doc is complete.
+| D7 | Write endpoints return 503 when admin SA missing | 503 (Service Unavailable) signals config issue, not auth issue. Distinct from 403. |
 
 ---
 
@@ -63,9 +55,39 @@ Multiple roles supported. See CLI UX backlog note above.
 
 ---
 
+## Already Exists (from earlier phases)
+
+> These items are already implemented and should NOT be rebuilt in Phase 6.
+
+- **`SecretsStorage` base class** — `src/dockmaster/rbac/storage.py` (Phase 4b): constructor, `_load_secret`, `_load_secret_raw`, `get_client_secret`
+- **RBAC read methods** — Added in Phase 5: `get_role`, `get_service_grants`
+- **`Authority` singleton** — `src/dockmaster/rbac/authority.py` (Phase 5): `has_permission`, TTL cache, `clear_cache()`
+- **`SecretManagerServiceClient` + `SecretsStorage` singletons in lifespan** — `src/dockmaster/main.py` (Phase 4b)
+- **`secrets_project` setting** — `src/dockmaster/config.py` (Phase 4b)
+- **Admin dashboard UI at `/ui/`** — `src/dockmaster/routes/ui.py` (Phase 4c): Jinja2 + Tailwind CSS, `UIConfig`, auth guard (`require_ui_session`), sessions table
+- **Session-based auth for UI** — `require_ui_session` dependency (Phase 4c)
+
+## GCP SA Key Split — Admin Write Access
+
+Phase 6 adds **write operations** to Secret Manager (`_save_secret`, `_delete_secret`, `put_role`, etc.).
+These require a separate admin SA (`dockmaster-admin`) with SM write permissions
+(`roles/secretmanager.admin` or `roles/secretmanager.secretVersionAdder`).
+
+**Capability gate**: If `ADMIN_SA_KEY_FILE` is not configured:
+- Read-only admin endpoints (`GET /admin/roles`, `GET /admin/grants/{service}`, etc.) still work using the runtime SA
+- Write endpoints (`POST`, `PUT`, `DELETE`) return **503 Service Unavailable** with a message indicating admin SA is not configured
+
+**Implementation needs:**
+- New setting: `ADMIN_SA_KEY_FILE: str = ""` (path to admin SA key file; empty = writes disabled)
+- If set: second `SecretManagerServiceClient` initialized with admin credentials in lifespan
+- `SecretsStorage` write methods use the admin client
+- Decision: single `SecretsStorage` with two clients, or separate read/write storage instances — resolve during Phase 6 planning
+
+See decision log: "GCP SA key split — Read-only vs Admin" and "Admin authorization — RBAC-first with settings fallback".
+
 ## SecretsStorage Additions (Phase 6)
 
-Add to `src/dockmaster/rbac/storage.py`:
+Add to `src/dockmaster/rbac/storage.py` (write methods require admin SA):
 
 - [ ] `list_roles() -> list[str]` — list all role names
   - [ ] `sm_client.list_secrets(request={"parent": f"projects/{project}", "filter": "name:role-"})`
@@ -79,13 +101,20 @@ Add to `src/dockmaster/rbac/storage.py`:
 
 ## Implementation Checklist
 
-### `src/dockmaster/auth/admin.py` — Admin authorization dependency
+### `src/dockmaster/auth/admin.py` — Admin authorization + capability dependencies
 
-- [ ] FastAPI dependency `require_admin`:
-  - [ ] **Mode 1 — Admin key**: Check `Authorization: Bearer <key>` matches `settings.DOCKMASTER_ADMIN_KEY` (if key is set)
-  - [ ] **Mode 2 — Admin email**: If Mode 1 fails, check request has a valid JWT (via `get_current_user`) and `claims["email"]` is in `settings.DOCKMASTER_ADMIN_EMAILS`
-  - [ ] If neither passes → 403 Forbidden
-  - [ ] If `DOCKMASTER_ADMIN_KEY` is `""` (disabled) AND `DOCKMASTER_ADMIN_EMAILS` is empty → 403 (no admin configured — fail safe)
+**`require_admin` — authorization dependency:**
+- [ ] Extract user identity from the request (session cookie for UI, JWT Bearer for API)
+- [ ] **Check 1 — RBAC**: `authority.has_permission(email, "dockmaster", "admin")` → pass if True
+- [ ] **Check 2 — Bootstrap fallback**: If RBAC check fails, check `email in settings.DOCKMASTER_ADMIN_EMAILS` → pass if True
+- [ ] If both fail → 403 Forbidden
+- [ ] If RBAC has no admin grants AND `DOCKMASTER_ADMIN_EMAILS` is empty → 403 (fail safe)
+- [ ] **For UI admin routes**: Combine with `require_ui_session` (session cookie auth + admin role check)
+
+**`require_admin_writes` — capability gate dependency:**
+- [ ] Check if admin SM client is available on `app.state` (i.e., `ADMIN_SA_KEY_FILE` was configured)
+- [ ] If not available → 503 Service Unavailable with message: "RBAC write operations not configured (admin SA key missing)"
+- [ ] Use on all write endpoints (`POST`, `PUT`, `DELETE`). Read endpoints (`GET`) skip this check.
 
 ### `src/dockmaster/routes/admin.py` — CRUD endpoints
 
@@ -143,116 +172,74 @@ All endpoints use `Depends(require_admin)`.
   - [ ] `authority.clear_cache()`
   - [ ] Return 204
 
-### `src/dockmaster/cli/` — Typer CLI
+### Admin UI pages (extend existing `/ui/` dashboard)
 
-Entry point: `dockmaster.cli.main:app` registered in `pyproject.toml`.
+> The dashboard at `/ui/` already exists (Phase 4c). Phase 6 adds RBAC management pages.
 
-#### CLI Authentication (in `cli/main.py`)
-
-```python
-# Admin key mode (default)
-DOCKMASTER_URL = os.getenv("DOCKMASTER_URL", "http://localhost:8000")
-DOCKMASTER_ADMIN_KEY = os.getenv("DOCKMASTER_ADMIN_KEY", "")
-
-def get_headers() -> dict:
-    if DOCKMASTER_ADMIN_KEY:
-        return {"Authorization": f"Bearer {DOCKMASTER_ADMIN_KEY}"}
-    # SA key mode (--credentials flag)
-    ...
-```
-
-#### `cli/roles.py` — role commands
-
-```
-dockmaster role get <name>                  → GET /admin/roles/{name}
-dockmaster role list                         → GET /admin/roles
-dockmaster role create <name> [perm...]      → POST /admin/roles
-dockmaster role delete <name>               → DELETE /admin/roles/{name}
-dockmaster role add <name> [perm...]        → GET then PUT /admin/roles/{name}
-dockmaster role remove <name> [perm...]     → GET then PUT /admin/roles/{name}
-```
-
-- [ ] All commands use `httpx` to call the API with admin headers
-- [ ] Output: JSON (pretty-printed via `json.dumps(data, indent=2)`)
-- [ ] Exit code 1 on error (non-2xx response)
-
-#### `cli/services.py` — service grant commands
-
-```
-dockmaster service get <service>                          → GET /admin/grants/{service}
-dockmaster service delete <service>                       → DELETE /admin/grants/{service}
-dockmaster service grant <service> <subject> [role...]    → GET then POST /admin/grants/{service}
-dockmaster service revoke <service> <subject>             → GET then POST /admin/grants/{service}
-```
-
-**`service grant` implementation:**
-- [ ] Load current ServiceGrants for service (or create empty if not found)
-- [ ] Find or create `Grant` for subject
-- [ ] Append new roles (deduplicated)
-- [ ] PUT updated ServiceGrants
-
-**`service revoke` implementation:**
-- [ ] Load current ServiceGrants
-- [ ] Remove the entire Grant for subject (not individual roles)
-- [ ] Bug fix from legacy: use `grants = [g for g in grants if g.subject != subject]` — no off-by-one possible
-- [ ] PUT updated ServiceGrants
-
-#### `cli/token.py` — token command
-
-```
-dockmaster token <keyfile> [--subject <s>] [--audience <a>] [--lifetime <n>]
-```
-
-- [ ] Load `ServiceUser` from keyfile
-- [ ] Call `service_user.get_token(subject, service_name, expiry)`
-- [ ] Print token to stdout
-
-#### `cli/test.py` — test command (permission check)
-
-```
-dockmaster test <subject> <target> <permission>    → GET /auth/has/{subject}/{target}/{permission}
-```
-
-- [ ] Returns `Oui!` (exit 0) or `Non!` (exit 1) — preserve legacy output strings
+- [ ] RBAC roles page (`/ui/roles`) — list roles, create/edit/delete (requires admin + write capability)
+- [ ] RBAC grants page (`/ui/grants`) — list services, view/edit grants per service
+- [ ] Admin nav items — only visible when user has admin role
+- [ ] Read-only mode — if admin SA not configured, show roles/grants but disable create/edit/delete buttons
 
 ### Settings additions (`src/dockmaster/config.py`)
 
-- [ ] `DOCKMASTER_ADMIN_KEY: str = ""` — shared secret for admin API access; empty = disabled
-- [ ] `DOCKMASTER_ADMIN_EMAILS: list[str] = []` — emails with admin access via SSO
+- [ ] `ADMIN_SA_KEY_FILE: str = ""` — path to admin SA key file for SM write operations; empty = writes disabled (503)
+- [ ] `DOCKMASTER_ADMIN_EMAILS: str | set[str] = set()` — bootstrap/emergency admin emails (comma-delimited, parsed like other set fields)
 
-### `pyproject.toml` additions
+### App lifespan additions (`src/dockmaster/main.py`)
 
-- [ ] Entry point: `[project.scripts]` → `dockmaster = "dockmaster.cli.main:app"`
-- [ ] New dependency: `typer>=0.9`
+- [ ] If `ADMIN_SA_KEY_FILE` is set:
+  - [ ] Create admin `SecretManagerServiceClient` with admin SA credentials
+  - [ ] Attach to `app.state.admin_sm_client` (or create a write-capable `SecretsStorage` instance)
+- [ ] If not set: `app.state.admin_sm_client = None` (capability gate checks this)
 
 ### Tests
 
 - [ ] `tests/test_admin_auth.py`:
-  - [ ] Admin key in header → passes
-  - [ ] Admin email in JWT → passes
-  - [ ] No auth → 403
-  - [ ] Empty admin config → 403
+  - [ ] User with RBAC admin role → passes
+  - [ ] User in DOCKMASTER_ADMIN_EMAILS → passes (bootstrap fallback)
+  - [ ] User without admin role or whitelist → 403
+  - [ ] Empty admin config (no RBAC admin, no whitelist) → 403
+- [ ] `tests/test_admin_capability.py`:
+  - [ ] Write endpoint with admin SA configured → works
+  - [ ] Write endpoint without admin SA → 503
+  - [ ] Read endpoint without admin SA → works (uses runtime SA)
 - [ ] `tests/test_admin_endpoints.py`:
   - [ ] Full CRUD cycle: create → get → update → delete for roles
   - [ ] Full CRUD cycle for grants
   - [ ] `authority.clear_cache()` called after each write
   - [ ] List endpoints return all items
-- [ ] `tests/test_cli_roles.py` — mock httpx calls, verify correct API calls and output
-- [ ] `tests/test_cli_services.py` — verify grant/revoke logic (especially off-by-one fix)
-- [ ] `tests/test_cli_token.py` — token generated from keyfile
 
 ### Acceptance gates
 
-- [ ] Admin auth: admin key grants access; admin emails grant access after SSO
-- [ ] All CRUD endpoints work for roles and grants
+- [ ] Admin auth: RBAC admin role grants access; DOCKMASTER_ADMIN_EMAILS grants access as fallback
+- [ ] Capability gate: write endpoints return 503 when admin SA not configured
+- [ ] Read-only admin endpoints work without admin SA
+- [ ] All CRUD endpoints work for roles and grants (when admin SA present)
 - [ ] Write operations clear `Authority` TTL cache
-- [ ] CLI `role` commands: get, list, create, delete, add, remove
-- [ ] CLI `service` commands: get, delete, grant (multi-role), revoke
-- [ ] CLI `test` command: returns Oui!/Non!, exit codes 0/1
-- [ ] CLI `token` command: generates JWT from keyfile
-- [ ] CLI supports admin key (env vars) and SA key file (`--credentials`)
-- [ ] Revoke off-by-one bug fixed (no index-based deletion)
-- [ ] Role remove raises no uncaught ValueError
-- [ ] `dockmaster` entry point registered in `pyproject.toml`
+- [ ] Admin UI pages show roles/grants with create/edit/delete (when write-capable)
+- [ ] Admin UI shows read-only view when admin SA missing
+- [ ] Bootstrap flow: set DOCKMASTER_ADMIN_EMAILS → login → create admin role → grant to self → remove env whitelist
 - [ ] All tests pass: `uv run pytest tests/ -v`
 - [ ] `just lint` and `just format` clean
+
+---
+
+## Phase 6b: CLI (separate scope)
+
+> CLI implementation with OAuth login flow. See `implementation-phase6b-cli.md` (to be created during Phase 6b planning).
+
+**Scope summary:**
+- Typer CLI with localhost-callback OAuth login flow
+- 15-minute JWT persisted to disk via `platformdirs` (no refresh token)
+- CLI checks token expiry before each call; prompts re-login if expired
+- Role commands: get, list, create, delete, add, remove
+- Service commands: get, delete, grant (multi-role), revoke
+- Token command: generate JWT from SA keyfile
+- Test command: permission check (Oui!/Non!)
+- New deps: `typer>=0.9`, `platformdirs`
+
+**Decisions for Phase 6b planning:**
+- Localhost callback vs device code flow (leaning localhost callback)
+- CLI UX: positional args vs named flags (see CLI UX backlog note)
+- Legacy bug fixes: revoke off-by-one, role remove ValueError

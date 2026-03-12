@@ -9,9 +9,9 @@ changelog:
 > Concrete coding checklist and gap-analysis notes for implementing Phase 4.
 > Reference alongside: `phase4-oauth-login-v2.md` (design spec).
 
-**Status**: Ready to implement
+**Status**: ✅ COMPLETE (Phase 4a, 4b, 4c all done)
 **Phase**: 4
-**Last updated**: 2026-03-09
+**Last updated**: 2026-03-12
 
 ---
 

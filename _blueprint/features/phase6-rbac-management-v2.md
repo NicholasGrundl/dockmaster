@@ -1,72 +1,95 @@
 ---
 state: Finalized
 changelog:
+  "2026-03-12": "Alignment session — split CLI into Phase 6b, redesign admin auth (RBAC-first, no API key), add capability gate, add admin UI pages"
   "2026-03-09 v2": "Audit polish — add admin auth (admin key + admin emails), remove UI (defer to backlog), add cache invalidation on mutations, specify CLI auth modes"
   "2026-03-08 15h": "Initial spec created from planning sessions"
 ---
 
-# Phase 6: RBAC Management + CLI
+# Phase 6: RBAC Management
 
-> CRUD endpoints for roles and grants, Typer CLI tool. Admin UI deferred.
+> Admin CRUD endpoints for roles/grants and RBAC management pages in the existing admin dashboard.
 
 **Status**: Planned
 **Priority**: P1
 **Phase**: 6
-**Last updated**: 2026-03-09
+**Last updated**: 2026-03-12
 
 ---
 
 ## Problem
 
-Operators need to manage RBAC roles and grants. The legacy codebase had no management API — all changes required direct Secret Manager edits. We need CRUD endpoints and a CLI for scripting.
+Operators need to manage RBAC roles and grants. The legacy codebase had no management API — all changes required direct Secret Manager edits. We need CRUD endpoints and an admin UI for managing roles and grants.
 
 ## Solution
 
 ### Overview
 
-Two management interfaces, both sharing the same backend (`SecretsStorage` + `Authority` from Phase 5):
+Two management interfaces sharing the same backend (`SecretsStorage` + `Authority` from Phase 5):
 1. **REST API** — CRUD endpoints at `/admin/*`
-2. **CLI** — Typer-based command-line tool
+2. **Admin UI** — RBAC management pages added to the existing `/ui/` dashboard (built in Phase 4c)
 
-Admin UI is deferred to backlog (the CLI handles 100% of management tasks).
+CLI moved to Phase 6b (separate scope with its own OAuth login flow).
 
 ### Implementation Details
 
+#### Capability Gate — Admin SA Key
+
+Write operations to Secret Manager require a separate admin SA (`dockmaster-admin`) with SM write permissions. The admin SA key presence is a **capability gate**:
+
+- **Admin SA key present** (`ADMIN_SA_KEY_FILE` configured): write endpoints (`POST`, `PUT`, `DELETE`) are enabled
+- **Admin SA key absent**: write endpoints return **503 Service Unavailable**. Read-only admin endpoints (`GET`) still work using the runtime SA.
+
+This cleanly separates "can the server do this?" (503) from "are you allowed to?" (403).
+
 #### Admin Authorization
 
-Two-layer admin auth system, checked in order:
+Two-layer admin auth, checked in order:
 
-1. **Admin Key** (`DOCKMASTER_ADMIN_KEY` env var): A shared secret. If `Authorization: Bearer <key>` matches this env var, full admin access is granted. Works without any GCP/OAuth setup — ideal for local dev, CLI usage, and bootstrapping.
+1. **RBAC role check**: `authority.has_permission(email, "dockmaster", "admin")` — primary check once RBAC is bootstrapped.
 
-2. **Admin Emails** (`DOCKMASTER_ADMIN_EMAILS` env var): Comma-separated list of emails. If the request comes from an authenticated user (via Google SSO/JWT) whose email is in this list, they have full admin access. For production use once OAuth is configured.
+2. **Settings fallback** (`DOCKMASTER_ADMIN_EMAILS` env var): Comma-separated list of admin emails. Used for bootstrapping (can't create admin role via RBAC if you need admin to access RBAC) and emergency access.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `DOCKMASTER_ADMIN_KEY` | `str` | `""` (disabled) | Shared secret for admin API access. Empty string disables this auth mode. |
-| `DOCKMASTER_ADMIN_EMAILS` | `list[str]` | `[]` | Emails that have admin access when authenticated via Google SSO. |
+| `ADMIN_SA_KEY_FILE` | `str` | `""` (disabled) | Path to admin SA key file for SM write operations. Empty = writes disabled (503). |
+| `DOCKMASTER_ADMIN_EMAILS` | `str \| set[str]` | `set()` | Bootstrap/emergency admin emails. Comma-delimited, parsed like other set fields. |
 
 The admin auth check is a FastAPI dependency applied to all `/admin/*` routes.
 
+**Bootstrap flow**: First deploy sets `DOCKMASTER_ADMIN_EMAILS` with admin's email → login via UI → create "admin" role in RBAC → grant to self → optionally remove env whitelist.
+
 #### CRUD REST Endpoints (admin.py)
 
-All endpoints require admin authorization (see above).
+All endpoints require admin authorization. Write endpoints additionally require the capability gate (`require_admin_writes`).
 
 **Roles:**
 - `GET /admin/roles` — list all roles (no pagination for MVP)
 - `GET /admin/roles/{name}` — get role details
-- `POST /admin/roles` — create role
-- `PUT /admin/roles/{name}` — update role
-- `DELETE /admin/roles/{name}` — delete role (no referential integrity check for MVP)
+- `POST /admin/roles` — create role (503 if no admin SA)
+- `PUT /admin/roles/{name}` — update role (503 if no admin SA)
+- `DELETE /admin/roles/{name}` — delete role (503 if no admin SA, no referential integrity check for MVP)
 
 **Grants:**
 - `GET /admin/grants` — list all service grants (no pagination for MVP)
 - `GET /admin/grants/{service}` — get grants for a service
-- `POST /admin/grants/{service}` — create/update grants for a service
-- `DELETE /admin/grants/{service}` — delete all grants for a service
+- `POST /admin/grants/{service}` — create/update grants for a service (503 if no admin SA)
+- `DELETE /admin/grants/{service}` — delete all grants for a service (503 if no admin SA)
+
+#### Admin UI Pages
+
+Extend the existing dashboard at `/ui/` (Phase 4c) with RBAC management pages:
+
+- **Roles page** (`/ui/roles`) — list roles, create/edit/delete
+- **Grants page** (`/ui/grants`) — list services, view/edit grants per service
+- **Admin nav items** — only visible when user has admin role
+- **Read-only mode** — if admin SA not configured, show roles/grants but disable create/edit/delete buttons
+
+UI admin routes use `require_ui_session` (session cookie auth) combined with `require_admin` (RBAC role check).
 
 #### Cache Invalidation
 
-All write operations (POST, PUT, DELETE) on roles and grants **must clear the Authority's TTL cache** after the mutation succeeds. This ensures RBAC changes take effect immediately on the instance that handled the request, rather than waiting up to 300s for TTL expiry.
+All write operations (POST, PUT, DELETE) on roles and grants **must clear the Authority's TTL cache** after the mutation succeeds.
 
 ```python
 # After any CRUD write operation:
@@ -74,49 +97,6 @@ authority.clear_cache()
 ```
 
 > **Note**: In a multi-instance deployment, only the instance handling the admin request has its cache cleared. Other instances will see the change after their TTL expires. This is accepted for MVP. See backlog for distributed cache invalidation.
-
-#### CLI Tool (cli/)
-
-Typer-based CLI with subcommands:
-
-```
-dockmaster role get <name>
-dockmaster role create <name> --grant <target>:<permissions>
-dockmaster role delete <name>
-dockmaster role add <name> --grant <target>:<permissions>
-dockmaster role remove <name> --grant <target>:<permissions>
-
-dockmaster service get <service>
-dockmaster service delete <service>
-dockmaster service grant <service> <subject> <role>
-dockmaster service revoke <service> <subject>
-
-dockmaster test <subject> <target> <permission>
-dockmaster token <subject> [--audience <aud>] [--lifetime <seconds>]
-```
-
-Entry point registered in `pyproject.toml`:
-```toml
-[project.scripts]
-dockmaster = "dockmaster.cli.main:app"
-```
-
-#### CLI Authentication
-
-The CLI always communicates through the dockmaster API (not directly to Secret Manager). Two auth modes:
-
-1. **Admin key** (default): Reads `DOCKMASTER_ADMIN_KEY` and `DOCKMASTER_URL` from env vars. Sends the admin key as `Authorization: Bearer <key>`.
-2. **SA key file**: Reads a service account key file (via `--credentials` flag or `DOCKMASTER_CREDENTIALS` env var). Signs a JWT and sends it as `Authorization: Bearer <jwt>`. For legacy-style workflows.
-
-```
-# Admin key mode (default)
-export DOCKMASTER_URL=http://localhost:8000
-export DOCKMASTER_ADMIN_KEY=my-secret-key
-dockmaster role get viewer
-
-# SA key mode
-dockmaster --credentials /path/to/sa-key.json role get viewer
-```
 
 #### Legacy Bug Fixes
 
@@ -128,56 +108,47 @@ dockmaster --credentials /path/to/sa-key.json role get viewer
 ```
 src/dockmaster/
     auth/
-        admin.py            # Admin authorization dependency
+        admin.py            # Admin authorization + capability gate dependencies
     routes/
         admin.py            # RBAC CRUD endpoints at /admin/*
-    cli/
-        __init__.py
-        main.py             # Typer app entry point
-        roles.py            # role commands
-        services.py         # service grant commands
-        token.py            # token generation command
+    templates/
+        roles.html          # Roles management page
+        grants.html         # Grants management page
 tests/
     test_admin_auth.py
+    test_admin_capability.py
     test_admin_endpoints.py
-    test_cli_roles.py
-    test_cli_services.py
-    test_cli_token.py
 ```
 
 ## Dependencies
 
 - **Requires**: Phase 5 (RBAC models, storage, authority)
-- **Enables**: Full operational management of the auth system
-- **New packages**: `typer>=0.9`
+- **Enables**: Full operational management of the auth system via UI
+- **New packages**: None (all deps already installed)
 
 ## Source References
 
 | Planning Doc | Relevant Sections |
 |---|---|
 | `_blueprint/features/planning/10-admin-panel.md` | CRUD endpoint table, admin UI design |
-| `_blueprint/features/planning/11-cli-tool.md` | CLI commands, argument patterns |
 | `_blueprint/features/planning/E-confidence-notes.md` | Revoke off-by-one, role remove ValueError bugs |
 | `_blueprint/features/planning/C-api-spec.md` | OpenAPI reference |
 
 ## Open Questions
 
-None — all design decisions resolved in planning.
+None — all design decisions resolved during alignment session (2026-03-12).
 
 ## Acceptance Criteria
 
-- [ ] Admin auth works: admin key grants access, admin emails grant access after SSO
-- [ ] `DOCKMASTER_ADMIN_KEY` and `DOCKMASTER_ADMIN_EMAILS` settings configured
+- [ ] Admin auth works: RBAC admin role grants access; `DOCKMASTER_ADMIN_EMAILS` grants access as fallback
+- [ ] Capability gate: write endpoints return 503 when admin SA not configured
+- [ ] Read-only admin endpoints work without admin SA
 - [ ] All CRUD endpoints work: create, read, update, delete for roles and grants
 - [ ] CRUD endpoints require admin authorization (not just authentication)
 - [ ] Write operations clear the Authority TTL cache
-- [ ] CLI `role` commands: get, create, delete, add grant, remove grant
-- [ ] CLI `service` commands: get, delete, grant role, revoke role
-- [ ] CLI `test` command checks permissions via the API
-- [ ] CLI `token` command generates a JWT
-- [ ] CLI supports admin key auth (env vars) and SA key file auth (--credentials)
+- [ ] Admin UI pages show roles/grants with create/edit/delete (when write-capable)
+- [ ] Admin UI shows read-only view when admin SA missing
+- [ ] Bootstrap flow works: set env whitelist → login → create admin role → grant to self
 - [ ] Legacy bugs fixed: revoke off-by-one, role remove ValueError
-- [ ] `dockmaster` CLI entry point registered in pyproject.toml
-- [ ] All tests pass
-- [ ] `uv run pytest tests/ -v` passes
+- [ ] All tests pass: `uv run pytest tests/ -v`
 - [ ] `just lint` and `just format` clean

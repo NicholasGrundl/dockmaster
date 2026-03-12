@@ -4,7 +4,7 @@ Ideas and deferred features not yet scheduled for implementation. When an item i
 committed, create a spec in [`_blueprint/features/`](../features/) and link it from
 [`ROADMAP.md`](./ROADMAP.md).
 
-*Last updated: 2026-03-09*
+*Last updated: 2026-03-12*
 
 ---
 
@@ -46,7 +46,7 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **Effort**: Small — add a structural check before fallback.
 
 ### InMemorySessionStore Cleanup
-- **Context**: Phase 4 `InMemorySessionStore` has no max-size protection or periodic cleanup. Sessions accumulate if never re-accessed. Acceptable for single-user MVP.
+- **Context**: Phase 4 `InMemorySessionStore` has no max-size protection. `list_all()` (Phase 4c) does lazy cleanup of expired sessions on access, which partially addresses accumulation. Still no periodic cleanup or max-size cap.
 - **When**: If running multi-user or long-lived instances where memory growth is a concern.
 - **Options**: Periodic cleanup task, max-size cap with LRU eviction, or just use Redis.
 
@@ -70,10 +70,10 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **When**: When multiple users manage RBAC and accidental deletion is a risk.
 - **Options**: Block deletion if in use (409 Conflict), warn but allow, cascade revocation.
 
-### Admin UI (Web Dashboard)
-- **Context**: Phase 6 originally included a Jinja2+HTMX admin UI. Deferred because the CLI handles 100% of management tasks. Legacy admin UI was also never completed.
-- **When**: When visual management is needed for non-CLI users.
-- **Route**: Should live at `/ui/` or `/console/`, not `/admin/` (which is the API prefix).
+### Admin UI — RBAC Management Pages
+- **Context**: Admin dashboard already exists at `/ui/` (Phase 4c) with Jinja2 + Tailwind CSS. Phase 6 adds RBAC management pages (roles, grants CRUD) to this existing dashboard. This backlog item is partially resolved — the dashboard infrastructure exists, RBAC management pages are planned for Phase 6.
+- **When**: Phase 6 (scheduled).
+- **Status**: Planned — no longer deferred.
 
 ### Distributed Cache Invalidation
 - **Context**: Phase 6 clears the Authority cache on the instance handling the admin request. Other instances keep stale cache for up to TTL (300s).
@@ -114,9 +114,9 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **Dependency**: `redis[hiredis]`
 
 ### FastHTML + MonsterUI Admin Dashboard Evaluation
-- **Context**: Phase 6 ships with Jinja2+HTMX admin UI. FastHTML+MonsterUI could provide a richer SPA-like experience with Python-only components.
+- **Context**: Admin UI uses Jinja2 + Tailwind CSS (no HTMX). FastHTML+MonsterUI could provide a richer SPA-like experience with Python-only components.
 - **When**: After Phase 6 ships and we have real usage feedback on the admin UI.
-- **Decision needed**: Whether the Jinja2+HTMX approach is sufficient or warrants replacement.
+- **Decision needed**: Whether the Jinja2 + Tailwind approach is sufficient or warrants replacement.
 
 ### SecretManagerAsyncClient Evaluation
 - **Context**: Currently using sync client with `run_in_executor` + TTL cache. Google may stabilize an async client.

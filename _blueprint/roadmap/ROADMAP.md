@@ -9,7 +9,7 @@ is done, in progress, and planned.
 - Backlogged ideas and draft specs live in [`feature-backlog.md`](./feature-backlog.md)
 - Architecture decisions in [`decision-log.md`](./decision-log.md)
 
-*Last updated: 2026-03-08*
+*Last updated: 2026-03-12*
 
 ---
 
@@ -17,11 +17,12 @@ is done, in progress, and planned.
 
 ```
 Phase 1: Config + Health + App Skeleton ............... ✅ COMPLETE
-Phase 2: JWT Infrastructure .......................... PLANNED
-Phase 3: Token Exchange .............................. PLANNED
-Phase 4: OAuth Login + Session ....................... PLANNED
+Phase 2: JWT Infrastructure .......................... ✅ COMPLETE
+Phase 3: Token Exchange .............................. ✅ COMPLETE
+Phase 4: OAuth Login + Session ....................... ✅ COMPLETE (4a, 4b, 4c)
 Phase 5: RBAC ........................................ PLANNED
-Phase 6: RBAC Management + CLI ....................... PLANNED
+Phase 6: RBAC Management (endpoints + admin UI) ...... PLANNED
+Phase 6b: CLI + OAuth login flow ..................... PLANNED
 ```
 
 ---
@@ -45,11 +46,12 @@ Phase 6: RBAC Management + CLI ....................... PLANNED
 
 ---
 
-## Phase 2: JWT Infrastructure — PLANNED
+## Phase 2: JWT Infrastructure — ✅ COMPLETE
 
 > JWT signing (ServiceUser) and verification (ServiceRealm) with GCP service account keys, plus auth middleware and introspection endpoints.
 
-**Spec**: [`features/phase2-jwt-infrastructure.md`](../features/phase2-jwt-infrastructure.md)
+**Spec**: [`features/phase2-jwt-infrastructure-v2.md`](../features/phase2-jwt-infrastructure-v2.md)
+**Implementation guide**: [`features/implementation-phase2-jwt-infrastructure.md`](../features/implementation-phase2-jwt-infrastructure.md)
 
 **Deliverables:**
 - `ServiceUser` — JWT signing with GCP SA private key (RSA-SHA256)
@@ -65,11 +67,12 @@ Phase 6: RBAC Management + CLI ....................... PLANNED
 
 ---
 
-## Phase 3: Token Exchange — PLANNED
+## Phase 3: Token Exchange — ✅ COMPLETE
 
 > Exchange Google JWT or access token for a dockmaster JWT. Dual-mode verification with access token fallback.
 
-**Spec**: [`features/phase3-token-exchange.md`](../features/phase3-token-exchange.md)
+**Spec**: [`features/phase3-token-exchange-v2.md`](../features/phase3-token-exchange-v2.md)
+**Implementation guide**: [`features/implementation-phase3-token-exchange.md`](../features/implementation-phase3-token-exchange.md)
 
 **Deliverables:**
 - `POST /auth/exchange` — dual-mode token exchange endpoint
@@ -83,57 +86,93 @@ Phase 6: RBAC Management + CLI ....................... PLANNED
 
 ---
 
-## Phase 4: OAuth Login + Session — PLANNED
+## Phase 4: OAuth Login + Session — ✅ COMPLETE (4a, 4b, 4c)
 
-> Browser-based Google OAuth2 login via Authlib, session management, and test UI.
+> Browser-based Google OAuth2 login via Authlib, session management, token refresh, SecretsStorage, and admin dashboard UI.
 
-**Spec**: [`features/phase4-oauth-login.md`](../features/phase4-oauth-login.md)
+**Spec**: [`features/phase4-oauth-login-v2.md`](../features/phase4-oauth-login-v2.md)
+**Implementation guide**: [`features/implementation-phase4-oauth-login.md`](../features/implementation-phase4-oauth-login.md)
+
+**Sub-phases:**
+- **4a**: OAuth login flow, `SessionStore` protocol + `InMemorySessionStore`, login/callback/logout/principal routes
+- **4b**: `POST /auth/refresh` (8-step flow), `SecretsStorage` (partial — pulled forward from Phase 5), test UI
+- **4c**: Admin dashboard with Jinja2 + Tailwind CSS, `UIConfig` system, auth guard (`require_ui_session`), `list_all()` on SessionStore
 
 **Deliverables:**
 - Google OAuth2 browser login flow (authorize → callback → session)
 - `POST /auth/refresh` — refresh token exchange
-- Pluggable `SessionStore` protocol with in-memory implementation
-- Minimal Jinja2+HTMX test UI for browser login testing
+- Pluggable `SessionStore` protocol with in-memory implementation (incl. `list_all()`)
+- `SecretsStorage` (partial: `_load_secret`, `get_client_secret`) — GCP Secret Manager
+- Admin dashboard at `/ui/` with Jinja2 + Tailwind CSS (sessions table, service status)
+- `UIConfig` — theme/branding config loaded from JSON file
+- Auth guard (`require_ui_session`) — session-based auth for UI routes (separate from JWT middleware for API)
 - Legacy bug fixes: `can_issue` enforcement, `data=` vs `params=` for token endpoint
 
-**Dependencies:** `authlib>=1.0`, `jinja2`, `itsdangerous`
+**Dependencies:** `authlib>=1.0`, `jinja2`, `itsdangerous`, `pytest-playwright` (dev)
 
-**GCP Guide:** `docs/GUIDE-oauth-consent-screen.md`
+**GCP Guide:** `_blueprint/context/gcp-dev-setup/GUIDE-capture-oauth-fixtures.md`
 
 ---
 
 ## Phase 5: RBAC — PLANNED
 
-> Role-based access control with GCP Secret Manager storage, TTL-cached permission resolution.
+> Role-based access control with RBAC data model, permission resolution engine, and permission-check endpoints. Extends existing SecretsStorage with RBAC read methods.
 
-**Spec**: [`features/phase5-rbac.md`](../features/phase5-rbac.md)
+**Spec**: [`features/phase5-rbac-v2.md`](../features/phase5-rbac-v2.md)
+**Implementation guide**: [`features/implementation-phase5-rbac.md`](../features/implementation-phase5-rbac.md)
 
 **Deliverables:**
 - RBAC data model — `Role`, `Grant`, `ServiceGrants` (pydantic)
-- `SecretsStorage` — GCP Secret Manager backend for RBAC data
+- Extend `SecretsStorage` with RBAC read methods (`get_role`, `get_service_grants`) — base class and `_load_secret` already exist from Phase 4b
 - `Authority` — permission resolution engine with TTL cache (RBAC_CACHE_TTL)
 - `GET /auth/has/{subject}/{target}/{permission}` — path-based permission check
 - `GET /auth/has` — query-based permission check
 - Legacy bug fix: "status" → "subject" error message typo
 
-**Dependencies:** `google-cloud-secret-manager`
+**Dependencies:** `google-cloud-secret-manager` (already installed from Phase 4b)
+
+**Note:** Uses read-only SA credentials. Write methods (`_save_secret`, `_delete_secret`) deferred to Phase 6.
 
 **GCP Guide:** `docs/GUIDE-secret-manager.md`
 
 ---
 
-## Phase 6: RBAC Management + CLI — PLANNED
+## Phase 6: RBAC Management — PLANNED
 
-> CRUD endpoints for roles/grants, Typer CLI tool, and minimal admin UI.
+> Admin CRUD endpoints for roles/grants, admin UI pages in existing dashboard. CLI moved to Phase 6b.
 
-**Spec**: [`features/phase6-rbac-management.md`](../features/phase6-rbac-management.md)
+**Spec**: [`features/phase6-rbac-management-v2.md`](../features/phase6-rbac-management-v2.md)
+**Implementation guide**: [`features/implementation-phase6-rbac-management.md`](../features/implementation-phase6-rbac-management.md)
 
 **Deliverables:**
-- RBAC CRUD REST endpoints at `/admin/*` (new — not in legacy)
-- CLI tool via Typer: role, service, test, token commands
-- Admin UI — Jinja2+HTMX at `/admin/*` with roles/grants tables
+- Extend `SecretsStorage` with write methods (`_save_secret`, `_delete_secret`, `put_role`, `put_service_grants`) — requires admin SA with SM write access
+- RBAC CRUD REST endpoints at `/admin/*`
+- RBAC management pages added to existing `/ui/` dashboard (extends Phase 4c admin UI)
+- Admin auth (`require_admin`): RBAC role check (`has_permission(email, 'dockmaster', 'admin')`) + `DOCKMASTER_ADMIN_EMAILS` env whitelist fallback for bootstrap
+- Capability gate (`require_admin_writes`): write endpoints return 503 when admin SA key not configured; read-only admin endpoints always work
+- Read-only UI mode when admin SA missing (view roles/grants but no create/edit/delete)
+
+**Dependencies:** None new (all deps already installed)
+
+**Note:** Write operations require a separate admin SA (`dockmaster-admin`) with SM write permissions. See decision log for SA key split architecture. No shared API key (`DOCKMASTER_ADMIN_KEY` dropped).
+
+**GCP Guide:** None
+
+---
+
+## Phase 6b: CLI + OAuth Login Flow — PLANNED
+
+> Typer CLI with browser-based OAuth login, enabling RBAC management from the terminal.
+
+**Spec**: [`features/phase6b-cli-v2.md`](../features/phase6b-cli-v2.md)
+**Implementation guide**: To be created during Phase 6b planning (`implementation-phase6b-cli.md`)
+
+**Deliverables:**
+- Typer CLI: role, service, test, token commands (all go through dockmaster API)
+- Localhost-callback OAuth login flow (browser opens, authenticates, CLI captures token)
+- 15-minute JWT persisted to disk via `platformdirs` (no refresh token)
 - Legacy bug fixes: revoke wildcard off-by-one, role remove ValueError
 
-**Dependencies:** `typer>=0.9`
+**Dependencies:** `typer>=0.9`, `platformdirs`
 
 **GCP Guide:** None
