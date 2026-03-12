@@ -180,13 +180,67 @@ Says "Phase 4–6: PLANNED — Next: Phase 4". Reality: Phase 4 (all sub-phases)
 
 ---
 
+## 10. GCP SA Key Split — Admin vs Read-Only (Undocumented Decision)
+
+**Files affected**: `_blueprint/context/gcp-dev-setup/GUIDE-setup-service-account-key.md`, Phase 5/6 specs, `decision-log.md`
+
+### 10a. Decision exists in GCP guide but not in specs or decision log
+The GCP setup guide (line 134-135) notes:
+> "The runtime SA is strictly read-only. Write access to Secret Manager (for managing RBAC roles/grants) will use a separate `dockmaster-admin` SA in Phase 6."
+
+This is a significant architectural decision but it's:
+- NOT in `decision-log.md`
+- NOT in the Phase 5 or Phase 6 implementation specs
+- NOT reflected in the Settings model (no `ADMIN_SA_KEY_FILE` setting)
+
+### 10b. Implications for Phase 5 and 6
+- Phase 5 `SecretsStorage` currently only has read methods (`_load_secret`, `get_client_secret`). The read SA is fine here.
+- Phase 6 adds write methods (`_save_secret`, `_delete_secret`, `put_role`, `put_service_grants`). These need SM write access (`roles/secretmanager.admin` or `roles/secretmanager.secretVersionAdder`).
+- The Phase 6 spec assumes a single SM client but should specify whether the admin routes use a different SA credential for writes.
+
+### 10c. Design question
+Two SAs means two credential paths in the app. Options:
+- **Two SA key files**: `SA_KEY_FILE` (read) + `ADMIN_SA_KEY_FILE` (write). Admin routes use the admin credential.
+- **One SA with both roles**: Simpler but violates least-privilege.
+- **ADC with broad permissions**: For dev only.
+
+This needs a decision before Phase 6 implementation.
+
+---
+
+## 11. Admin Authorization — RBAC-Based with Settings Override
+
+### 11a. Current Phase 6 spec uses settings-only admin auth
+Phase 6 defines admin access via `DOCKMASTER_ADMIN_KEY` and `DOCKMASTER_ADMIN_EMAILS` in Settings (implementation-phase6-rbac-management.md lines 220-221).
+
+### 11b. Preferred approach: RBAC-first with settings fallback
+The preferred design is:
+- **Primary**: Admin status comes from the RBAC system itself (e.g., user has an "admin" role for the dockmaster service).
+- **Fallback/bootstrap**: `DOCKMASTER_ADMIN_EMAILS` in Settings overrides RBAC for initial setup, dev convenience, and emergency access (bootstrap problem: can't assign admin role via RBAC if you need admin role to access RBAC).
+- **API key**: `DOCKMASTER_ADMIN_KEY` stays as a simple shared secret for CLI/automation.
+
+### 11c. Files to update
+- `implementation-phase6-rbac-management.md` — Update `require_admin` dependency to check RBAC first, fall back to settings
+- `phase6-rbac-management-v2.md` — Update admin auth design section
+- `decision-log.md` — Record this decision
+- Consider whether this affects Phase 5 (does `Authority.has_permission` need to be available before admin routes exist?)
+
+---
+
+## 12. Duplicate File — Resolved
+
+**File**: `_blueprint/roadmap/polish-plan.md` — **DELETED** (was a duplicate of `_blueprint/features/implementation-phase4c-ui-polish-plan.md`)
+
+---
+
 ## Summary: Priority Order for Fixes
 
 1. **ROADMAP.md** — Most impactful; this is the "single source of truth". Fix statuses, links, descriptions.
 2. **Phase 5 implementation spec** — Next phase to implement; needs to account for existing SecretsStorage code.
-3. **Phase 6 implementation spec** — Admin UI architecture needs reconciliation with existing `/ui/` dashboard.
-4. **decision-log.md** — Backfill Phase 4 decisions.
-5. **feature-backlog.md** — Update stale references.
-6. **Phase 4 implementation spec** — Mark complete or archive.
-7. **Duplicate/stale files** — Clean up `polish-plan.md` duplicate, archive 4c plan.
-8. **MEMORY.md** — Quick status update.
+3. **Phase 6 implementation spec** — Admin UI architecture needs reconciliation with existing `/ui/` dashboard. Admin auth needs RBAC-first design. SA key split needs specification.
+4. **decision-log.md** — Backfill Phase 4 decisions + SA key split + admin auth approach.
+5. **GCP SA key split** — Document the two-SA architecture decision, add `ADMIN_SA_KEY_FILE` consideration to Phase 6.
+6. **feature-backlog.md** — Update stale references (HTMX, admin UI, session cleanup).
+7. **Phase 4 implementation spec** — Mark complete or archive.
+8. **Phase 4c plan** — Archive (complete).
+9. **MEMORY.md** — Quick status update.
