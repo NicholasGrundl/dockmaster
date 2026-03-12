@@ -2,7 +2,55 @@
 
 *Last updated: 2026-03-12*
 
-## Current Phase: Phase 5 — RBAC
+## Current Phase: Phase 6 — RBAC Management
+**Approach**: TDD (all modules are pure logic with mocked SM client)
+**Status**: IN PROGRESS
+
+## Phase 6 sub-tasks
+
+### GCP setup (user-driven, before coding)
+- [x] 1. Create `dockmaster-admin` SA — GCP console or `gcloud`, grant `roles/secretmanager.admin`
+- [x] 2. Download admin SA key file — save locally, add `ADMIN_SA_KEY_FILE` path to `.env`
+- [x] 3. Seed RBAC bootstrap data — `role-admin` + `service-grants-dockmaster` secrets created
+- [x] 4. Verify admin SA works — `gcloud auth activate-service-account` + list/create/delete test
+
+### Implementation (TDD)
+- [x] 5. Settings — `ADMIN_SA_KEY_FILE`, `DOCKMASTER_ADMIN_EMAILS` in `config.py` + 6 tests GREEN
+- [x] 6. SecretsStorage list methods + tests — `list_roles()`, `list_service_grants()` + 6 tests GREEN
+- [x] 7. Admin auth dependencies + tests — `auth/admin.py`: `_is_admin()`, `require_admin_api`, `require_admin_writes` + 14 tests GREEN
+- [x] 8. Admin ops service layer + tests — `rbac/admin_ops.py`: shared CRUD functions (storage + `authority.clear_cache()`) + 14 tests GREEN
+- [x] 9. Lifespan wiring — `AdminSecretsStorage` in `main.py` (conditional on `ADMIN_SA_KEY_FILE`), `app.state.admin_storage`
+- [x] 10. Admin CRUD endpoints — Roles + tests — `routes/admin.py`: `GET/POST/PUT/DELETE /admin/roles` + 17 tests GREEN
+- [x] 11. Admin CRUD endpoints — Grants + tests — same file: `GET/POST/DELETE /admin/grants` (included in sub-task 10)
+- [ ] 12. Admin UI pages — templates + UI routes: roles page, grants page, admin nav, read-only mode
+- [ ] 13. Lint + full suite green — `just lint`, `just format`, `uv run pytest`
+
+### Tracer bullet (user-driven, after code is written)
+- [ ] 14. Manual E2E verification — start server with admin SA, login, verify admin UI CRUD works against real SM
+- [ ] 15. Fixture capture — capture `list_secrets` responses for list methods (if useful for future tests)
+- [ ] 16. Update progress file
+
+## GCP setup checklist (Phase 6)
+- [ ] `dockmaster-admin` SA created
+- [ ] `dockmaster-admin` SA granted `roles/secretmanager.admin` on project
+- [ ] Admin SA key file downloaded and path added to `.env` as `ADMIN_SA_KEY_FILE`
+- [ ] `role-admin` secret created in SM with `{"name": "admin", "permissions": ["admin"]}`
+- [ ] `service-grants-dockmaster` secret created in SM with your email granted `admin` role
+- [ ] Verified admin SA can list/read/write secrets
+
+## Decisions log (Phase 6)
+- 2026-03-12: D8 — Separate `require_admin_api` / `require_admin_ui` dependencies with shared `_is_admin()` helper. Follows Phase 4c pattern of keeping API (JWT) and UI (session) auth separate.
+- 2026-03-12: D9 — Server-side form handling for UI admin pages. UI routes call shared service layer, not the API endpoints. No auth bridging needed.
+- 2026-03-12: D10 — Service layer at `rbac/admin_ops.py`, admin auth at `auth/admin.py`. Both API and UI routes call `admin_ops` functions for CRUD.
+- 2026-03-12: D11 — (revised) Split into `SecretsStorage` (read-only base) and `AdminSecretsStorage(SecretsStorage)` (adds write methods). Two instances with separate SM clients. Permission boundary enforced at GCP IAM level — base class physically cannot call write methods. Type annotations self-document: functions taking `SecretsStorage` are read-only, `AdminSecretsStorage` can write.
+
+## Test plan (Phase 6)
+- `tests/test_admin_auth.py` — admin auth: RBAC role, email whitelist fallback, 403 denied, capability gate 503
+- `tests/test_admin_ops.py` — service layer: CRUD operations, cache invalidation calls
+- `tests/test_admin_endpoints.py` — full CRUD cycle for roles and grants via API
+- `tests/test_admin_ui.py` — admin UI pages: roles list, grants list, form submissions, read-only mode
+
+## Previous Phase: Phase 5 — RBAC
 **Approach**: TDD (all modules are pure logic with mocked SM client)
 **Status**: COMPLETE ✅
 
@@ -17,35 +65,11 @@
 - [x] 8. GCP Secret Manager guide — `docs/GUIDE-secret-manager.md`
 - [x] 9. Update progress file
 
-## New files (Phase 5)
-- `src/dockmaster/rbac/models.py` — `Role`, `Grant`, `ServiceGrants` Pydantic models
-- `src/dockmaster/rbac/authority.py` — `Authority` permission resolver with TTL cache
-- `src/dockmaster/routes/permissions.py` — `GET /auth/has` endpoints (path + query variants)
-- `tests/test_rbac_models.py` — 12 tests
-- `tests/test_storage.py` — 11 tests
-- `tests/test_authority.py` — 10 tests
-- `tests/test_permissions.py` — 10 tests
-- `tests/fixtures/rbac/role_viewer.json`
-- `tests/fixtures/rbac/service_grants_example.json`
-- `docs/GUIDE-secret-manager.md`
-
-## Modified files (Phase 5)
-- `src/dockmaster/config.py` — added `rbac_cache_ttl: int = 300`
-- `src/dockmaster/rbac/storage.py` — added `_save_secret`, `_delete_secret`, `get_role`, `put_role`, `delete_role`, `get_service_grants`, `put_service_grants`, `delete_service_grants`
-- `src/dockmaster/main.py` — Authority singleton in lifespan, permissions router registered
-
 ## Decisions log (Phase 5)
 - 2026-03-12: No real GCP fixture capture needed — SM is gRPC-based, tests mock the Python client object directly
 - 2026-03-12: `put_*`/`delete_*` methods implemented now (spec deferred to Phase 6) since Phase 6 is imminent
 - 2026-03-12: `_save_secret` uses idempotent create (swallows `AlreadyExists`) then adds version
 - 2026-03-12: Auth on permission endpoints uses existing `get_current_user` dependency (HTTPBearer + JWT verification)
-
-## Test status (Phase 5)
-- `tests/test_rbac_models.py` GREEN (12 tests)
-- `tests/test_storage.py` GREEN (11 tests)
-- `tests/test_authority.py` GREEN (10 tests)
-- `tests/test_permissions.py` GREEN (10 tests)
-- Full suite: 177 tests GREEN
 
 ## Previous Phase: Phase 4c — UI Polish + Admin Dashboard
 **Pass**: 1 (complete — UI infrastructure, pages, tests all done)

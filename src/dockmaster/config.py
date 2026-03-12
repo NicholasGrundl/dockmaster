@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # --- RBAC ---
     rbac_cache_ttl: int = 300
 
+    # --- Admin ---
+    admin_sa_key_file: str | None = None
+    dockmaster_admin_emails: str | set[str] = ""
+
     # --- Session ---
     redis_url: str | None = None
     session_secret_key: str = "change-me-in-production"
@@ -66,7 +70,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def postprocess(self) -> "Settings":
         # Parse comma-separated authorization fields into sets
-        for field in ("authorized_issuers", "authorized_domains", "authorized_audience"):
+        for field in ("authorized_issuers", "authorized_domains", "authorized_audience", "dockmaster_admin_emails"):
             raw = getattr(self, field)
             parsed = _parse_comma_separated(raw)
             object.__setattr__(self, field, parsed)

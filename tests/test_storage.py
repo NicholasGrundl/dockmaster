@@ -9,7 +9,7 @@ import pytest
 from google.api_core.exceptions import NotFound
 
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
-from dockmaster.rbac.storage import SecretsStorage
+from dockmaster.rbac.storage import AdminSecretsStorage, SecretsStorage
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +31,10 @@ def _access_response(payload_bytes: bytes) -> MagicMock:
 
 def _storage(client: MagicMock | None = None) -> SecretsStorage:
     return SecretsStorage(client=client or _mock_sm_client(), project="test-project")
+
+
+def _admin_storage(client: MagicMock | None = None) -> AdminSecretsStorage:
+    return AdminSecretsStorage(client=client or _mock_sm_client(), project="test-project")
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +85,7 @@ class TestGetRole:
 class TestPutRole:
     def test_creates_secret_and_adds_version(self):
         client = _mock_sm_client()
-        storage = _storage(client)
+        storage = _admin_storage(client)
         role = Role(name="viewer", permissions=["read", "list"])
 
         storage.put_role("viewer", role)
@@ -106,7 +110,7 @@ class TestPutRole:
 
         client = _mock_sm_client()
         client.create_secret.side_effect = AlreadyExists("exists")
-        storage = _storage(client)
+        storage = _admin_storage(client)
         role = Role(name="viewer", permissions=["read"])
 
         # Should not raise — AlreadyExists is swallowed
@@ -122,7 +126,7 @@ class TestPutRole:
 class TestDeleteRole:
     def test_deletes_secret(self):
         client = _mock_sm_client()
-        storage = _storage(client)
+        storage = _admin_storage(client)
 
         storage.delete_role("viewer")
 
@@ -131,7 +135,7 @@ class TestDeleteRole:
     def test_not_found_raises(self):
         client = _mock_sm_client()
         client.delete_secret.side_effect = NotFound("not found")
-        storage = _storage(client)
+        storage = _admin_storage(client)
 
         with pytest.raises(NotFound):
             storage.delete_role("nonexistent")
@@ -182,7 +186,7 @@ class TestGetServiceGrants:
 class TestPutServiceGrants:
     def test_creates_and_stores(self):
         client = _mock_sm_client()
-        storage = _storage(client)
+        storage = _admin_storage(client)
         sg = ServiceGrants(
             service="data-pipeline",
             grants=[Grant(subject="alice@example.com", roles=["viewer"])],
@@ -202,10 +206,92 @@ class TestPutServiceGrants:
 class TestDeleteServiceGrants:
     def test_deletes_secret(self):
         client = _mock_sm_client()
-        storage = _storage(client)
+        storage = _admin_storage(client)
 
         storage.delete_service_grants("data-pipeline")
 
         client.delete_secret.assert_called_once_with(
             request={"name": "projects/test-project/secrets/service-grants-data-pipeline"}
         )
+
+
+# ---------------------------------------------------------------------------
+# list_roles
+# ---------------------------------------------------------------------------
+
+
+def _mock_secret(name: str) -> MagicMock:
+    """Build a mock Secret with a .name attribute (full resource path)."""
+    secret = MagicMock()
+    secret.name = f"projects/test-project/secrets/{name}"
+    return secret
+
+
+class TestListRoles:
+    def test_returns_role_names(self):
+        client = _mock_sm_client()
+        client.list_secrets.return_value = [
+            _mock_secret("role-viewer"),
+            _mock_secret("role-editor"),
+            _mock_secret("role-admin"),
+        ]
+        storage = _storage(client)
+
+        result = storage.list_roles()
+
+        assert result == ["viewer", "editor", "admin"]
+        client.list_secrets.assert_called_once_with(
+            request={"parent": "projects/test-project", "filter": "name:role-"}
+        )
+
+    def test_returns_empty_list(self):
+        client = _mock_sm_client()
+        client.list_secrets.return_value = []
+        storage = _storage(client)
+
+        assert storage.list_roles() == []
+
+    def test_strips_prefix(self):
+        client = _mock_sm_client()
+        client.list_secrets.return_value = [_mock_secret("role-finance-admin")]
+        storage = _storage(client)
+
+        result = storage.list_roles()
+        assert result == ["finance-admin"]
+
+
+# ---------------------------------------------------------------------------
+# list_service_grants
+# ---------------------------------------------------------------------------
+
+
+class TestListServiceGrants:
+    def test_returns_service_names(self):
+        client = _mock_sm_client()
+        client.list_secrets.return_value = [
+            _mock_secret("service-grants-lims"),
+            _mock_secret("service-grants-dockmaster"),
+        ]
+        storage = _storage(client)
+
+        result = storage.list_service_grants()
+
+        assert result == ["lims", "dockmaster"]
+        client.list_secrets.assert_called_once_with(
+            request={"parent": "projects/test-project", "filter": "name:service-grants-"}
+        )
+
+    def test_returns_empty_list(self):
+        client = _mock_sm_client()
+        client.list_secrets.return_value = []
+        storage = _storage(client)
+
+        assert storage.list_service_grants() == []
+
+    def test_strips_prefix(self):
+        client = _mock_sm_client()
+        client.list_secrets.return_value = [_mock_secret("service-grants-data-pipeline")]
+        storage = _storage(client)
+
+        result = storage.list_service_grants()
+        assert result == ["data-pipeline"]

@@ -1,6 +1,7 @@
 ---
 state: Draft
 changelog:
+  "2026-03-12 16h": "Added Phase 6 findings: 503 info leak concern, authority type annotation audit"
   "2026-03-12": "Created — auth surface audit phase, unified Mermaid DAG"
 ---
 
@@ -111,6 +112,8 @@ Example findings to investigate:
 - Are session cookies `HttpOnly` and `Secure`?
 - Does `/auth/principal` leak info to unauthenticated users? (currently returns `{}`, which is fine)
 - Are error responses consistent (no stack traces in production)?
+- Does the `require_admin_writes` 503 message ("admin SA key not set") leak infrastructure details to callers? Should it be a generic "service unavailable" instead?
+- Type annotations across auth modules — `auth/admin.py` uses `object | None` for `authority` parameter. Audit all auth module signatures for proper typing (Protocol or ABC for Authority).
 
 ## Output Files
 

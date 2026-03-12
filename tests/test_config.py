@@ -11,6 +11,7 @@ class TestSettingsDefaults:
         # Clear any env vars that might interfere
         for var in [
             "SA_KEY_FILE",
+            "ADMIN_SA_KEY_FILE",
             "SECRETS_PROJECT",
             "LOG_LEVEL",
             "AUTHORIZED_ISSUERS",
@@ -25,6 +26,7 @@ class TestSettingsDefaults:
             "USERINFO_ENDPOINT",
             "REDIS_URL",
             "SESSION_SECRET_KEY",
+            "DOCKMASTER_ADMIN_EMAILS",
         ]:
             monkeypatch.delenv(var, raising=False)
 
@@ -50,6 +52,10 @@ class TestSettingsDefaults:
         assert settings.access_token_endpoint == "https://oauth2.googleapis.com/tokeninfo"
         assert settings.refresh_token_endpoint == "https://www.googleapis.com/oauth2/v4/token"
         assert settings.userinfo_endpoint == "https://www.googleapis.com/oauth2/v3/userinfo"
+
+        # Admin defaults
+        assert settings.admin_sa_key_file is None
+        assert settings.dockmaster_admin_emails == set()
 
         # Session defaults
         assert settings.redis_url is None
@@ -92,6 +98,35 @@ class TestCommaSeparatedParsing:
     def test_comma_separated_accepts_list(self):
         settings = Settings(authorized_domains=["a", "b"])
         assert settings.authorized_domains == {"a", "b"}
+
+
+class TestAdminSettings:
+    """Test admin-specific settings."""
+
+    def test_admin_sa_key_file_default(self):
+        settings = Settings(admin_sa_key_file=None, _env_file=None)
+        assert settings.admin_sa_key_file is None
+
+    def test_admin_sa_key_file_set(self):
+        settings = Settings(admin_sa_key_file="secrets/admin.json", _env_file=None)
+        assert settings.admin_sa_key_file == "secrets/admin.json"
+
+    def test_admin_emails_comma_separated(self):
+        settings = Settings(dockmaster_admin_emails="a@co.com,b@co.com", _env_file=None)
+        assert settings.dockmaster_admin_emails == {"a@co.com", "b@co.com"}
+
+    def test_admin_emails_empty_default(self):
+        settings = Settings(_env_file=None)
+        assert settings.dockmaster_admin_emails == set()
+
+    def test_admin_emails_single(self):
+        settings = Settings(dockmaster_admin_emails="admin@co.com", _env_file=None)
+        assert settings.dockmaster_admin_emails == {"admin@co.com"}
+
+    def test_admin_emails_from_env(self, monkeypatch):
+        monkeypatch.setenv("DOCKMASTER_ADMIN_EMAILS", "x@co.com, y@co.com")
+        settings = Settings(_env_file=None)
+        assert settings.dockmaster_admin_emails == {"x@co.com", "y@co.com"}
 
 
 class TestLogLevel:

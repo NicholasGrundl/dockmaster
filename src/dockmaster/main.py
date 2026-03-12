@@ -22,6 +22,7 @@ from dockmaster.routes.exchange import router as exchange_router
 from dockmaster.routes.health import root_info, router as health_router
 from dockmaster.routes.keys import router as keys_router
 from dockmaster.routes.login import router as login_router
+from dockmaster.routes.admin import router as admin_router
 from dockmaster.routes.permissions import router as permissions_router
 from dockmaster.routes.refresh import router as refresh_router
 from dockmaster.routes.ui import protected_router as ui_protected_router
@@ -132,6 +133,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.authority = None
         log.warning("SECRETS_PROJECT not set — Secret Manager lookups will return 503")
 
+    # --- Admin storage (separate SA with SM write permissions) ---
+    admin_sa_key_data = _load_sa_key(settings.admin_sa_key_file, log)
+    if admin_sa_key_data and settings.secrets_project:
+        from google.cloud.secretmanager_v1 import SecretManagerServiceClient as SMClient
+
+        from dockmaster.rbac.storage import AdminSecretsStorage
+
+        admin_creds = _build_gcp_credentials(admin_sa_key_data, log)
+        admin_sm_client = SMClient(credentials=admin_creds)
+        app.state.admin_storage = AdminSecretsStorage(
+            client=admin_sm_client, project=settings.secrets_project
+        )
+        log.info(
+            "admin_storage_initialized",
+            project=settings.secrets_project,
+            email=admin_sa_key_data.get("client_email"),
+        )
+    else:
+        app.state.admin_storage = None
+        if not settings.admin_sa_key_file:
+            log.warning("ADMIN_SA_KEY_FILE not set — RBAC write operations will return 503")
+
     yield
     log.info("shutting down")
 
@@ -154,6 +177,7 @@ def create_app() -> FastAPI:
     application.include_router(login_router, prefix="/auth")
     application.include_router(refresh_router, prefix="/auth")
     application.include_router(permissions_router, prefix="/auth")
+    application.include_router(admin_router, prefix="/admin")
     application.include_router(ui_public_router, prefix="/ui")
     application.include_router(ui_protected_router, prefix="/ui")
     application.add_api_route("/", root_info, methods=["GET"], tags=["info"])

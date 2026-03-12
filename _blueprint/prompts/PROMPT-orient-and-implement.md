@@ -21,8 +21,12 @@ stable. When updating composable sections, preserve the marker comments.
    `_blueprint/features/implementation-*.md` — there is one per phase or sub-phase.
 3. Read `CLAUDE.md` for established patterns and conventions. Follow them exactly.
 
+
 ### 0b. Determine your situation
 
+Our goal is to determine execute our <situation> from the knowledge we already have and additional <learning> about the project and state.
+
+<situation>
 **A) The progress file has incomplete sub-tasks for the current phase.**
 Pick up where the last session left off. Confirm with the user: "The progress file shows sub-task
 X is next — should I continue from there?" Then go to Step 2.
@@ -33,7 +37,8 @@ Go to Step 1 to plan and populate sub-tasks.
 **C) The progress file is ambiguous.**
 Ask the user before proceeding.
 
-<note>
+</situation>
+<learning>
 **Exploration strategy — use the most efficient tool available:**
 
 1. **Primary**: Use the `smart-tree` skill if available. It provides intelligent, heuristic-driven
@@ -49,7 +54,7 @@ Ask the user before proceeding.
 
 **Philosophy**: Explore structure and filenames FIRST. Only grep or read file contents after you
 know WHERE to look. This limited-disclosure approach prevents wasting context on irrelevant files.
-</note>
+</learning>
 
 ---
 
