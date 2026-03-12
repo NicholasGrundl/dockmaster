@@ -93,7 +93,7 @@ class TestCallback:
     """GET /auth/callback."""
 
     def test_callback_creates_session_and_redirects(self, login_client, mock_oauth, session_store):
-        """Valid callback → session created, cookie set, redirect to /ui/test."""
+        """Valid callback → session created, cookie set, redirect to /ui/."""
         _pending_states["valid-state"] = True
 
         mock_oauth.google.authorize_access_token = AsyncMock(
@@ -115,7 +115,7 @@ class TestCallback:
         )
 
         assert response.status_code == 302
-        assert response.headers["location"] == "/ui/test"
+        assert response.headers["location"] == "/ui/"
         assert "session_id" in response.cookies
 
     def test_callback_invalid_state_returns_401(self, login_client):
@@ -162,7 +162,7 @@ class TestLogout:
         response = login_client.get("/auth/logout", follow_redirects=False)
 
         assert response.status_code == 302
-        assert response.headers["location"] == "/ui/test"
+        assert response.headers["location"] == "/ui/"
         assert session_id not in session_store._store
 
     def test_logout_without_cookie_still_redirects(self, login_client):

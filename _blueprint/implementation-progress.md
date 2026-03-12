@@ -1,9 +1,9 @@
 # Implementation Progress
 
-*Last updated: 2026-03-11*
+*Last updated: 2026-03-12*
 
-## Current Phase: Phase 4b — Refresh + SM + Test UI
-**Pass**: 2 (unit tests written, all passing)
+## Current Phase: Phase 4c — UI Polish + Admin Dashboard
+**Pass**: 1 (complete — UI infrastructure, pages, tests all done)
 **Status**: COMPLETE ✅
 
 ### Phase 4a: COMPLETE ✅
@@ -29,12 +29,25 @@
 - [x] Lint + full suite green — 117 tests, ruff clean
 - [x] Tracer bullet: SM fixture capture + E2E refresh validation (follow `GUIDE-capture-phase4b-fixtures.md`)
 - [x] Manual UI testing: login ✅, session data ✅, refresh ✅, logout ✅, domain rejection ✅
-- [ ] Post-4b: UI polish pass (deferred)
+- [x] Post-4b: UI polish pass (done in Phase 4c)
 
 ## Post-4b: Clean up + guides
 - [ ] Fresh GCP setup from scratch (new client secret, rotate SA key) — purge any leaked secrets
 - [ ] GCP setup guide doc (`docs/GUIDE-gcp-setup.md`)
 - [ ] Local dev testing guide (`docs/GUIDE-local-dev.md`) — `.env`, uvicorn, curl/notebook walkthrough
+
+## Phase 4c sub-tasks
+- [x] 1. Install dependencies — `jinja2`, `pytest-playwright` (dev), Playwright chromium
+- [x] 2. Screenshot helper — `scripts/screenshot.py` for visual verification
+- [x] 3. UIConfig + theme system — `src/dockmaster/ui/config.py`, JSON config file, `UI_CONFIG_PATH` env var
+- [x] 4. Base template architecture — `templates/base.html`, Tailwind CDN, CSS variables from UIConfig, nav + profile badge + footer
+- [x] 5. Profile picture already in session — `PROFILE_CLAIM_KEYS` includes `picture` (no code change needed)
+- [x] 6. Login page (`/ui/login`) — branded landing page with Google SSO button, public (no auth)
+- [x] 7. Auth guard — `require_ui_session` dependency, redirects to `/ui/login` if unauthenticated
+- [x] 8. `SessionStore.list_all()` + Dashboard page (`/ui/`) — sessions table w/ expiry, service status, replaces `/ui/test`
+- [x] 9. Visual polish + screenshot iteration — GitHub-style login page, profile badge, sign out button, referrer fix for Google profile pics
+- [x] 10. Tests + lint — 13 new UI tests, 4 new session tests, 134 total GREEN, ruff clean
+- [x] 11. Update `implementation-progress.md`
 
 ## GCP setup checklist
 - [x] OAuth consent screen configured (External, test user added)
@@ -54,10 +67,11 @@
 - [ ] `tests/fixtures/gcp/secret_manager/get_client_secret.json` — SM lookup (Phase 4b, capture via GUIDE-capture-phase4b-fixtures.md)
 
 ## Test status
-- `tests/test_sessions.py` GREEN (9 tests)
+- `tests/test_sessions.py` GREEN (13 tests — 4 new for `list_all()`)
 - `tests/test_login.py` GREEN (11 tests)
 - `tests/test_refresh.py` GREEN (14 tests)
-- Full suite: 117 tests GREEN
+- `tests/test_ui.py` GREEN (13 tests — new: login page, auth guard, dashboard)
+- Full suite: 134 tests GREEN
 
 ## Decisions log
 - 2026-03-11: Phase 4 split into 4a (sessions + login) and 4b (refresh + SM + UI)
@@ -68,13 +82,42 @@
 - 2026-03-11: `SessionMiddleware` from Starlette added (required by Authlib for OAuth state)
 - 2026-03-11: `create_app()` calls `get_settings()` directly for middleware config (not overridable via DI)
 - 2026-03-11: SA IAM role for key enumeration deferred — code handles failure gracefully
+- 2026-03-11: Phase 4c — Jinja2 for templates (replaces manual renderer), Tailwind CSS via CDN
+- 2026-03-11: Phase 4c — UIConfig as separate Pydantic model loaded from JSON file (not in core Settings, just `UI_CONFIG_PATH` pointer)
+- 2026-03-11: Phase 4c — UI auth guard uses `Depends()` pattern (not middleware), redirects to `/ui/login`
+- 2026-03-11: Phase 4c — API auth stays as middleware (JWT/header-based), UI auth is session/cookie-based — different patterns for different clients
+- 2026-03-11: Phase 4c — Store Google profile picture URL in session data during OAuth callback
+- 2026-03-12: Phase 4c — `no-referrer` meta tag needed for Google profile pic CDN (blocks requests with foreign referrer)
+- 2026-03-12: Phase 4c — Refresh token tool removed from dashboard (was test-only, not admin-relevant)
+- 2026-03-12: Phase 4c — Admin actions (session revoke, RBAC management) deferred to Phase 5+ when RBAC layer exists
+- 2026-03-12: Phase 4c — `list_all()` returns `_expiry` metadata for display in sessions table
+- 2026-03-12: Phase 4c — `jinja2` and `pytest-playwright` added as dependencies
+- 2026-03-12: Phase 4c — TemplateResponse updated to new Starlette API (request as first arg)
+
+## New files (Phase 4c)
+- `src/dockmaster/ui/__init__.py`
+- `src/dockmaster/ui/config.py` — `UIConfig` model + `load_ui_config()` (JSON file or defaults)
+- `src/dockmaster/templates/base.html` — shared layout (Tailwind CDN, nav, profile badge, footer, CSS vars from UIConfig)
+- `src/dockmaster/templates/login.html` — branded login page (no header, Google SSO button, GitHub-style)
+- `src/dockmaster/templates/dashboard.html` — admin dashboard (sessions w/ expiry, service status)
+- `scripts/screenshot.py` — Playwright screenshot helper
+- `tests/test_ui.py` — 13 tests (login page, auth guard, dashboard)
+
+## Modified files (Phase 4c)
+- `src/dockmaster/config.py` — added `ui_config_path` setting
+- `src/dockmaster/main.py` — load UIConfig in lifespan, split UI router into public + protected
+- `src/dockmaster/routes/ui.py` — rewritten: Jinja2Templates, auth guard, login page, dashboard, custom `timestamp_to_datetime` filter
+- `src/dockmaster/routes/login.py` — redirects changed `/ui/test` → `/ui/`
+- `src/dockmaster/sessions/protocol.py` — added `list_all()` to protocol
+- `src/dockmaster/sessions/memory.py` — implemented `list_all()` with TTL cleanup + `_expiry` metadata
+- `tests/test_login.py` — updated redirect assertions
+- `tests/test_sessions.py` — added 4 tests for `list_all()`
 
 ## New files (Phase 4b)
 - `src/dockmaster/rbac/__init__.py`
 - `src/dockmaster/rbac/storage.py` — `SecretsStorage` (partial: `_load_secret`, `_load_secret_raw`, `get_client_secret`)
 - `src/dockmaster/routes/refresh.py` — `POST /auth/refresh` (8-step flow)
-- `src/dockmaster/routes/ui.py` — `GET /ui/test` (minimal HTML test page)
-- `src/dockmaster/templates/login_test.html` — test UI template
+- `src/dockmaster/templates/login_test.html` — test UI template (superseded by 4c templates)
 - `tests/test_refresh.py` — 14 tests
 
 ## New files (Phase 4a)
@@ -89,6 +132,9 @@
 - Phase 1: COMPLETE (scaffold, config, health endpoint, conftest)
 - Phase 2: COMPLETE (JWT infrastructure — ServiceUser, ServiceRealm, KeyCache, middleware, routes — 67 tests)
 - Phase 3: COMPLETE (Token exchange — token_validator, exchange endpoint — 16 new tests, 83 total)
+- Phase 4a: COMPLETE (OAuth login + sessions — 20 new tests, 103 total)
+- Phase 4b: COMPLETE (Refresh + SecretsStorage + test UI — 14 new tests, 117 total)
+- Phase 4c: COMPLETE (Admin dashboard + UI polish — 17 new tests, 134 total)
 
 ## Next session: pick up at
-"Post-4b cleanup: UI polish pass, then fresh GCP setup + guides. After that, Phase 5 (RBAC)."
+"Post-4b cleanup (GCP rotation + guides), then Phase 5 (RBAC). Admin actions (session revoke) deferred to Phase 5 when RBAC layer exists."

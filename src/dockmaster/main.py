@@ -23,8 +23,10 @@ from dockmaster.routes.health import root_info, router as health_router
 from dockmaster.routes.keys import router as keys_router
 from dockmaster.routes.login import router as login_router
 from dockmaster.routes.refresh import router as refresh_router
-from dockmaster.routes.ui import router as ui_router
+from dockmaster.routes.ui import protected_router as ui_protected_router
+from dockmaster.routes.ui import public_router as ui_public_router
 from dockmaster.sessions.memory import InMemorySessionStore
+from dockmaster.ui.config import load_ui_config
 
 
 def _load_sa_key(path: str | None, log: structlog.stdlib.BoundLogger) -> dict | None:
@@ -91,6 +93,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.realm = ServiceRealm(key_cache=cache)
     log.info("jwt_verifier_initialized", auth_source="sa_key" if sa_key_data else "adc")
 
+    # --- UI config ---
+    app.state.ui_config = load_ui_config(settings.ui_config_path)
+
     # --- Session store ---
     app.state.session_store = InMemorySessionStore()
     log.info("session_store_initialized", backend="in-memory")
@@ -138,7 +143,8 @@ def create_app() -> FastAPI:
     application.include_router(exchange_router, prefix="/auth")
     application.include_router(login_router, prefix="/auth")
     application.include_router(refresh_router, prefix="/auth")
-    application.include_router(ui_router, prefix="/ui")
+    application.include_router(ui_public_router, prefix="/ui")
+    application.include_router(ui_protected_router, prefix="/ui")
     application.add_api_route("/", root_info, methods=["GET"], tags=["info"])
     return application
 

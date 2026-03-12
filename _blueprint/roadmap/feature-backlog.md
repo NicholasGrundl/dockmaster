@@ -55,9 +55,10 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **When**: When building a more polished browser experience.
 - **Effort**: Small — store refresh token in session during callback, retrieve on refresh.
 
-### Redirect URI Validation / Open Redirect Prevention
-- **Context**: Phase 4 OAuth callback hardcodes redirect to `/ui/test`. Configurable redirects would need an allowlist to prevent open redirect attacks.
-- **When**: When adding multiple UIs or configurable post-login destinations.
+### OAuth Redirect-Back for External SPAs + Open Redirect Prevention
+- **Context**: Currently the OAuth callback hardcodes redirect to `/ui/`. When dockmaster serves as the auth service for a separate SPA, we need to: (1) accept a `redirect_uri` or `return_to` param on `/auth/login`, (2) after successful auth, redirect back to the calling SPA with a token or code, (3) let the SPA handle its own routing. This is essentially the "auth service as IdP" pattern. Requires an allowlist of permitted redirect origins to prevent open redirect attacks.
+- **When**: When an external frontend wants to use dockmaster for login and receive a token back.
+- **Planning needed**: How does the SPA receive the token — query param, fragment, POST to a callback? What data does the SPA need (JWT, session cookie, both)? Should we support PKCE for public clients?
 
 ### Wildcard Target Matching for RBAC
 - **Context**: Phase 5 uses exact string matching for targets. Both audits recommend glob/wildcard support (e.g., `projects/*`). Legacy also uses exact match.

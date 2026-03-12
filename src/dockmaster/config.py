@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     refresh_token_endpoint: str = "https://www.googleapis.com/oauth2/v4/token"
     userinfo_endpoint: str = "https://www.googleapis.com/oauth2/v3/userinfo"
 
+    # --- UI ---
+    ui_config_path: str | None = None
+
     # --- Session ---
     redis_url: str | None = None
     session_secret_key: str = "change-me-in-production"

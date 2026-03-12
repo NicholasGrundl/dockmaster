@@ -28,3 +28,14 @@ class InMemorySessionStore:
 
     async def delete(self, session_id: str) -> None:
         self._store.pop(session_id, None)
+
+    async def list_all(self) -> dict[str, dict]:
+        """Return all non-expired sessions as {session_id: {**data, _expiry: timestamp}}."""
+        now = time.time()
+        expired = [sid for sid, (_, expiry) in self._store.items() if now > expiry]
+        for sid in expired:
+            del self._store[sid]
+        return {
+            sid: {**data, "_expiry": expiry}
+            for sid, (data, expiry) in self._store.items()
+        }

@@ -84,7 +84,7 @@ async def callback(request: Request, settings: Settings = Depends(get_settings))
     signer = _get_signer(settings)
     signed_session_id = signer.dumps(session_id)
 
-    response = RedirectResponse(url="/ui/test", status_code=302)
+    response = RedirectResponse(url="/ui/", status_code=302)
     response.set_cookie(
         key="session_id",
         value=signed_session_id,
@@ -114,7 +114,7 @@ async def logout(request: Request, settings: Settings = Depends(get_settings)):
         except BadSignature:
             logger.warning("logout_bad_signature")
 
-    response = RedirectResponse(url="/ui/test", status_code=302)
+    response = RedirectResponse(url="/ui/", status_code=302)
     response.delete_cookie(key="session_id", path="/")
     return response
 

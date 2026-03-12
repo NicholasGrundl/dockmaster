@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>{% block title %}{{ ui.brand_name }}{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            primary: '{{ ui.primary_color }}',
+                            accent: '{{ ui.accent_color }}',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --color-primary: {{ ui.primary_color }};
+            --color-accent: {{ ui.accent_color }};
+            --color-text: {{ ui.text_color }};
+            --color-bg: {{ ui.bg_color }};
+            --color-surface: {{ ui.surface_color }};
+            --color-border: {{ ui.border_color }};
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col" style="background-color: var(--color-bg); color: var(--color-text);">
+
+    {# ── Header / Nav ── #}
+    {% block header %}
+    <header class="border-b" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+            {# Brand #}
+            <a href="/ui/" class="flex items-center gap-2 font-semibold text-lg no-underline" style="color: var(--color-primary);">
+                {% if ui.logo_url %}
+                <img src="{{ ui.logo_url }}" alt="" class="h-7 w-7">
+                {% endif %}
+                {{ ui.brand_name }}
+            </a>
+
+            {# Nav links #}
+            <nav class="flex items-center gap-6">
+                {% if user %}
+                <a href="/ui/" class="text-sm hover:underline" style="color: var(--color-text);">Dashboard</a>
+                {% endif %}
+
+                {# Divider between page nav and profile section #}
+                {% if user %}
+                <div class="h-5 w-px" style="background-color: var(--color-border);"></div>
+                {% endif %}
+
+                {# Profile badge + Sign out / Login #}
+                {% if user %}
+                <div class="flex items-center gap-3">
+                    {% if user.picture %}
+                    <img src="{{ user.picture }}" alt="" class="h-8 w-8 rounded-full border" style="border-color: var(--color-border);">
+                    {% else %}
+                    <div class="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background-color: var(--color-primary);">
+                        {{ user.email[0] | upper }}
+                    </div>
+                    {% endif %}
+                    <span class="text-sm hidden sm:inline">{{ user.name or user.email }}</span>
+                    <a href="/auth/logout" class="text-sm px-3 py-1.5 rounded-md no-underline font-medium"
+                       style="color: var(--color-text); background-color: var(--color-bg); border: 1px solid var(--color-border);"
+                       onmouseover="this.style.backgroundColor='#e5e7eb'"
+                       onmouseout="this.style.backgroundColor='var(--color-bg)'">
+                        Sign out
+                    </a>
+                </div>
+                {% else %}
+                <a href="/ui/login" class="text-sm font-medium px-4 py-1.5 rounded-md text-white no-underline"
+                   style="background-color: var(--color-primary);">
+                    Sign in
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+    {% endblock %}
+
+    {# ── Main content ── #}
+    <main class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
+        {% block content %}{% endblock %}
+    </main>
+
+    {# ── Footer ── #}
+    {% block footer %}
+    <footer class="border-t py-4" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <div class="max-w-5xl mx-auto px-6 text-center text-xs" style="color: #9ca3af;">
+            {{ ui.footer_text }}
+        </div>
+    </footer>
+    {% endblock %}
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
