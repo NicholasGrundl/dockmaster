@@ -57,11 +57,9 @@ class SecretsStorage:
 
     def list_roles(self) -> list[str]:
         """List all role names from Secret Manager."""
-        secrets = self._client.list_secrets(
-            request={"parent": self._parent(), "filter": "name:role-"}
-        )
+        secrets = self._client.list_secrets(request={"parent": self._parent(), "filter": "name:role-"})
         prefix = "role-"
-        return [s.name.split("/")[-1][len(prefix):] for s in secrets]
+        return [s.name.split("/")[-1][len(prefix) :] for s in secrets]
 
     def get_role(self, name: str) -> Role:
         """Load a role from Secret Manager. Secret ID: ``role-{name}``."""
@@ -74,11 +72,9 @@ class SecretsStorage:
 
     def list_service_grants(self) -> list[str]:
         """List all service names that have grants in Secret Manager."""
-        secrets = self._client.list_secrets(
-            request={"parent": self._parent(), "filter": "name:service-grants-"}
-        )
+        secrets = self._client.list_secrets(request={"parent": self._parent(), "filter": "name:service-grants-"})
         prefix = "service-grants-"
-        return [s.name.split("/")[-1][len(prefix):] for s in secrets]
+        return [s.name.split("/")[-1][len(prefix) :] for s in secrets]
 
     def get_service_grants(self, service: str) -> ServiceGrants:
         """Load service grants. Secret ID: ``service-grants-{service}``."""

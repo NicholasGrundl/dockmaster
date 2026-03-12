@@ -14,10 +14,11 @@
 - Phase 4b: COMPLETE (Refresh + SecretsStorage + test UI — 117 total tests)
 - Phase 4c: COMPLETE (Admin dashboard + UI polish — 134 total tests)
 - Phase 5: COMPLETE (RBAC — models, storage, authority, permission endpoints — 177 total tests)
-- Phase 6: IN PROGRESS (RBAC Management — admin endpoints + admin UI pages)
+- Phase 6: IN PROGRESS (RBAC Management — admin endpoints + admin UI pages, 234 tests)
+  - Remaining: create new service grants UI, UI tests, fixture capture
 - Phase 6b: PLANNED (CLI + OAuth login flow)
 - Phase 7: PLANNED (Deployment + GCP Cleanup — after all feature phases)
-- Next: Phase 6 sub-task 1 (GCP setup — create admin SA)
+- Next: Phase 6 sub-task 17 (create new service grants UI)
 
 ## Key files to read at session start
 - `_blueprint/implementation-progress.md` — session state (created at start of Phase 2)

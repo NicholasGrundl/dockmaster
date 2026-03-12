@@ -25,6 +25,7 @@ from dockmaster.routes.login import router as login_router
 from dockmaster.routes.admin import router as admin_router
 from dockmaster.routes.permissions import router as permissions_router
 from dockmaster.routes.refresh import router as refresh_router
+from dockmaster.routes.admin_ui import router as admin_ui_router
 from dockmaster.routes.ui import protected_router as ui_protected_router
 from dockmaster.routes.ui import public_router as ui_public_router
 from dockmaster.sessions.memory import InMemorySessionStore
@@ -142,9 +143,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         admin_creds = _build_gcp_credentials(admin_sa_key_data, log)
         admin_sm_client = SMClient(credentials=admin_creds)
-        app.state.admin_storage = AdminSecretsStorage(
-            client=admin_sm_client, project=settings.secrets_project
-        )
+        app.state.admin_storage = AdminSecretsStorage(client=admin_sm_client, project=settings.secrets_project)
         log.info(
             "admin_storage_initialized",
             project=settings.secrets_project,
@@ -180,6 +179,7 @@ def create_app() -> FastAPI:
     application.include_router(admin_router, prefix="/admin")
     application.include_router(ui_public_router, prefix="/ui")
     application.include_router(ui_protected_router, prefix="/ui")
+    application.include_router(admin_ui_router, prefix="/ui")
     application.add_api_route("/", root_info, methods=["GET"], tags=["info"])
     return application
 

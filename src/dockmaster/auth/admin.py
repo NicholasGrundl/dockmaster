@@ -44,6 +44,27 @@ async def require_admin_api(
     return user
 
 
+async def require_admin_ui(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Admin gate for UI pages (session cookie auth).
+
+    Returns the user dict if admin, redirects to /ui/login if no session,
+    raises 403 if authenticated but not admin.
+    """
+    from dockmaster.routes.ui import require_ui_session
+
+    user = await require_ui_session(request, settings)
+    email = user.get("email", "")
+    authority = getattr(request.app.state, "authority", None)
+
+    if not await _is_admin(email, authority, settings.dockmaster_admin_emails):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    return user
+
+
 async def require_admin_writes(request: Request) -> None:
     """Capability gate — ensures admin SM client is configured for write operations.
 

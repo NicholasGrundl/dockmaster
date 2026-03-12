@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Roles — {{ ui.brand_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-semibold">Roles</h1>
+        <span class="text-sm" style="color: #6b7280;">{{ roles | length }} role{{ 's' if roles | length != 1 }}</span>
+    </div>
+
+    {# ── Flash messages ── #}
+    {% if error %}
+    <div class="rounded-md border px-4 py-3 text-sm" style="background-color: #fef2f2; border-color: #fecaca; color: #991b1b;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="rounded-md border px-4 py-3 text-sm" style="background-color: #f0fdf4; border-color: #bbf7d0; color: #166534;">
+        {{ success }}
+    </div>
+    {% endif %}
+
+    {# ── Create role form ── #}
+    {% if can_write %}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <h2 class="text-sm font-medium mb-3" style="color: #6b7280;">Create Role</h2>
+        <form method="post" action="/ui/roles" class="flex flex-col sm:flex-row gap-3">
+            <input type="text" name="name" placeholder="Role name" required
+                   class="rounded-md border px-3 py-2 text-sm flex-1"
+                   style="border-color: var(--color-border); background-color: var(--color-bg);">
+            <input type="text" name="permissions" placeholder="Permissions (comma-separated)"
+                   class="rounded-md border px-3 py-2 text-sm flex-[2]"
+                   style="border-color: var(--color-border); background-color: var(--color-bg);">
+            <button type="submit"
+                    class="rounded-md px-4 py-2 text-sm font-medium text-white"
+                    style="background-color: var(--color-primary);">
+                Create
+            </button>
+        </form>
+    </section>
+    {% endif %}
+
+    {# ── Roles table ── #}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        {% if roles %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b text-left" style="border-color: var(--color-border);">
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Name</th>
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Permissions</th>
+                        {% if can_write %}
+                        <th class="pb-2 font-medium text-right" style="color: #6b7280;">Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in roles %}
+                    <tr class="border-b last:border-0" style="border-color: var(--color-border);">
+                        <td class="py-3 pr-4 font-mono text-sm font-medium">{{ role.name }}</td>
+                        <td class="py-3 pr-4">
+                            {% if can_write %}
+                            <form method="post" action="/ui/roles/{{ role.name }}/update" class="flex gap-2">
+                                <input type="text" name="permissions"
+                                       value="{{ role.permissions | join(', ') }}"
+                                       class="rounded-md border px-2 py-1 text-sm flex-1"
+                                       style="border-color: var(--color-border); background-color: var(--color-bg);">
+                                <button type="submit"
+                                        class="rounded-md border px-3 py-1 text-xs font-medium"
+                                        style="border-color: var(--color-border);"
+                                        onmouseover="this.style.backgroundColor='#e5e7eb'"
+                                        onmouseout="this.style.backgroundColor='transparent'">
+                                    Save
+                                </button>
+                            </form>
+                            {% else %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for perm in role.permissions %}
+                                <span class="inline-block rounded-full px-2 py-0.5 text-xs font-mono"
+                                      style="background-color: var(--color-bg); border: 1px solid var(--color-border);">
+                                    {{ perm }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        {% if can_write %}
+                        <td class="py-3 text-right">
+                            <form method="post" action="/ui/roles/{{ role.name }}/delete"
+                                  onsubmit="return confirm('Delete role {{ role.name }}?')">
+                                <button type="submit"
+                                        class="rounded-md border px-3 py-1 text-xs font-medium"
+                                        style="color: #991b1b; border-color: #fecaca;"
+                                        onmouseover="this.style.backgroundColor='#fef2f2'"
+                                        onmouseout="this.style.backgroundColor='transparent'">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm" style="color: #9ca3af;">No roles defined.</p>
+        {% endif %}
+    </section>
+
+    {% if not can_write %}
+    <p class="text-xs" style="color: #9ca3af;">
+        Read-only mode — admin SA key not configured. Create/edit/delete disabled.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

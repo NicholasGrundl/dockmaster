@@ -240,9 +240,7 @@ class TestListRoles:
         result = storage.list_roles()
 
         assert result == ["viewer", "editor", "admin"]
-        client.list_secrets.assert_called_once_with(
-            request={"parent": "projects/test-project", "filter": "name:role-"}
-        )
+        client.list_secrets.assert_called_once_with(request={"parent": "projects/test-project", "filter": "name:role-"})
 
     def test_returns_empty_list(self):
         client = _mock_sm_client()

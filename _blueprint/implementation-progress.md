@@ -22,21 +22,56 @@
 - [x] 9. Lifespan wiring — `AdminSecretsStorage` in `main.py` (conditional on `ADMIN_SA_KEY_FILE`), `app.state.admin_storage`
 - [x] 10. Admin CRUD endpoints — Roles + tests — `routes/admin.py`: `GET/POST/PUT/DELETE /admin/roles` + 17 tests GREEN
 - [x] 11. Admin CRUD endpoints — Grants + tests — same file: `GET/POST/DELETE /admin/grants` (included in sub-task 10)
-- [ ] 12. Admin UI pages — templates + UI routes: roles page, grants page, admin nav, read-only mode
-- [ ] 13. Lint + full suite green — `just lint`, `just format`, `uv run pytest`
+- [x] 12. Admin UI pages — templates + UI routes: roles page, grants page, admin nav, read-only mode
+- [x] 13. Lint + full suite green — 234 tests GREEN, ruff clean
 
 ### Tracer bullet (user-driven, after code is written)
-- [ ] 14. Manual E2E verification — start server with admin SA, login, verify admin UI CRUD works against real SM
+- [x] 14. Manual E2E verification — tests 1–5 PASS: create/update/delete roles, add/edit grants, all verified in SM via gcloud
 - [ ] 15. Fixture capture — capture `list_secrets` responses for list methods (if useful for future tests)
-- [ ] 16. Update progress file
+- [x] 16. Update progress file
+
+### Follow-up (before phase complete)
+- [ ] 17. Add "create new service grants" UI — grants list page needs a form to create grants for a new service (currently can only edit existing)
+- [ ] 18. UI tests — admin UI page tests (deferred until UI is finalized)
 
 ## GCP setup checklist (Phase 6)
-- [ ] `dockmaster-admin` SA created
-- [ ] `dockmaster-admin` SA granted `roles/secretmanager.admin` on project
-- [ ] Admin SA key file downloaded and path added to `.env` as `ADMIN_SA_KEY_FILE`
-- [ ] `role-admin` secret created in SM with `{"name": "admin", "permissions": ["admin"]}`
-- [ ] `service-grants-dockmaster` secret created in SM with your email granted `admin` role
-- [ ] Verified admin SA can list/read/write secrets
+- [x] `dockmaster-admin` SA created
+- [x] `dockmaster-admin` SA granted `roles/secretmanager.admin` on project
+- [x] Admin SA key file downloaded and path added to `.env` as `ADMIN_SA_KEY_FILE`
+- [x] `role-admin` secret created in SM with `{"name": "admin", "permissions": ["admin"]}`
+- [x] `service-grants-dockmaster` secret created in SM with your email granted `admin` role
+- [x] Verified admin SA can list/read/write secrets
+
+## New files (Phase 6)
+- `src/dockmaster/auth/admin.py` — admin auth dependencies (`_is_admin`, `require_admin_api`, `require_admin_ui`, `require_admin_writes`)
+- `src/dockmaster/rbac/admin_ops.py` — shared CRUD service layer for roles + grants
+- `src/dockmaster/routes/admin.py` — REST CRUD endpoints (`/admin/roles`, `/admin/grants`)
+- `src/dockmaster/routes/admin_ui.py` — admin UI routes (`/ui/roles`, `/ui/grants`)
+- `src/dockmaster/templates/roles.html` — roles list page with inline create/edit/delete
+- `src/dockmaster/templates/grants.html` — service grants list page
+- `src/dockmaster/templates/grants_detail.html` — grants detail page with inline edit
+- `tests/test_admin_auth.py` — 14 tests
+- `tests/test_admin_ops.py` — 14 tests
+- `tests/test_admin_endpoints.py` — 17 tests
+- `docs/GUIDE-admin-sa-setup.md` — admin SA setup guide (CLI + Console UI)
+
+## Modified files (Phase 6)
+- `src/dockmaster/config.py` — added `admin_sa_key_file`, `dockmaster_admin_emails`
+- `src/dockmaster/rbac/storage.py` — split into `SecretsStorage` (read-only) + `AdminSecretsStorage` (writes), added `list_roles()`, `list_service_grants()`
+- `src/dockmaster/main.py` — admin storage lifespan init, admin router + admin UI router registration
+- `src/dockmaster/routes/ui.py` — `is_admin` context for nav links
+- `src/dockmaster/templates/base.html` — admin nav links (Roles, Grants) visible when `is_admin`
+- `.env.example` — documented `ADMIN_SA_KEY_FILE`, `DOCKMASTER_ADMIN_EMAILS`
+- `tests/test_config.py` — 6 new admin settings tests
+- `tests/test_storage.py` — 6 new list method tests, refactored for base/admin class split
+
+## Test status (Phase 6)
+- `tests/test_admin_auth.py` GREEN (14 tests)
+- `tests/test_admin_ops.py` GREEN (14 tests)
+- `tests/test_admin_endpoints.py` GREEN (17 tests)
+- `tests/test_config.py` GREEN (20 tests — 6 new)
+- `tests/test_storage.py` GREEN (17 tests — 6 new)
+- Full suite: 234 tests GREEN
 
 ## Decisions log (Phase 6)
 - 2026-03-12: D8 — Separate `require_admin_api` / `require_admin_ui` dependencies with shared `_is_admin()` helper. Follows Phase 4c pattern of keeping API (JWT) and UI (session) auth separate.

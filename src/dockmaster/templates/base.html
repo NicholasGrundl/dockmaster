@@ -51,6 +51,10 @@
                 {% if user %}
                 <a href="/ui/" class="text-sm hover:underline" style="color: var(--color-text);">Dashboard</a>
                 {% endif %}
+                {% if is_admin %}
+                <a href="/ui/roles" class="text-sm hover:underline" style="color: var(--color-text);">Roles</a>
+                <a href="/ui/grants" class="text-sm hover:underline" style="color: var(--color-text);">Grants</a>
+                {% endif %}
 
                 {# Divider between page nav and profile section #}
                 {% if user %}

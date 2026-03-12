@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
 
+from dockmaster.auth.admin import _is_admin
 from dockmaster.config import Settings, get_settings
 from dockmaster.ui.config import UIConfig
 
@@ -105,6 +106,11 @@ async def dashboard(
         "secrets": getattr(request.app.state, "secrets_storage", None) is not None,
     }
 
+    # Check admin status for nav links
+    settings = get_settings()
+    authority = getattr(request.app.state, "authority", None)
+    admin = await _is_admin(user.get("email", ""), authority, settings.dockmaster_admin_emails)
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -113,5 +119,6 @@ async def dashboard(
             "user": user,
             "sessions": sessions,
             "services": services,
+            "is_admin": admin,
         },
     )
