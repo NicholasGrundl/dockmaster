@@ -4,7 +4,7 @@ changelog:
   "2026-03-12": "Created during alignment session — split from phase6-rbac-management-v2.md"
 ---
 
-# Phase 6b: CLI + OAuth Login Flow
+# Phase 6c: CLI + OAuth Login Flow
 
 > Typer CLI with browser-based OAuth login for RBAC management from the terminal.
 

@@ -381,3 +381,29 @@ class TestRevokeSessionsByEmail:
         resp = TestClient(app).delete("/admin/sessions/email/nobody@co.com")
         assert resp.status_code == 200
         assert resp.json()["revoked"] == 0
+
+
+class TestSessionAdminAuth:
+    def test_unauthenticated_list_returns_401(self):
+        from dockmaster.routes.admin import router
+
+        app = FastAPI()
+        app.include_router(router, prefix="/admin")
+        app.state.authority = None
+        app.state.admin_storage = None
+        app.state.session_store = None
+
+        resp = TestClient(app).get("/admin/sessions")
+        assert resp.status_code == 401
+
+    def test_unauthenticated_revoke_returns_401(self):
+        from dockmaster.routes.admin import router
+
+        app = FastAPI()
+        app.include_router(router, prefix="/admin")
+        app.state.authority = None
+        app.state.admin_storage = None
+        app.state.session_store = None
+
+        resp = TestClient(app).delete("/admin/sessions/id/some-id")
+        assert resp.status_code == 401

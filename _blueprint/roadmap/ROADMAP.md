@@ -168,7 +168,7 @@ Phase 8: UI Tests .................................... PLANNED
 
 > Admin session management — API endpoints, admin_ops layer, and admin UI for viewing and revoking user sessions. Mirrors the RBAC CRUD pattern from Phase 6.
 
-**Spec**: To be created during Phase 6b planning (`implementation-phase6b-session-revocation.md`)
+**Spec**: [`features/implementation-phase6b-session-revocation.md`](../features/implementation-phase6b-session-revocation.md)
 
 **Deliverables:**
 - Admin session management endpoints (`/admin/sessions`) — list, revoke
@@ -186,7 +186,7 @@ Phase 8: UI Tests .................................... PLANNED
 
 > Typer CLI with browser-based OAuth login, enabling RBAC management and session revocation from the terminal.
 
-**Spec**: [`features/phase6b-cli-v2.md`](../features/phase6b-cli-v2.md)
+**Spec**: [`features/phase6c-cli-v2.md`](../features/phase6c-cli-v2.md)
 **Implementation guide**: To be created during Phase 6c planning (`implementation-phase6c-cli.md`)
 
 **Deliverables:**
@@ -206,7 +206,7 @@ Phase 8: UI Tests .................................... PLANNED
 
 > Comprehensive audit of all HTTP endpoints, auth decision paths, and API surface before deployment. Produces a unified Mermaid DAG showing every request path through the system, an endpoint inventory, reverse proxy (Caddy) readiness check, and gap analysis. Expanded scope: also audits API completeness and CLI coverage.
 
-**Spec**: [`features/implementation-phase6c-auth-audit.md`](../features/implementation-phase6c-auth-audit.md)
+**Spec**: [`features/implementation-phase7a-auth-audit.md`](../features/implementation-phase7a-auth-audit.md)
 
 **Deliverables:**
 - Endpoint inventory table (every route, auth mechanism, public/protected)

@@ -5,7 +5,7 @@ changelog:
   "2026-03-12": "Created — auth surface audit phase, unified Mermaid DAG"
 ---
 
-# Phase 6c: Auth Surface Audit
+# Phase 7a: Auth + API Surface Audit
 
 > Comprehensive audit of all HTTP endpoints and auth boundaries, producing a unified Mermaid DAG
 > showing every possible request path through the system with pass/fail decision nodes.

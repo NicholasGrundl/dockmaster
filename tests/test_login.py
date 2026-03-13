@@ -251,3 +251,15 @@ class TestSessions:
         response = login_client.get("/auth/sessions")
         assert response.status_code == 200
         assert response.json() == {}
+
+    def test_returns_empty_with_expired_session(self, login_client, session_store, login_settings):
+        """Returns {} when session has expired."""
+        signer = URLSafeSerializer(login_settings.session_secret_key)
+        session_id = "expired-session"
+        signed = signer.dumps(session_id)
+        session_store._store[session_id] = ({"email": "user@example.com"}, time.time() - 1)
+
+        login_client.cookies.set("session_id", signed)
+        response = login_client.get("/auth/sessions")
+        assert response.status_code == 200
+        assert response.json() == {}
