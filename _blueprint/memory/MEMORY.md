@@ -16,7 +16,7 @@
 - Phase 5: COMPLETE (RBAC — models, storage, authority, permission endpoints — 177 total tests)
 - Phase 6: NEAR COMPLETE (RBAC Management — admin endpoints + admin UI, 234 tests)
   - Remaining: fixture capture only (UI tests deferred to Phase 8)
-- Phase 6b: COMPLETE (Session Revocation — admin API + UI + admin_ops — 254 tests)
+- Phase 6b: COMPLETE (Session Revocation — admin API + UI + admin_ops — 257 tests)
 - Phase 6c: PLANNED (CLI + OAuth login flow, includes session revoke command)
 - Phase 7a: PLANNED (Auth + API Surface Audit — expanded scope)
 - Phase 7b: PLANNED (Deployment + GCP Cleanup)

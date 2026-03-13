@@ -13,7 +13,37 @@ stable. When updating composable sections, preserve the marker comments.
 
 ## Step 0 — Orient Yourself (every session, no exceptions)
 
-### 0a. Read the ground truth
+### 0a. Explore the project structure
+
+**Do this FIRST, before reading any files.** Use the `smart-tree` skill (or `tree` as fallback)
+to scan the project layout. This builds a mental map of where things live and prevents wasting
+context reading irrelevant files.
+
+**Required scans** (run these before reading content):
+
+1. **Blueprint scan** — understand planning state:
+   - `smart-tree` or `tree _blueprint/ -L 2 --dirsfirst --noreport --gitignore`
+   - Identifies: progress file, phase specs, feature docs, memory
+
+2. **Source scan** — understand codebase structure:
+   - `smart-tree` or `tree src/ -L 3 --dirsfirst --noreport --gitignore`
+   - Identifies: modules, routes, templates, models — where code lives
+
+3. **Test scan** — understand test coverage:
+   - `smart-tree` or `tree tests/ -L 2 --dirsfirst --noreport --gitignore`
+   - Identifies: which modules have tests, fixture directories
+
+**Philosophy**: Explore structure and filenames FIRST. Only grep or read file contents after you
+know WHERE to look. This limited-disclosure approach prevents wasting context on irrelevant files.
+
+**Tool priority**:
+1. **Primary**: `smart-tree` skill — intelligent, annotated, recommends read order
+2. **Fallback**: `tree` command — fast, flexible, always available
+3. **Last resort**: `find` with targeted flags if `tree` is unavailable
+
+### 0b. Read the ground truth
+
+Now that you know where things are, read the key files:
 
 1. Read `_blueprint/implementation-progress.md` — the canonical session-to-session state log. It
    tells you what phase we're on, what's done, what's in-progress, and any open decisions.
@@ -21,12 +51,10 @@ stable. When updating composable sections, preserve the marker comments.
    `_blueprint/features/implementation-*.md` — there is one per phase or sub-phase.
 3. Read `CLAUDE.md` for established patterns and conventions. Follow them exactly.
 
+### 0c. Determine your situation
 
-### 0b. Determine your situation
+Based on the progress file, determine which situation applies:
 
-Our goal is to determine execute our <situation> from the knowledge we already have and additional <learning> about the project and state.
-
-<situation>
 **A) The progress file has incomplete sub-tasks for the current phase.**
 Pick up where the last session left off. Confirm with the user: "The progress file shows sub-task
 X is next — should I continue from there?" Then go to Step 2.
@@ -37,24 +65,12 @@ Go to Step 1 to plan and populate sub-tasks.
 **C) The progress file is ambiguous.**
 Ask the user before proceeding.
 
-</situation>
-<learning>
-**Exploration strategy — use the most efficient tool available:**
+### 0d. Targeted exploration (as needed)
 
-1. **Primary**: Use the `smart-tree` skill if available. It provides intelligent, heuristic-driven
-   directory exploration that minimizes token cost.
-2. **Fallback**: Use the `tree` bash command. It is fast, efficient, and flexible.
-   - Example: `tree _blueprint/features -L 1` for phase docs
-   - Example: `tree src/ -L 2 --dirsfirst` for source structure
-   - Run `tree --help` if unfamiliar with flags.
-3. **Last resort**: Use `find` with targeted flags if `tree` is unavailable.
-   - Dirs only: `find src -maxdepth 2 -type d`
-   - Specific files: `find _blueprint/features -name "implementation-*.md"`
-   - Exclude dirs: `find . -path "*/node_modules/*" -prune -o -name "*.py" -print`
+During planning or implementation, you may need to explore specific areas of the codebase in more depth. Use the `smart-tree` skill to start this to locate files by name before reading them.
 
-**Philosophy**: Explore structure and filenames FIRST. Only grep or read file contents after you
-know WHERE to look. This limited-disclosure approach prevents wasting context on irrelevant files.
-</learning>
+If the exploration results are ambiguous or don't clearly point to the right files, ask the user
+for guidance using the `AskUserQuestion` tool with multiple-choice options rather than guessing.
 
 ---
 

@@ -282,7 +282,7 @@
 - `tests/test_ui.py` — updated "Your Sessions" assertion
 
 ## Test status (Phase 6b)
-- Full suite: 254 tests GREEN (20 new)
+- Full suite: 257 tests GREEN (23 new)
 
 ## Next session: pick up at
 "Phase 6c planning: CLI + OAuth login flow."
