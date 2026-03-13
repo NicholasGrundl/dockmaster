@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import uuid
+from urllib.parse import urlencode
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,28 +19,58 @@ router = APIRouter()
 
 PROFILE_CLAIM_KEYS = ("email", "name", "picture", "given_name", "family_name", "locale")
 
-# In-memory CSRF state store (maps state → True). Consumed on callback.
-_pending_states: dict[str, bool] = {}
+# Regex for allowed CLI redirect URIs (localhost only, any port)
+_LOCALHOST_RE = re.compile(r"^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/.*)?$")
+
+# In-memory CSRF state store (maps state → metadata dict).
+# Metadata: {"redirect_uri": str | None}
+_pending_states: dict[str, dict] = {}
 
 
 def _get_signer(settings: Settings) -> URLSafeSerializer:
     return URLSafeSerializer(settings.session_secret_key)
 
 
+def _validate_redirect_uri(uri: str | None) -> str | None:
+    """Validate and return the redirect URI, or None if not provided.
+
+    Currently only allows localhost URIs (for CLI OAuth flow).
+    Future: extend to support registered external service redirect URIs.
+    """
+    if not uri:
+        return None
+    if not _LOCALHOST_RE.match(uri):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid redirect_uri: only localhost URIs are currently allowed",
+        )
+    return uri
+
+
 @router.get("/login")
-async def login(request: Request, settings: Settings = Depends(get_settings)):
-    """Redirect to Google OAuth2 authorization endpoint."""
+async def login(
+    request: Request,
+    redirect_uri: str | None = None,
+    settings: Settings = Depends(get_settings),
+):
+    """Redirect to Google OAuth2 authorization endpoint.
+
+    If redirect_uri is provided (CLI flow), the callback will redirect there
+    with a JWT token instead of creating a session cookie.
+    """
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
 
-    state = str(uuid.uuid4())
-    _pending_states[state] = True
+    validated_redirect = _validate_redirect_uri(redirect_uri)
 
-    redirect_uri = str(request.url_for("callback"))
+    state = str(uuid.uuid4())
+    _pending_states[state] = {"redirect_uri": validated_redirect}
+
+    callback_uri = str(request.url_for("callback"))
     return await oauth.google.authorize_redirect(
         request,
-        redirect_uri,
+        callback_uri,
         state=state,
         prompt="select_account",
     )
@@ -55,7 +87,7 @@ async def callback(request: Request, settings: Settings = Depends(get_settings))
     state = request.query_params.get("state")
     if not state or state not in _pending_states:
         raise HTTPException(status_code=401, detail="Invalid OAuth state")
-    del _pending_states[state]
+    state_meta = _pending_states.pop(state)
 
     # Exchange code for tokens
     token_response = await oauth.google.authorize_access_token(request)
@@ -70,7 +102,12 @@ async def callback(request: Request, settings: Settings = Depends(get_settings))
     if domain not in settings.authorized_domains:
         raise HTTPException(status_code=403, detail=f"Domain not allowed: {domain}")
 
-    # Create session
+    # CLI flow: mint JWT and redirect to localhost callback
+    cli_redirect = state_meta.get("redirect_uri")
+    if cli_redirect:
+        return _handle_cli_callback(request, email, cli_redirect)
+
+    # Browser flow: create session and set cookie
     session_store = getattr(request.app.state, "session_store", None)
     if session_store is None:
         raise HTTPException(status_code=503, detail="Session store not configured")
@@ -96,6 +133,26 @@ async def callback(request: Request, settings: Settings = Depends(get_settings))
     )
     logger.info("session_created", email=email, session_id=session_id)
     return response
+
+
+CLI_TOKEN_TTL = 900  # 15 minutes
+
+
+def _handle_cli_callback(request: Request, email: str, redirect_uri: str) -> RedirectResponse:
+    """Mint a short-lived JWT and redirect to the CLI's localhost callback."""
+    signer = getattr(request.app.state, "signer", None)
+    if signer is None:
+        raise HTTPException(status_code=503, detail="JWT signing not configured")
+
+    token = signer.get_token(
+        subject=email,
+        service_name="dockmaster",
+        expiry=CLI_TOKEN_TTL,
+    )
+
+    target = f"{redirect_uri}?{urlencode({'token': token})}"
+    logger.info("cli_token_issued", email=email, redirect_uri=redirect_uri)
+    return RedirectResponse(url=target, status_code=302)
 
 
 @router.get("/logout")

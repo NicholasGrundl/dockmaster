@@ -94,7 +94,7 @@ class TestCallback:
 
     def test_callback_creates_session_and_redirects(self, login_client, mock_oauth, session_store):
         """Valid callback → session created, cookie set, redirect to /ui/."""
-        _pending_states["valid-state"] = True
+        _pending_states["valid-state"] = {"redirect_uri": None}
 
         mock_oauth.google.authorize_access_token = AsyncMock(
             return_value={
@@ -131,7 +131,7 @@ class TestCallback:
 
     def test_callback_domain_not_allowed_returns_403(self, login_client, mock_oauth):
         """Callback with unauthorized email domain → 403."""
-        _pending_states["valid-state"] = True
+        _pending_states["valid-state"] = {"redirect_uri": None}
 
         mock_oauth.google.authorize_access_token = AsyncMock(
             return_value={

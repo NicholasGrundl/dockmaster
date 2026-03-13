@@ -2,9 +2,43 @@
 
 *Last updated: 2026-03-12*
 
-## Current Phase: Phase 6 — RBAC Management
-**Approach**: TDD (all modules are pure logic with mocked SM client)
+## Current Phase: Phase 6c — CLI + OAuth Login
+**Approach**: Build first, test after
 **Status**: IN PROGRESS
+
+## Phase 6c sub-tasks
+
+### Server-side prep
+- [ ] 1. Add `redirect_uri` param to `/auth/login` + `/auth/callback` — accept optional redirect_uri, validate localhost-only for now, design for future external service redirects
+
+### CLI scaffold
+- [ ] 2. CLI package structure — `src/dockmaster/cli/`, Typer app, entry point in `pyproject.toml`
+- [ ] 3. Auth module — localhost callback server, browser open, token capture + storage (`platformdirs`), token expiry check helper
+
+### CLI commands
+- [ ] 4. `login` / `logout` commands
+- [ ] 5. `role` command group — get, list, create, delete, add, remove
+- [ ] 6. `grant` command group — get, list, delete, add, remove
+- [ ] 7. `check` command
+
+### Wrap-up
+- [ ] 8. Manual E2E test — run `dockmaster login`, exercise commands against running server
+- [ ] 9. Add tests for CLI modules
+- [ ] 10. Lint + full suite green
+- [ ] 11. Update progress file + spec
+
+## Decisions log (Phase 6c)
+- 2026-03-12: D12 — `grant` group (not `service`) with `add`/`remove` verbs to avoid grant/grant verb collision
+- 2026-03-12: D13 — `check` command (not `test`) for permission checks, with subject+target positional, -p/--permission flag
+- 2026-03-12: D14 — `--permission`/`-p` for role commands, `--role`/`-r` for grant commands, short flags everywhere
+- 2026-03-12: D15 — `token` command deferred to future phase (dockmaster-issued JWT design pending)
+- 2026-03-12: D16 — `grant remove` without `-r` flags removes all roles for that subject
+- 2026-03-12: D17 — Design full redirect URI system (for future external service redirects), build only localhost portion in 6c
+- 2026-03-12: D18 — Build-first approach, test after. Single session target.
+
+## Previous Phase: Phase 6 — RBAC Management
+**Approach**: TDD (all modules are pure logic with mocked SM client)
+**Status**: COMPLETE ✅
 
 ## Phase 6 sub-tasks
 
