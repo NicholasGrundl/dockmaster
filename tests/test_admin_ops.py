@@ -218,3 +218,113 @@ class TestDeleteServiceGrants:
 
         storage.delete_service_grants.assert_called_once_with("lims")
         authority.clear_cache.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Session operations
+# ---------------------------------------------------------------------------
+
+
+def _session_store_with_data():
+    """Return an InMemorySessionStore pre-populated with test sessions."""
+    from dockmaster.sessions.memory import InMemorySessionStore
+
+    store = InMemorySessionStore()
+    # Manually insert sessions (bypass async set for simplicity)
+    import time
+
+    now = time.time()
+    store._store["sess-1"] = ({"email": "alice@example.com", "name": "Alice"}, now + 3600)
+    store._store["sess-2"] = ({"email": "alice@example.com", "name": "Alice"}, now + 3600)
+    store._store["sess-3"] = ({"email": "bob@example.com", "name": "Bob"}, now + 3600)
+    return store
+
+
+class TestListSessions:
+    @pytest.mark.anyio
+    async def test_returns_all_sessions(self):
+        from dockmaster.rbac.admin_ops import list_sessions
+
+        store = _session_store_with_data()
+        result = await list_sessions(store)
+
+        assert len(result) == 3
+        assert "sess-1" in result
+        assert "sess-2" in result
+        assert "sess-3" in result
+
+    @pytest.mark.anyio
+    async def test_empty_store(self):
+        from dockmaster.rbac.admin_ops import list_sessions
+        from dockmaster.sessions.memory import InMemorySessionStore
+
+        store = InMemorySessionStore()
+        result = await list_sessions(store)
+        assert result == {}
+
+
+class TestListSessionsByEmail:
+    @pytest.mark.anyio
+    async def test_filters_by_email(self):
+        from dockmaster.rbac.admin_ops import list_sessions_by_email
+
+        store = _session_store_with_data()
+        result = await list_sessions_by_email(store, "alice@example.com")
+
+        assert len(result) == 2
+        assert "sess-1" in result
+        assert "sess-2" in result
+        assert "sess-3" not in result
+
+    @pytest.mark.anyio
+    async def test_no_match_returns_empty(self):
+        from dockmaster.rbac.admin_ops import list_sessions_by_email
+
+        store = _session_store_with_data()
+        result = await list_sessions_by_email(store, "nobody@example.com")
+        assert result == {}
+
+
+class TestRevokeSession:
+    @pytest.mark.anyio
+    async def test_revokes_existing_session(self):
+        from dockmaster.rbac.admin_ops import revoke_session
+
+        store = _session_store_with_data()
+        result = await revoke_session(store, "sess-1")
+
+        assert result is True
+        assert await store.get("sess-1") is None
+        # Other sessions unaffected
+        assert await store.get("sess-3") is not None
+
+    @pytest.mark.anyio
+    async def test_returns_false_for_missing_session(self):
+        from dockmaster.rbac.admin_ops import revoke_session
+
+        store = _session_store_with_data()
+        result = await revoke_session(store, "nonexistent")
+        assert result is False
+
+
+class TestRevokeSessionsByEmail:
+    @pytest.mark.anyio
+    async def test_revokes_all_for_email(self):
+        from dockmaster.rbac.admin_ops import revoke_sessions_by_email
+
+        store = _session_store_with_data()
+        count = await revoke_sessions_by_email(store, "alice@example.com")
+
+        assert count == 2
+        assert await store.get("sess-1") is None
+        assert await store.get("sess-2") is None
+        # Bob's session unaffected
+        assert await store.get("sess-3") is not None
+
+    @pytest.mark.anyio
+    async def test_returns_zero_for_no_match(self):
+        from dockmaster.rbac.admin_ops import revoke_sessions_by_email
+
+        store = _session_store_with_data()
+        count = await revoke_sessions_by_email(store, "nobody@example.com")
+        assert count == 0

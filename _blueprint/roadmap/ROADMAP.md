@@ -21,10 +21,12 @@ Phase 2: JWT Infrastructure .......................... ✅ COMPLETE
 Phase 3: Token Exchange .............................. ✅ COMPLETE
 Phase 4: OAuth Login + Session ....................... ✅ COMPLETE (4a, 4b, 4c)
 Phase 5: RBAC ........................................ ✅ COMPLETE
-Phase 6: RBAC Management (endpoints + admin UI) ...... PLANNED
-Phase 6b: CLI + OAuth login flow ..................... PLANNED
-Phase 6c: Auth Surface Audit ......................... PLANNED
-Phase 7: Deployment + GCP Cleanup .................... PLANNED
+Phase 6: RBAC Management (endpoints + admin UI) ...... IN PROGRESS
+Phase 6b: Session Revocation ......................... PLANNED
+Phase 6c: CLI + OAuth login flow ..................... PLANNED
+Phase 7a: Auth + API Surface Audit ................... PLANNED
+Phase 7b: Deployment + GCP Cleanup ................... PLANNED
+Phase 8: UI Tests .................................... PLANNED
 ```
 
 ---
@@ -162,17 +164,36 @@ Phase 7: Deployment + GCP Cleanup .................... PLANNED
 
 ---
 
-## Phase 6b: CLI + OAuth Login Flow — PLANNED
+## Phase 6b: Session Revocation — PLANNED
 
-> Typer CLI with browser-based OAuth login, enabling RBAC management from the terminal.
+> Admin session management — API endpoints, admin_ops layer, and admin UI for viewing and revoking user sessions. Mirrors the RBAC CRUD pattern from Phase 6.
 
-**Spec**: [`features/phase6b-cli-v2.md`](../features/phase6b-cli-v2.md)
-**Implementation guide**: To be created during Phase 6b planning (`implementation-phase6b-cli.md`)
+**Spec**: To be created during Phase 6b planning (`implementation-phase6b-session-revocation.md`)
 
 **Deliverables:**
-- Typer CLI: role, service, test, token commands (all go through dockmaster API)
+- Admin session management endpoints (`/admin/sessions`) — list, revoke
+- Shared `admin_ops` functions for session management (used by API + UI)
+- Admin UI page for session management (view active sessions, revoke)
+- Uses existing admin auth (`require_admin_api`, `require_admin_writes`)
+
+**Dependencies:** Phase 6 complete
+
+**GCP Guide:** None
+
+---
+
+## Phase 6c: CLI + OAuth Login Flow — PLANNED
+
+> Typer CLI with browser-based OAuth login, enabling RBAC management and session revocation from the terminal.
+
+**Spec**: [`features/phase6b-cli-v2.md`](../features/phase6b-cli-v2.md)
+**Implementation guide**: To be created during Phase 6c planning (`implementation-phase6c-cli.md`)
+
+**Deliverables:**
+- Typer CLI: role, service, test, token, session commands (all go through dockmaster API)
 - Localhost-callback OAuth login flow (browser opens, authenticates, CLI captures token)
 - 15-minute JWT persisted to disk via `platformdirs` (no refresh token)
+- Session revoke command (calls `/admin/sessions` endpoint)
 - Legacy bug fixes: revoke wildcard off-by-one, role remove ValueError
 
 **Dependencies:** `typer>=0.9`, `platformdirs`
@@ -181,28 +202,29 @@ Phase 7: Deployment + GCP Cleanup .................... PLANNED
 
 ---
 
-## Phase 6c: Auth Surface Audit — PLANNED
+## Phase 7a: Auth + API Surface Audit — PLANNED
 
-> Comprehensive audit of all HTTP endpoints and auth decision paths before deployment. Produces a unified Mermaid DAG showing every request path through the system, an endpoint inventory, reverse proxy (Caddy) readiness check, and gap analysis.
+> Comprehensive audit of all HTTP endpoints, auth decision paths, and API surface before deployment. Produces a unified Mermaid DAG showing every request path through the system, an endpoint inventory, reverse proxy (Caddy) readiness check, and gap analysis. Expanded scope: also audits API completeness and CLI coverage.
 
 **Spec**: [`features/implementation-phase6c-auth-audit.md`](../features/implementation-phase6c-auth-audit.md)
 
 **Deliverables:**
 - Endpoint inventory table (every route, auth mechanism, public/protected)
 - Unified Mermaid DAG of all auth decision paths (entry → auth check → outcome)
+- API surface audit — completeness, consistency, missing operations
 - Caddy reverse proxy readiness doc (headers, cookies, redirects, TLS)
 - Gap analysis with risk ratings
 - Audit + document only — no code changes
 
-**Dependencies:** Phases 6 and 6b complete (audit the full surface area)
+**Dependencies:** Phases 6, 6b, 6c complete (audit the full surface area)
 
 ---
 
-## Phase 7: Deployment + GCP Cleanup — PLANNED
+## Phase 7b: Deployment + GCP Cleanup — PLANNED
 
-> GCP credential rotation, setup/dev guides, and deployment configuration. Plan this phase after Phase 6b is complete.
+> GCP credential rotation, setup/dev guides, and deployment configuration. Plan this phase after all feature phases are complete.
 
-**Spec**: To be created during Phase 7 planning
+**Spec**: To be created during Phase 7b planning
 
 **Deliverables (tentative — needs planning):**
 - Rotate all GCP secrets (new client secret, rotate SA keys) — purge any credentials exposed during development
@@ -211,6 +233,22 @@ Phase 7: Deployment + GCP Cleanup .................... PLANNED
 - Deployment configuration (Docker Compose, Caddy reverse proxy, DO droplet)
 - Admin SA (`dockmaster-admin`) setup guide
 
-**Dependencies:** All feature phases complete (5, 6, 6b)
+**Dependencies:** All feature phases complete (6, 6b, 6c) + Phase 7a audit
 
 **GCP Guide:** This phase IS the guide phase
+
+---
+
+## Phase 8: UI Tests — PLANNED
+
+> Comprehensive UI test coverage for all admin pages. Deferred until UI is finalized and stable.
+
+**Spec**: To be created during Phase 8 planning
+
+**Deliverables:**
+- Admin UI page tests (roles list, grants list, grants detail, session management)
+- Form submission tests (create, edit, delete flows)
+- Read-only mode tests (when admin SA not configured)
+- Auth guard tests for admin UI routes
+
+**Dependencies:** All UI-affecting phases complete (6, 6b, 6c, 7a)

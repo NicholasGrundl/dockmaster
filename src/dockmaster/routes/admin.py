@@ -45,6 +45,13 @@ def _get_authority(request: Request):
     return getattr(request.app.state, "authority", None)
 
 
+def _get_session_store(request: Request):
+    store = getattr(request.app.state, "session_store", None)
+    if store is None:
+        raise HTTPException(status_code=503, detail="Session store not configured")
+    return store
+
+
 # ------------------------------------------------------------------
 # Role endpoints
 # ------------------------------------------------------------------
@@ -184,3 +191,55 @@ async def delete_grants(
     except NotFound:
         raise HTTPException(status_code=404, detail=f"Grants for '{service}' not found")
     return Response(status_code=204)
+
+
+# ------------------------------------------------------------------
+# Session endpoints
+# ------------------------------------------------------------------
+
+
+@router.get("/sessions")
+async def list_sessions(
+    request: Request,
+    _admin: dict = Depends(require_admin_api),
+):
+    """List all active sessions."""
+    store = _get_session_store(request)
+    return await admin_ops.list_sessions(store)
+
+
+@router.get("/sessions/email/{email}")
+async def list_sessions_by_email(
+    request: Request,
+    email: str,
+    _admin: dict = Depends(require_admin_api),
+):
+    """List sessions for a specific user email."""
+    store = _get_session_store(request)
+    return await admin_ops.list_sessions_by_email(store, email)
+
+
+@router.delete("/sessions/id/{session_id}")
+async def revoke_session(
+    request: Request,
+    session_id: str,
+    _admin: dict = Depends(require_admin_api),
+):
+    """Revoke a single session by ID."""
+    store = _get_session_store(request)
+    revoked = await admin_ops.revoke_session(store, session_id)
+    if not revoked:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    return {"revoked": True, "session_id": session_id}
+
+
+@router.delete("/sessions/email/{email}")
+async def revoke_sessions_by_email(
+    request: Request,
+    email: str,
+    _admin: dict = Depends(require_admin_api),
+):
+    """Revoke all sessions for a user email."""
+    store = _get_session_store(request)
+    count = await admin_ops.revoke_sessions_by_email(store, email)
+    return {"revoked": count, "email": email}

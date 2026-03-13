@@ -213,3 +213,41 @@ class TestPrincipal:
 
         assert response.status_code == 200
         assert response.json() == {}
+
+
+class TestSessions:
+    """GET /auth/sessions."""
+
+    def test_returns_current_user_sessions(self, login_client, session_store, login_settings):
+        """Returns only sessions matching the current user's email."""
+        signer = URLSafeSerializer(login_settings.session_secret_key)
+        session_id = "my-session"
+        signed = signer.dumps(session_id)
+
+        # Seed sessions for current user and another user
+        _seed_session(session_store, session_id, {"email": "user@example.com", "name": "Me"})
+        _seed_session(session_store, "other-session", {"email": "user@example.com", "name": "Me"})
+        _seed_session(session_store, "bob-session", {"email": "bob@example.com", "name": "Bob"})
+
+        login_client.cookies.set("session_id", signed)
+        response = login_client.get("/auth/sessions")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert "my-session" in data
+        assert "other-session" in data
+        assert "bob-session" not in data
+
+    def test_returns_empty_without_cookie(self, login_client):
+        """Returns {} when no session cookie."""
+        response = login_client.get("/auth/sessions")
+        assert response.status_code == 200
+        assert response.json() == {}
+
+    def test_returns_empty_with_invalid_cookie(self, login_client):
+        """Returns {} when cookie signature is invalid."""
+        login_client.cookies.set("session_id", "tampered-value")
+        response = login_client.get("/auth/sessions")
+        assert response.status_code == 200
+        assert response.json() == {}

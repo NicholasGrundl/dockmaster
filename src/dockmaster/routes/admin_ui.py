@@ -1,4 +1,4 @@
-"""Routes: Admin UI pages — /ui/roles, /ui/grants."""
+"""Routes: Admin UI pages — /ui/roles, /ui/grants, /ui/sessions."""
 
 from __future__ import annotations
 
@@ -292,3 +292,72 @@ async def delete_grants_form(
         return RedirectResponse(url=f"/ui/grants?error=Grants+for+'{service}'+not+found", status_code=303)
 
     return RedirectResponse(url="/ui/grants?success=Grants+deleted", status_code=303)
+
+
+# ------------------------------------------------------------------
+# Sessions pages
+# ------------------------------------------------------------------
+
+
+def _get_session_store(request: Request):
+    return getattr(request.app.state, "session_store", None)
+
+
+@router.get("/sessions", response_class=HTMLResponse)
+async def sessions_page(
+    request: Request,
+    user: dict = Depends(require_admin_ui),
+):
+    """List all active sessions with revoke controls."""
+    store = _get_session_store(request)
+    sessions = await admin_ops.list_sessions(store) if store else {}
+
+    return templates.TemplateResponse(
+        request,
+        "sessions.html",
+        {
+            "ui": _ui_config(request),
+            "user": user,
+            "sessions": sessions,
+            "is_admin": True,
+            "error": request.query_params.get("error"),
+            "success": request.query_params.get("success"),
+        },
+    )
+
+
+@router.post("/sessions/{session_id}/revoke", response_class=HTMLResponse)
+async def revoke_session_form(
+    request: Request,
+    session_id: str,
+    user: dict = Depends(require_admin_ui),
+):
+    """Handle revoke single session form submission."""
+    store = _get_session_store(request)
+    if not store:
+        return RedirectResponse(url="/ui/sessions?error=Session+store+not+configured", status_code=303)
+
+    revoked = await admin_ops.revoke_session(store, session_id)
+    if not revoked:
+        return RedirectResponse(url="/ui/sessions?error=Session+not+found", status_code=303)
+
+    return RedirectResponse(url="/ui/sessions?success=Session+revoked", status_code=303)
+
+
+@router.post("/sessions/revoke-by-email", response_class=HTMLResponse)
+async def revoke_sessions_by_email_form(
+    request: Request,
+    user: dict = Depends(require_admin_ui),
+    email: str = Form(...),
+):
+    """Handle revoke all sessions for an email form submission."""
+    store = _get_session_store(request)
+    if not store:
+        return RedirectResponse(url="/ui/sessions?error=Session+store+not+configured", status_code=303)
+
+    count = await admin_ops.revoke_sessions_by_email(store, email.strip())
+
+    return RedirectResponse(
+        url=f"/ui/sessions?success={count}+session(s)+revoked+for+{email.strip()}",
+        status_code=303,
+    )

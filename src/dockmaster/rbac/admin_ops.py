@@ -1,19 +1,24 @@
-"""Admin CRUD operations for RBAC roles and grants.
+"""Admin CRUD operations for RBAC roles, grants, and sessions.
 
 Service layer shared by API routes and UI routes. Each write operation
 calls storage then invalidates the Authority cache so changes take effect
 immediately on the handling instance.
 
-All storage calls use run_in_executor because the SM client is synchronous.
+RBAC storage calls use run_in_executor because the SM client is synchronous.
+Session operations are async-native (no executor needed).
 """
 
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
 from google.api_core.exceptions import NotFound
 
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
+
+if TYPE_CHECKING:
+    from dockmaster.sessions.protocol import SessionStore
 from dockmaster.rbac.storage import AdminSecretsStorage, SecretsStorage
 
 
@@ -138,3 +143,37 @@ async def delete_service_grants(
 
     if authority is not None:
         authority.clear_cache()
+
+
+# ------------------------------------------------------------------
+# Sessions
+# ------------------------------------------------------------------
+
+
+async def list_sessions(session_store: SessionStore) -> dict[str, dict]:
+    """List all active sessions."""
+    return await session_store.list_all()
+
+
+async def list_sessions_by_email(session_store: SessionStore, email: str) -> dict[str, dict]:
+    """List sessions filtered by user email."""
+    all_sessions = await session_store.list_all()
+    return {sid: data for sid, data in all_sessions.items() if data.get("email") == email}
+
+
+async def revoke_session(session_store: SessionStore, session_id: str) -> bool:
+    """Revoke a single session by ID. Returns True if it existed, False otherwise."""
+    existing = await session_store.get(session_id)
+    if existing is None:
+        return False
+    await session_store.delete(session_id)
+    return True
+
+
+async def revoke_sessions_by_email(session_store: SessionStore, email: str) -> int:
+    """Revoke all sessions for a user email. Returns the count of revoked sessions."""
+    all_sessions = await session_store.list_all()
+    targets = [sid for sid, data in all_sessions.items() if data.get("email") == email]
+    for sid in targets:
+        await session_store.delete(sid)
+    return len(targets)

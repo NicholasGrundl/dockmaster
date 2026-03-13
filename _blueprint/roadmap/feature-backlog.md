@@ -105,13 +105,24 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 
 ---
 
+## Future Features
+
+### User Whitelisting via Secret Manager
+- **Context**: Currently access control is domain-level (`AUTHORIZED_DOMAINS`) + admin email list (`DOCKMASTER_ADMIN_EMAILS`). No per-user whitelist for non-admin users outside the authorized domain.
+- **Approach**: Option B — SM-based allowed-users secret, admin-manageable via UI. Needs a proper design session to make it flexible (not just a flat list — consider groups, expiry, invitation flow).
+- **When**: After core features are deployed and real multi-user access patterns emerge.
+- **Planning needed**: Data model (flat list vs structured), admin UI for managing users, how it interacts with domain-level auth, invitation/onboarding flow.
+
+---
+
 ## Previously Deferred Items
 
 ### Redis Session Store
-- **Context**: Phase 4 ships with in-memory `SessionStore`. Redis implementation uses the same `SessionStore` protocol.
-- **When**: After Phase 4 in-memory is working, or when multi-instance deployment is needed.
+- **Context**: Phase 4 ships with in-memory `SessionStore`. Redis implementation uses the same `SessionStore` protocol. Single Docker Compose instance is fine for now — in-memory store works since there's only one process.
+- **When**: When multi-instance deployment is needed (load balancer, horizontal scaling).
 - **Effort**: Small — implement `RedisSessionStore` against existing protocol.
 - **Dependency**: `redis[hiredis]`
+- **Note (2026-03-12)**: Also needed for session revocation to work across instances. Phase 6b session revocation works fine in-memory for single-instance. Phase 6b `revoke_sessions_by_email` uses list_all + filter + delete loop — Redis could optimize this with native SCAN+DEL or secondary index by email. Consider adding `delete_by_email(email) -> int` to the protocol when implementing Redis backend.
 
 ### FastHTML + MonsterUI Admin Dashboard Evaluation
 - **Context**: Admin UI uses Jinja2 + Tailwind CSS (no HTMX). FastHTML+MonsterUI could provide a richer SPA-like experience with Python-only components.

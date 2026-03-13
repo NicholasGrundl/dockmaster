@@ -15,9 +15,13 @@ Includes:
 - **Phase 2 (JWT Infrastructure)**: Complete
 - **Phase 3 (Token Exchange)**: Complete
 - **Phase 4 (OAuth Login + Session)**: Complete (4a, 4b, 4c — 134 tests)
-- **Phase 5 (RBAC)**: Planned
-- **Phase 6 (RBAC Management)**: Planned
-- **Phase 6b (CLI + OAuth Login)**: Planned
+- **Phase 5 (RBAC)**: Complete
+- **Phase 6 (RBAC Management)**: Near Complete (fixture capture remaining)
+- **Phase 6b (Session Revocation)**: Planned
+- **Phase 6c (CLI + OAuth Login)**: Planned
+- **Phase 7a (Auth + API Audit)**: Planned
+- **Phase 7b (Deployment + GCP Cleanup)**: Planned
+- **Phase 8 (UI Tests)**: Planned
 
 See `_blueprint/roadmap/ROADMAP.md` for the full task list.
 

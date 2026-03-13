@@ -23,12 +23,16 @@ def _admin_app(
     services: dict[str, ServiceGrants] | None = None,
     role_names: list[str] | None = None,
     service_names: list[str] | None = None,
+    session_store: object | None = None,
 ) -> FastAPI:
     """Build an app with admin routes and mocked storage."""
     from dockmaster.routes.admin import router
 
     app = FastAPI()
     app.include_router(router, prefix="/admin")
+
+    if session_store is not None:
+        app.state.session_store = session_store
 
     test_settings = Settings(
         _env_file=None,
@@ -276,3 +280,104 @@ class TestAdminAuth:
             json={"name": "viewer", "permissions": ["read"]},
         )
         assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# Session endpoints
+# ---------------------------------------------------------------------------
+
+
+def _session_store_with_data():
+    """Return an InMemorySessionStore pre-populated with test sessions."""
+    import time
+
+    from dockmaster.sessions.memory import InMemorySessionStore
+
+    store = InMemorySessionStore()
+    now = time.time()
+    store._store["sess-1"] = ({"email": "alice@co.com", "name": "Alice"}, now + 3600)
+    store._store["sess-2"] = ({"email": "alice@co.com", "name": "Alice"}, now + 3600)
+    store._store["sess-3"] = ({"email": "bob@co.com", "name": "Bob"}, now + 3600)
+    return store
+
+
+class TestListSessions:
+    def test_returns_all_sessions(self):
+        store = _session_store_with_data()
+        app = _admin_app(session_store=store)
+        resp = TestClient(app).get("/admin/sessions")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 3
+        assert "sess-1" in data
+        assert "sess-3" in data
+
+    def test_returns_empty_when_no_sessions(self):
+        from dockmaster.sessions.memory import InMemorySessionStore
+
+        app = _admin_app(session_store=InMemorySessionStore())
+        resp = TestClient(app).get("/admin/sessions")
+        assert resp.status_code == 200
+        assert resp.json() == {}
+
+    def test_503_when_session_store_not_configured(self):
+        app = _admin_app()
+        resp = TestClient(app).get("/admin/sessions")
+        assert resp.status_code == 503
+
+
+class TestListSessionsByEmail:
+    def test_filters_by_email(self):
+        store = _session_store_with_data()
+        app = _admin_app(session_store=store)
+        resp = TestClient(app).get("/admin/sessions/email/alice@co.com")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+        assert all(v["email"] == "alice@co.com" for v in data.values())
+
+    def test_no_match_returns_empty(self):
+        store = _session_store_with_data()
+        app = _admin_app(session_store=store)
+        resp = TestClient(app).get("/admin/sessions/email/nobody@co.com")
+        assert resp.status_code == 200
+        assert resp.json() == {}
+
+
+class TestRevokeSessionById:
+    def test_revokes_session(self):
+        store = _session_store_with_data()
+        app = _admin_app(session_store=store)
+        resp = TestClient(app).delete("/admin/sessions/id/sess-1")
+        assert resp.status_code == 200
+        assert resp.json()["revoked"] is True
+        # Verify session is gone
+        resp2 = TestClient(app).get("/admin/sessions")
+        assert "sess-1" not in resp2.json()
+
+    def test_not_found_returns_404(self):
+        store = _session_store_with_data()
+        app = _admin_app(session_store=store)
+        resp = TestClient(app).delete("/admin/sessions/id/nonexistent")
+        assert resp.status_code == 404
+
+
+class TestRevokeSessionsByEmail:
+    def test_revokes_all_for_email(self):
+        store = _session_store_with_data()
+        app = _admin_app(session_store=store)
+        resp = TestClient(app).delete("/admin/sessions/email/alice@co.com")
+        assert resp.status_code == 200
+        assert resp.json()["revoked"] == 2
+        # Bob's session still there
+        resp2 = TestClient(app).get("/admin/sessions")
+        data = resp2.json()
+        assert len(data) == 1
+        assert "sess-3" in data
+
+    def test_no_match_returns_zero(self):
+        store = _session_store_with_data()
+        app = _admin_app(session_store=store)
+        resp = TestClient(app).delete("/admin/sessions/email/nobody@co.com")
+        assert resp.status_code == 200
+        assert resp.json()["revoked"] == 0

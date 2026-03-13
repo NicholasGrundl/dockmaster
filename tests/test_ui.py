@@ -100,7 +100,7 @@ class TestDashboard:
 
     def test_dashboard_shows_session_table(self, authed_client):
         response = authed_client.get("/ui/")
-        assert "Active Sessions" in response.text
+        assert "Your Sessions" in response.text
 
     def test_dashboard_shows_service_status(self, authed_client):
         response = authed_client.get("/ui/")

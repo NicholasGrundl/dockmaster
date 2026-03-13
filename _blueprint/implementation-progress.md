@@ -27,12 +27,12 @@
 
 ### Tracer bullet (user-driven, after code is written)
 - [x] 14. Manual E2E verification — tests 1–5 PASS: create/update/delete roles, add/edit grants, all verified in SM via gcloud
-- [ ] 15. Fixture capture — capture `list_secrets` responses for list methods (if useful for future tests)
+- [x] 15. Fixture capture — `list_roles.json` + `list_service_grants.json` captured via Python scripts
 - [x] 16. Update progress file
 
 ### Follow-up (before phase complete)
 - [x] 17. Add "create new service grants" UI — form on grants list page, creates service with initial grant, redirects to detail page
-- [ ] 18. UI tests — admin UI page tests (deferred until UI is finalized)
+- [~] 18. UI tests — DEFERRED to Phase 8 (UI still being tweaked, tests would churn)
 
 ## GCP setup checklist (Phase 6)
 - [x] `dockmaster-admin` SA created
@@ -242,5 +242,47 @@
 - Phase 4c: COMPLETE (Admin dashboard + UI polish — 17 new tests, 134 total)
 - Phase 5: COMPLETE (RBAC — models, storage, authority, permission endpoints — 43 new tests, 177 total)
 
+## Current Phase: Phase 6b — Session Revocation
+**Approach**: TDD (all modules use in-memory session store, no external deps)
+**Status**: COMPLETE ✅
+
+## Phase 6b sub-tasks
+
+### Implementation (TDD)
+- [x] 1. Service layer functions + tests — 4 session functions in `admin_ops.py` + 8 tests GREEN
+- [x] 2. Admin API endpoints + tests — `/admin/sessions/*` in `routes/admin.py` + 9 tests GREEN
+- [x] 3. User endpoint + tests — `GET /auth/sessions` in `routes/login.py` + 3 tests GREEN
+- [x] 4. Dashboard fix — filter sessions to current user, "Your Sessions" heading
+- [x] 5. Admin UI sessions page — `sessions.html`, routes in `admin_ui.py`, nav link in `base.html`
+- [x] 6. Lint + full suite green — 254 tests GREEN, ruff clean
+- [x] 7. Update progress file
+
+## Phase ordering (revised 2026-03-12)
+- Phase 6: RBAC Management (wrapping up)
+- Phase 6b: Session Revocation (admin API + UI + admin_ops)
+- Phase 6c: CLI (wraps admin API, includes revoke command)
+- Phase 7a: Auth + API Surface Audit (expanded scope)
+- Phase 7b: Deployment + GCP Cleanup
+- Phase 8: UI Tests (deferred until UI is stable)
+
+## New files (Phase 6b)
+- `src/dockmaster/templates/sessions.html` — admin sessions page with revoke controls
+
+## Modified files (Phase 6b)
+- `src/dockmaster/rbac/admin_ops.py` — added session ops: `list_sessions`, `list_sessions_by_email`, `revoke_session`, `revoke_sessions_by_email`
+- `src/dockmaster/routes/admin.py` — added `/admin/sessions`, `/admin/sessions/email/{email}`, `/admin/sessions/id/{session_id}` endpoints
+- `src/dockmaster/routes/login.py` — added `GET /auth/sessions` (current user's sessions)
+- `src/dockmaster/routes/admin_ui.py` — added `/ui/sessions` page, revoke form handlers
+- `src/dockmaster/routes/ui.py` — dashboard filters sessions to current user only
+- `src/dockmaster/templates/base.html` — added "Sessions" admin nav link
+- `src/dockmaster/templates/dashboard.html` — "Your Sessions" heading (was "Active Sessions")
+- `tests/test_admin_ops.py` — 8 new session ops tests (22 total)
+- `tests/test_admin_endpoints.py` — 9 new session endpoint tests (26 total)
+- `tests/test_login.py` — 3 new /auth/sessions tests (14 total)
+- `tests/test_ui.py` — updated "Your Sessions" assertion
+
+## Test status (Phase 6b)
+- Full suite: 254 tests GREEN (20 new)
+
 ## Next session: pick up at
-"Phase 6 (RBAC Management — admin endpoints + admin UI pages)."
+"Phase 6c planning: CLI + OAuth login flow."

@@ -95,9 +95,15 @@ async def dashboard(
     request: Request,
     user: dict = Depends(require_ui_session),
 ):
-    """Admin dashboard — active sessions, service status."""
+    """Admin dashboard — user's sessions, service status."""
     session_store = getattr(request.app.state, "session_store", None)
-    sessions = await session_store.list_all() if session_store else {}
+    if session_store:
+        from dockmaster.rbac.admin_ops import list_sessions_by_email
+
+        email = user.get("email", "")
+        sessions = await list_sessions_by_email(session_store, email) if email else {}
+    else:
+        sessions = {}
 
     services = {
         "signer": getattr(request.app.state, "signer", None) is not None,
