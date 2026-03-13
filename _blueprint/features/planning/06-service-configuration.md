@@ -26,7 +26,7 @@ The service startup involves module-level initialization across three files, exe
 
 ```
 1. service/dockmaster_service/service.py (imported by __init__.py)
-   ├── Creates Flask app: Flask('XYZ')
+   ├── Creates Flask app: Flask('app')
    ├── Applies Config defaults: service.config.from_object(Config())
    ├── Creates watchtower API instance
    ├── Registers Pydantic models with API
@@ -294,11 +294,11 @@ The `set_loglevel()` function converts the string level (e.g., `'debug'`) to a l
 assets_dir = str(importlib.resources.path(dockmaster_service, 'assets'))
 templates_dir = str(importlib.resources.path(dockmaster_service, 'templates'))
 
-service = Flask('XYZ', template_folder=templates_dir)
+service = Flask('app', template_folder=templates_dir)
 service.config.from_object(Config())
 ```
 
-- Flask app name: `'XYZ'` (micro symbol, for the-project)
+- Flask app name: `'app'` (micro symbol, legacy name)
 - Template folder and assets directory resolved via `importlib.resources` for package-relative paths
 - Config defaults applied immediately
 

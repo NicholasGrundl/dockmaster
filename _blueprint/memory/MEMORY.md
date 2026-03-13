@@ -18,11 +18,11 @@
 - Phase 6b: COMPLETE (Session Revocation — admin API + UI + admin_ops — 257 tests)
 - Phase 6c: COMPLETE (CLI + OAuth login — Typer CLI, browser OAuth, role/grant/check commands — 301 tests)
   - Deferred: `token` command (awaiting ephemeral keypair — Phase 7), external service redirect URIs (Phase 7), server-side grant merge endpoint
-- Phase 7: PLANNED — Redirect URI + Ephemeral Keypair (next)
+- Phase 7: SPEC COMPLETE — Ephemeral Keypair + Redirect URI + Token Issuance (ready for implementation)
 - Phase 8a/b/c: PLANNED — Audit subphases (inventory, auth testing, API+Caddy)
 - Phase 9: PLANNED — Deployment + GCP Cleanup
 - Phase 10: PLANNED — UI Tests
-- Next: Phase 7 planning (Redirect URI + Ephemeral Keypair)
+- Next: Phase 7 implementation (spec + reference docs ready)
 
 ## Key files to read at session start
 - `_blueprint/roadmap/implementation-progress.md` — session state (created at start of Phase 2)

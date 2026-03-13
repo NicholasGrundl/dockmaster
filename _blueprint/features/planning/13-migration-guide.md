@@ -87,7 +87,7 @@ install_requires =
 
 | Flask Pattern | FastAPI Equivalent | Notes |
 |---|---|---|
-| `Flask('XYZ')` | `FastAPI(title='Dockmaster')` | App creation |
+| `Flask('app')` | `FastAPI(title='Dockmaster')` | App creation |
 | `Blueprint('auth', ...)` | `APIRouter(prefix='/auth')` | Route grouping |
 | `@service.route('/path')` | `@app.get('/path')` | Route decoration |
 | `@service.before_request` | `@app.middleware("http")` or `Depends()` | Request preprocessing |

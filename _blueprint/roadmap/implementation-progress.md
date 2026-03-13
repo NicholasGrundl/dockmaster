@@ -2,9 +2,12 @@
 
 *Last updated: 2026-03-13*
 
-## Current Phase: Phase 7 — Redirect URI + Ephemeral Keypair
-**Approach**: TBD (planning session needed)
-**Status**: PLANNED
+## Current Phase: Phase 7 — Ephemeral Keypair + Redirect URI + Token Issuance
+**Approach**: TBD (spec complete, implementation not started)
+**Status**: SPEC COMPLETE — ready for implementation
+
+**Spec**: `_blueprint/features/implementation-phase7-ephemeral-keypair-redirect.md`
+**Reference**: `_blueprint/features/planning/phase7-auth-flows-analysis.md`
 
 ## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after
