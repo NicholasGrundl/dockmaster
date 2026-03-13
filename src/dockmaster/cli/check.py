@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import httpx
 import typer
 
-from dockmaster.cli.http import api_request
+from dockmaster.cli.auth import require_token
+from dockmaster.cli.config import get_server_url
 
 
 def check_command(
@@ -15,11 +17,20 @@ def check_command(
     permission: Annotated[str, typer.Option("-p", "--permission", help="Permission to check")],
 ):
     """Check if a subject has a permission on a target service."""
-    data = api_request("GET", f"/auth/has/{subject}/{target}/{permission}")
-    granted = data.get("granted", False)
-    if granted:
+    token = require_token()
+    with httpx.Client(
+        base_url=get_server_url(),
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    ) as client:
+        response = client.get(f"/auth/has/{subject}/{target}/{permission}")
+
+    if response.status_code == 204:
         typer.echo("Oui!")
         raise typer.Exit(0)
-    else:
+    elif response.status_code == 403:
         typer.echo("Non!")
+        raise typer.Exit(1)
+    else:
+        typer.echo(f"Error ({response.status_code}): {response.text}", err=True)
         raise typer.Exit(1)

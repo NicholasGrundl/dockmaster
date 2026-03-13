@@ -43,7 +43,8 @@ dockmaster login
 - Verify token was stored:
 
 ```bash
-cat "$(python3 -c "import platformdirs; print(platformdirs.user_data_dir('dockmaster'))")/credentials.json"
+uv run python -c "import platformdirs; print(platformdirs.user_data_dir('dockmaster'))"
+# Then cat <path>/credentials.json
 ```
 
 ---

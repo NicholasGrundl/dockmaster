@@ -21,13 +21,17 @@ def _client() -> httpx.Client:
     )
 
 
-def api_request(method: str, path: str, json_body: dict | None = None) -> dict:
+def api_request(method: str, path: str, json_body: dict | None = None, *, allow_404: bool = False) -> dict | None:
     """Make an authenticated API request and return the JSON response.
 
-    Exits with code 1 on HTTP errors.
+    If allow_404 is True, returns None on 404 instead of exiting.
+    Exits with code 1 on other HTTP errors.
     """
     with _client() as client:
         response = client.request(method, path, json=json_body)
+
+    if response.status_code == 404 and allow_404:
+        return None
 
     if response.status_code >= 400:
         try:

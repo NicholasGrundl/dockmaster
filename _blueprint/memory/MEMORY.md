@@ -14,14 +14,14 @@
 - Phase 4b: COMPLETE (Refresh + SecretsStorage + test UI — 117 total tests)
 - Phase 4c: COMPLETE (Admin dashboard + UI polish — 134 total tests)
 - Phase 5: COMPLETE (RBAC — models, storage, authority, permission endpoints — 177 total tests)
-- Phase 6: NEAR COMPLETE (RBAC Management — admin endpoints + admin UI, 234 tests)
-  - Remaining: fixture capture only (UI tests deferred to Phase 8)
+- Phase 6: COMPLETE (RBAC Management — admin endpoints + admin UI, 234 tests)
 - Phase 6b: COMPLETE (Session Revocation — admin API + UI + admin_ops — 257 tests)
-- Phase 6c: PLANNED (CLI + OAuth login flow, includes session revoke command)
+- Phase 6c: COMPLETE (CLI + OAuth login — Typer CLI, browser OAuth, role/grant/check commands — 301 tests)
+  - Deferred: `token` command (awaiting unified JWT issuer design), external service redirect URIs, server-side grant merge endpoint
 - Phase 7a: PLANNED (Auth + API Surface Audit — expanded scope)
 - Phase 7b: PLANNED (Deployment + GCP Cleanup)
 - Phase 8: PLANNED (UI Tests — deferred until UI is stable)
-- Next: Phase 6c planning (CLI + OAuth login flow)
+- Next: Phase 7a planning (Auth + API Surface Audit)
 
 ## Key files to read at session start
 - `_blueprint/implementation-progress.md` — session state (created at start of Phase 2)

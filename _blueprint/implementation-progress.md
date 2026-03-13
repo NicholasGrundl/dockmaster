@@ -4,28 +4,62 @@
 
 ## Current Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after
-**Status**: IN PROGRESS
+**Status**: COMPLETE ✅
 
 ## Phase 6c sub-tasks
 
 ### Server-side prep
-- [ ] 1. Add `redirect_uri` param to `/auth/login` + `/auth/callback` — accept optional redirect_uri, validate localhost-only for now, design for future external service redirects
+- [x] 1. Add `redirect_uri` param to `/auth/login` + `/auth/callback` — localhost-only validation, CLI callback mints short-lived JWT (15 min)
 
 ### CLI scaffold
-- [ ] 2. CLI package structure — `src/dockmaster/cli/`, Typer app, entry point in `pyproject.toml`
-- [ ] 3. Auth module — localhost callback server, browser open, token capture + storage (`platformdirs`), token expiry check helper
+- [x] 2. CLI package structure — `src/dockmaster/cli/`, Typer app, entry point in `pyproject.toml`
+- [x] 3. Auth module — localhost callback server (dynamic port), browser open, token storage via `platformdirs`, expiry check
 
 ### CLI commands
-- [ ] 4. `login` / `logout` commands
-- [ ] 5. `role` command group — get, list, create, delete, add, remove
-- [ ] 6. `grant` command group — get, list, delete, add, remove
-- [ ] 7. `check` command
+- [x] 4. `login` / `logout` commands
+- [x] 5. `role` command group — get, list, create, delete, add, remove (all with `-p/--permission`)
+- [x] 6. `grant` command group — get, list, delete, add, remove (all with `-r/--role`)
+- [x] 7. `check` command — subject + target positional, `-p/--permission` flag, Oui!/Non! output
 
 ### Wrap-up
-- [ ] 8. Manual E2E test — run `dockmaster login`, exercise commands against running server
-- [ ] 9. Add tests for CLI modules
-- [ ] 10. Lint + full suite green
-- [ ] 11. Update progress file + spec
+- [x] 8. Manual E2E test — all commands verified against live server
+- [x] 9. Add tests for CLI modules — 44 new tests
+- [x] 10. Lint + full suite green — 301 tests, ruff clean
+- [x] 11. Update progress file + spec
+
+### Also done
+- [x] Fixed dev deps: consolidated to `[dependency-groups]`, moved `pytest-mock` to dev-only
+- [x] Fixed `grant add` for new services (allow_404 on GET)
+- [x] Fixed `check` command to handle 204/403 response contract
+
+## New files (Phase 6c)
+- `src/dockmaster/cli/__init__.py`
+- `src/dockmaster/cli/main.py` — Typer app entry point, command registration
+- `src/dockmaster/cli/auth.py` — OAuth login flow (localhost callback + token storage)
+- `src/dockmaster/cli/config.py` — server URL + credential path config
+- `src/dockmaster/cli/http.py` — shared authenticated HTTP client
+- `src/dockmaster/cli/roles.py` — role commands
+- `src/dockmaster/cli/grants.py` — grant commands
+- `src/dockmaster/cli/check.py` — check command
+- `tests/test_cli_auth.py` — 12 tests (token storage, loading, expiry, delete)
+- `tests/test_cli_roles.py` — 12 tests (list, get, create, delete, add, remove)
+- `tests/test_cli_grants.py` — 12 tests (list, get, add, add-on-404, merge, remove, delete)
+- `tests/test_cli_check.py` — 4 tests (granted, denied, error, flag required)
+- `tests/test_cli_login_redirect.py` — 9 tests (redirect_uri validation, state storage)
+- `docs/GUIDE-cli-e2e-test.md` — manual E2E test guide
+
+## Modified files (Phase 6c)
+- `src/dockmaster/routes/login.py` — `redirect_uri` param on `/auth/login`, CLI JWT minting on callback, `_pending_states` changed from `dict[str, bool]` to `dict[str, dict]`
+- `pyproject.toml` — added `typer`, `platformdirs`, `[project.scripts]` entry point, consolidated `[dependency-groups]`
+- `tests/test_login.py` — updated `_pending_states` format
+
+## Test status (Phase 6c)
+- `tests/test_cli_auth.py` GREEN (12 tests)
+- `tests/test_cli_roles.py` GREEN (12 tests)
+- `tests/test_cli_grants.py` GREEN (12 tests — includes 404 and merge scenarios)
+- `tests/test_cli_check.py` GREEN (4 tests)
+- `tests/test_cli_login_redirect.py` GREEN (9 tests — redirect_uri validation)
+- Full suite: 301 tests GREEN (44 new)
 
 ## Decisions log (Phase 6c)
 - 2026-03-12: D12 — `grant` group (not `service`) with `add`/`remove` verbs to avoid grant/grant verb collision
@@ -35,6 +69,13 @@
 - 2026-03-12: D16 — `grant remove` without `-r` flags removes all roles for that subject
 - 2026-03-12: D17 — Design full redirect URI system (for future external service redirects), build only localhost portion in 6c
 - 2026-03-12: D18 — Build-first approach, test after. Single session target.
+- 2026-03-12: D19 — `grant add` uses `allow_404=True` on GET (pragmatic read-modify-write pattern). Server-side merge endpoint deferred.
+- 2026-03-12: D20 — Dev deps consolidated from `[project.optional-dependencies]` to `[dependency-groups]` (PEP 735 / uv standard)
+
+## Deferred items (Phase 6c)
+1. **`token` command** — deferred until dockmaster issues its own RS256 JWTs (unified token issuer design). Likely Phase 7a+ scope.
+2. **External service redirect URIs** — `/auth/login` accepts `redirect_uri` but only validates localhost. Future: allowlisted per-service redirect URIs for non-dockmaster services to use dockmaster as identity broker.
+3. **Server-side grant merge endpoint** — CLI does read-modify-write for `grant add/remove`. A `PATCH /admin/grants/{service}` would be atomic and simpler for future clients (SDK, other CLIs). Low priority until multi-client scenario exists.
 
 ## Previous Phase: Phase 6 — RBAC Management
 **Approach**: TDD (all modules are pure logic with mocked SM client)

@@ -46,13 +46,9 @@ def grant_add(
         typer.echo("Error: at least one --role/-r is required.", err=True)
         raise typer.Exit(1)
 
-    # Fetch current grants, merge new roles for subject, put back
-    try:
-        current = api_request("GET", f"/admin/grants/{service}")
-        grants = current.get("grants", [])
-    except SystemExit:
-        # Service doesn't exist yet — start fresh
-        grants = []
+    # Fetch current grants (None if service doesn't exist yet), merge, put back
+    current = api_request("GET", f"/admin/grants/{service}", allow_404=True)
+    grants = current.get("grants", []) if current else []
 
     # Find existing grant for this subject or create new
     found = False
