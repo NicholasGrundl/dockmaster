@@ -81,7 +81,7 @@ know WHERE to look. This limited-disclosure approach prevents wasting context on
 </note>
 
 Read:
-- `_blueprint/implementation-progress.md` — what's already built
+- `_blueprint/roadmap/implementation-progress.md` — what's already built
 - Any existing specs in `_blueprint/features/` related to the topic
 - Any existing planning docs in `_blueprint/features/planning/` related to the topic
 
@@ -271,7 +271,7 @@ feature.
 ### 5b. Update related docs
 
 If the plan affects:
-- `_blueprint/implementation-progress.md` — update "Next session" to point to the new plan
+- `_blueprint/roadmap/implementation-progress.md` — update "Next session" to point to the new plan
 - `_blueprint/roadmap/ROADMAP.md` — add/update the phase or feature entry
 - `_blueprint/roadmap/decision-log.md` — record major decisions made during interview
 

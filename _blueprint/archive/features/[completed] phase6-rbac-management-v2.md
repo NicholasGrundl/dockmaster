@@ -10,7 +10,7 @@ changelog:
 
 > Admin CRUD endpoints for roles/grants and RBAC management pages in the existing admin dashboard.
 
-**Status**: Planned
+**Status**: ✅ COMPLETE
 **Priority**: P1
 **Phase**: 6
 **Last updated**: 2026-03-12

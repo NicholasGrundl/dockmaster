@@ -1,8 +1,12 @@
 # Implementation Progress
 
-*Last updated: 2026-03-12*
+*Last updated: 2026-03-13*
 
-## Current Phase: Phase 6c — CLI + OAuth Login
+## Current Phase: Phase 7 — Redirect URI + Ephemeral Keypair
+**Approach**: TBD (planning session needed)
+**Status**: PLANNED
+
+## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after
 **Status**: COMPLETE ✅
 
@@ -332,13 +336,16 @@
 - [x] 6. Lint + full suite green — 254 tests GREEN, ruff clean
 - [x] 7. Update progress file
 
-## Phase ordering (revised 2026-03-12)
-- Phase 6: RBAC Management (wrapping up)
-- Phase 6b: Session Revocation (admin API + UI + admin_ops)
-- Phase 6c: CLI (wraps admin API, includes revoke command)
-- Phase 7a: Auth + API Surface Audit (expanded scope)
-- Phase 7b: Deployment + GCP Cleanup
-- Phase 8: UI Tests (deferred until UI is stable)
+## Phase ordering (revised 2026-03-13)
+- Phase 6: RBAC Management ✅
+- Phase 6b: Session Revocation ✅
+- Phase 6c: CLI + OAuth Login ✅
+- Phase 7: Redirect URI + Ephemeral Keypair (next)
+- Phase 8a: Audit — Endpoint Inventory + Mermaid DAG
+- Phase 8b: Audit — Auth Boundary Testing
+- Phase 8c: Audit — API Completeness + Caddy Readiness
+- Phase 9: Deployment + GCP Cleanup
+- Phase 10: UI Tests (deferred until UI is stable)
 
 ## New files (Phase 6b)
 - `src/dockmaster/templates/sessions.html` — admin sessions page with revoke controls
@@ -360,4 +367,4 @@
 - Full suite: 257 tests GREEN (23 new)
 
 ## Next session: pick up at
-"Phase 6c planning: CLI + OAuth login flow."
+"Phase 7 planning: Redirect URI + Ephemeral Keypair."

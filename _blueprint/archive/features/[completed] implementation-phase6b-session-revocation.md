@@ -2,7 +2,7 @@
 
 > Admin session management — list, inspect, and revoke user sessions via API, admin UI, and shared service layer.
 
-**Status**: Planned
+**Status**: ✅ COMPLETE
 **Priority**: P1
 **Phase**: 6b
 **Last updated**: 2026-03-12

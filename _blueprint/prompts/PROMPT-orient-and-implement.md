@@ -45,7 +45,7 @@ know WHERE to look. This limited-disclosure approach prevents wasting context on
 
 Now that you know where things are, read the key files:
 
-1. Read `_blueprint/implementation-progress.md` — the canonical session-to-session state log. It
+1. Read `_blueprint/roadmap/implementation-progress.md` — the canonical session-to-session state log. It
    tells you what phase we're on, what's done, what's in-progress, and any open decisions.
 2. Read the implementation doc for the current phase. Find it by scanning
    `_blueprint/features/implementation-*.md` — there is one per phase or sub-phase.
@@ -86,7 +86,7 @@ Based on the phase implementation doc, break the work into concrete, ordered sub
 
 ### 1c. Persist immediately
 
-Once approved, **write the sub-tasks into `_blueprint/implementation-progress.md`** immediately
+Once approved, **write the sub-tasks into `_blueprint/roadmap/implementation-progress.md`** immediately
 so they persist even if the session ends early.
 
 ### 1d. Choose the development approach per sub-task
@@ -193,7 +193,7 @@ Pass 3 fake classes. Mocks built from real responses don't lie.
 
 ## Step 3 — Close the Session
 
-Update `_blueprint/implementation-progress.md` before ending. Use this format:
+Update `_blueprint/roadmap/implementation-progress.md` before ending. Use this format:
 
 ```markdown
 # Implementation Progress

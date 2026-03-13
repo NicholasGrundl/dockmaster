@@ -9,7 +9,7 @@ changelog:
 
 > Exchange a Google JWT or access token for a dockmaster-issued JWT.
 
-**Status**: Planned
+**Status**: ✅ COMPLETE
 **Priority**: P0
 **Phase**: 3
 **Last updated**: 2026-03-09

@@ -16,14 +16,14 @@ typing burden.
 
 ### 0a. Read the ground truth files
 
-1. Read `_blueprint/implementation-progress.md` — canonical record of what's actually done,
+1. Read `_blueprint/roadmap/implementation-progress.md` — canonical record of what's actually done,
    what phase we're on, decisions made, and where to pick up.
 2. Read `_blueprint/roadmap/ROADMAP.md` — the top-level plan, phase statuses, and spec links.
 3. Read `_blueprint/roadmap/decision-log.md` — recorded architectural decisions.
 
 ### 0b. Check for an existing alignment report
 
-- If `_blueprint/implementation-alignment.md` **exists** → read it. It contains known drift
+- If `_blueprint/roadmap/implementation-alignment.md` **exists** → read it. It contains known drift
   issues from a prior session. Use it as your starting checklist — some items may already be
   resolved, others may be new.
 - If it **does not exist** → you will create one in Step 1.
@@ -126,7 +126,7 @@ List any specs in `_blueprint/features/` that are for completed phases and could
 
 ### 1i. Produce the alignment report
 
-Write or update `_blueprint/implementation-alignment.md` with all findings. Use this format:
+Write or update `_blueprint/roadmap/implementation-alignment.md` with all findings. Use this format:
 
 ```markdown
 # Implementation Alignment Report
@@ -259,7 +259,7 @@ When updating upcoming phase specs:
 
 ### 4a. Update the alignment report
 
-Edit `_blueprint/implementation-alignment.md`:
+Edit `_blueprint/roadmap/implementation-alignment.md`:
 - Mark resolved items (or remove them)
 - Keep deferred items with a note about why they were deferred
 - Add any new issues discovered during fixing
@@ -289,7 +289,7 @@ Present to the user:
 
 When looking for information during this session, search in this order:
 
-1. `_blueprint/implementation-progress.md` — ground truth of what's done
+1. `_blueprint/roadmap/implementation-progress.md` — ground truth of what's done
 2. `_blueprint/roadmap/ROADMAP.md` — top-level plan and phase overview
 3. `_blueprint/roadmap/decision-log.md` — architectural decisions
 4. `_blueprint/features/implementation-phase{N}-*.md` — phase implementation guides

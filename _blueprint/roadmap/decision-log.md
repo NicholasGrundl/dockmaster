@@ -2,7 +2,7 @@
 
 Record key decisions here so future-you remembers why.
 
-*Last updated: 2026-03-12*
+*Last updated: 2026-03-13*
 
 ---
 
@@ -206,3 +206,100 @@ Record key decisions here so future-you remembers why.
 
 **Decision**: CLI authenticates via localhost-callback OAuth flow (browser opens, user authenticates, CLI captures token). 15-minute JWT persisted to disk via `platformdirs`. No refresh token.
 **Rationale**: Same pattern as gcloud, gh, firebase CLIs. Short TTL is acceptable — admin CLI sessions are bursty (login, run a few commands, done). No refresh token keeps the implementation simple. `platformdirs` for cross-platform token storage location.
+
+---
+
+## Phase 5 Decisions (2026-03-12)
+
+### 2026-03-12: No real GCP fixture capture for RBAC tests
+
+**Decision**: RBAC tests mock the Python Secret Manager client directly instead of capturing real GCP fixtures.
+**Rationale**: Secret Manager is gRPC-based (not HTTP). Capturing fixtures would require gRPC interception. Mocking the Python client object is sufficient and simpler.
+
+### 2026-03-12: Write methods implemented in Phase 5 (ahead of Phase 6)
+
+**Decision**: Implement `put_*`/`delete_*` methods on `SecretsStorage` in Phase 5, even though the spec deferred writes to Phase 6.
+**Rationale**: Phase 6 was imminent and the methods were simple extensions of existing patterns. Avoided a second pass over the same file.
+
+### 2026-03-12: Idempotent secret creation (`_save_secret`)
+
+**Decision**: `_save_secret` uses idempotent create — swallows `AlreadyExists` exception, then adds a new version.
+**Rationale**: Avoids the need for a separate "create or update" branch. Secret creation is idempotent; version addition always works.
+
+### 2026-03-12: Permission endpoints use existing `get_current_user` auth
+
+**Decision**: Auth on `GET /auth/has` permission endpoints uses the existing `get_current_user` dependency (HTTPBearer + JWT verification).
+**Rationale**: Permission checks are service-to-service calls. The existing JWT auth middleware is the right fit — no session/cookie auth needed.
+
+---
+
+## Phase 6 Implementation Decisions (2026-03-12)
+
+### 2026-03-12: D8 — Separate admin auth dependencies
+
+**Decision**: Separate `require_admin_api` and `require_admin_ui` dependencies with shared `_is_admin()` helper.
+**Rationale**: Follows Phase 4c pattern of keeping API (JWT) and UI (session) auth separate. Shared helper avoids duplicating the RBAC + whitelist logic.
+
+### 2026-03-12: D9 — Server-side form handling for admin UI
+
+**Decision**: UI routes call the shared service layer (`admin_ops`) directly, not the API endpoints.
+**Rationale**: No auth bridging needed between UI session and API JWT. Simpler than making internal HTTP calls. Both API and UI routes share the same `admin_ops` functions.
+
+### 2026-03-12: D10 — Service layer and admin auth locations
+
+**Decision**: Service layer at `rbac/admin_ops.py`, admin auth dependencies at `auth/admin.py`.
+**Rationale**: Follows existing module organization. Both API routes and UI routes call `admin_ops` for CRUD. Auth deps are in the `auth/` package with other auth logic.
+
+### 2026-03-12: D11 — SecretsStorage / AdminSecretsStorage split
+
+**Decision**: Split into `SecretsStorage` (read-only base class) and `AdminSecretsStorage(SecretsStorage)` (adds write methods). Two separate instances with separate SM clients in lifespan.
+**Rationale**: Permission boundary enforced at GCP IAM level — base class physically cannot call write methods because its SM client lacks write permissions. Type annotations self-document intent: functions taking `SecretsStorage` are read-only, `AdminSecretsStorage` can write.
+
+---
+
+## Phase 6c Implementation Decisions (2026-03-12)
+
+### 2026-03-12: D12 — `grant` command group (not `service`)
+
+**Decision**: CLI uses `grant` as the command group name for managing service grants.
+**Rationale**: Avoids the `service grant` verb collision where "grant" appears as both a noun (the data) and a verb (the action). `grant add/remove/get/list/delete` reads cleanly.
+
+### 2026-03-12: D13 — `check` command (not `test`)
+
+**Decision**: CLI uses `check` for permission testing, not `test`.
+**Rationale**: `test` is overloaded (pytest, shell `test`). `check` is unambiguous: "check if subject has permission on target."
+
+### 2026-03-12: D14 — Named flags for CLI commands
+
+**Decision**: `--permission`/`-p` for role commands, `--role`/`-r` for grant commands. Short flags everywhere.
+**Rationale**: Named flags are self-documenting and order-independent. Short flags (`-p`, `-r`) keep commands concise for frequent use.
+
+### 2026-03-12: D15 — `token` command deferred
+
+**Decision**: Defer the `token` command (generate JWT from SA keyfile) to a future phase.
+**Rationale**: Dockmaster doesn't yet issue its own RS256 JWTs — it relies on Google OAuth JWTs. The `token` command needs a unified token issuer design first.
+
+### 2026-03-12: D16 — `grant remove` without flags removes all roles
+
+**Decision**: `grant remove <service> <subject>` without `-r` flags removes all roles for that subject.
+**Rationale**: Provides a quick way to fully revoke a subject's access to a service. With `-r` flags, removes only specific roles.
+
+### 2026-03-12: D17 — Localhost-only redirect URI (full system deferred)
+
+**Decision**: Build only the localhost portion of redirect URI support in Phase 6c. Design full redirect URI system (for external service redirects) in a future phase.
+**Rationale**: CLI only needs localhost redirects. External service redirects require allowlisting, security review, and a different token delivery mechanism.
+
+### 2026-03-12: D18 — Build-first approach for Phase 6c
+
+**Decision**: Build-first, test after. Single session target.
+**Rationale**: CLI is a thin client over existing tested API endpoints. Manual E2E testing provides fast feedback; unit tests follow for regression coverage.
+
+### 2026-03-12: D19 — `grant add` uses allow_404 on GET
+
+**Decision**: `grant add` uses `allow_404=True` on the initial GET request (read-modify-write pattern).
+**Rationale**: When adding a grant for a service that doesn't exist yet, the GET returns 404. Treating this as "empty grants" allows creating the service and adding the grant in one command. Server-side merge endpoint deferred.
+
+### 2026-03-12: D20 — Dev deps consolidated to dependency-groups
+
+**Decision**: Moved dev dependencies from `[project.optional-dependencies]` to `[dependency-groups]` (PEP 735 / uv standard).
+**Rationale**: `[dependency-groups]` is the modern standard supported by uv. Consolidates `pytest-mock` and other dev deps into a single group.

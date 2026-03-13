@@ -17,12 +17,14 @@
 - Phase 6: COMPLETE (RBAC Management — admin endpoints + admin UI, 234 tests)
 - Phase 6b: COMPLETE (Session Revocation — admin API + UI + admin_ops — 257 tests)
 - Phase 6c: COMPLETE (CLI + OAuth login — Typer CLI, browser OAuth, role/grant/check commands — 301 tests)
-  - Deferred: `token` command (awaiting unified JWT issuer design), external service redirect URIs, server-side grant merge endpoint
-- Phase 7a: PLANNED (Auth + API Surface Audit — expanded scope)
-- Phase 7b: PLANNED (Deployment + GCP Cleanup)
-- Phase 8: PLANNED (UI Tests — deferred until UI is stable)
-- Next: Phase 7a planning (Auth + API Surface Audit)
+  - Deferred: `token` command (awaiting ephemeral keypair — Phase 7), external service redirect URIs (Phase 7), server-side grant merge endpoint
+- Phase 7: PLANNED — Redirect URI + Ephemeral Keypair (next)
+- Phase 8a/b/c: PLANNED — Audit subphases (inventory, auth testing, API+Caddy)
+- Phase 9: PLANNED — Deployment + GCP Cleanup
+- Phase 10: PLANNED — UI Tests
+- Next: Phase 7 planning (Redirect URI + Ephemeral Keypair)
 
 ## Key files to read at session start
-- `_blueprint/implementation-progress.md` — session state (created at start of Phase 2)
+- `_blueprint/roadmap/implementation-progress.md` — session state (created at start of Phase 2)
 - `_blueprint/features/implementation-phase{N}-*.md` — current phase spec
+- `_blueprint/features/research-phase7-rsa256-keypair.md` — research doc for Phase 7 keypair design

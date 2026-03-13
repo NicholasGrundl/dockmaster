@@ -9,7 +9,7 @@ changelog:
 
 > Browser-based Google OAuth2 login via Authlib, pluggable session management, and test UI.
 
-**Status**: Planned
+**Status**: ✅ COMPLETE (4a, 4b, 4c)
 **Priority**: P0
 **Phase**: 4
 **Last updated**: 2026-03-09
