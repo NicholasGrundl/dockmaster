@@ -31,7 +31,7 @@
 - [x] 16. Update progress file
 
 ### Follow-up (before phase complete)
-- [ ] 17. Add "create new service grants" UI — grants list page needs a form to create grants for a new service (currently can only edit existing)
+- [x] 17. Add "create new service grants" UI — form on grants list page, creates service with initial grant, redirects to detail page
 - [ ] 18. UI tests — admin UI page tests (deferred until UI is finalized)
 
 ## GCP setup checklist (Phase 6)

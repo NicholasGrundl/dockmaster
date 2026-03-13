@@ -21,6 +21,32 @@
     </div>
     {% endif %}
 
+    {# ── Create service grants form ── #}
+    {% if can_write %}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <h2 class="text-sm font-medium mb-3" style="color: #6b7280;">Create Service Grants</h2>
+        <form method="post" action="/ui/grants/new" class="space-y-3">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" name="service" placeholder="Service name" required
+                       class="rounded-md border px-3 py-2 text-sm flex-1"
+                       style="border-color: var(--color-border); background-color: var(--color-bg);">
+                <input type="text" name="subject" placeholder="Subject email" required
+                       class="rounded-md border px-3 py-2 text-sm flex-1"
+                       style="border-color: var(--color-border); background-color: var(--color-bg);">
+                <input type="text" name="roles" placeholder="Roles (comma-separated)" required
+                       class="rounded-md border px-3 py-2 text-sm flex-1"
+                       style="border-color: var(--color-border); background-color: var(--color-bg);">
+                <button type="submit"
+                        class="rounded-md px-4 py-2 text-sm font-medium text-white"
+                        style="background-color: var(--color-primary);">
+                    Create
+                </button>
+            </div>
+            <p class="text-xs" style="color: #9ca3af;">Creates a new service with one initial grant. Add more grants on the detail page.</p>
+        </form>
+    </section>
+    {% endif %}
+
     {# ── Services list ── #}
     <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
         {% if service_names %}

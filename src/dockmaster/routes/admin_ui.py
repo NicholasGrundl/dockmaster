@@ -173,6 +173,38 @@ async def grants_page(
     )
 
 
+@router.post("/grants/new", response_class=HTMLResponse)
+async def create_service_grants_form(
+    request: Request,
+    user: dict = Depends(require_admin_ui),
+    _: None = Depends(require_admin_writes),
+    service: str = Form(...),
+    subject: str = Form(...),
+    roles: str = Form(""),
+):
+    """Handle create new service grants form submission."""
+    storage = _get_admin_storage(request)
+    authority = _get_authority(request)
+
+    service_name = service.strip()
+    subject_email = subject.strip()
+    role_list = [r.strip() for r in roles.split(",") if r.strip()]
+
+    if not service_name or not subject_email or not role_list:
+        return RedirectResponse(
+            url="/ui/grants?error=Service,+subject,+and+roles+are+required",
+            status_code=303,
+        )
+
+    grants = [Grant(subject=subject_email, roles=role_list)]
+    await admin_ops.put_service_grants(storage, authority, service_name, grants)
+
+    return RedirectResponse(
+        url=f"/ui/grants/{service_name}?success=Service+grants+created",
+        status_code=303,
+    )
+
+
 @router.get("/grants/{service}", response_class=HTMLResponse)
 async def grants_detail_page(
     request: Request,

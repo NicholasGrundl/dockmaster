@@ -114,6 +114,8 @@ Example findings to investigate:
 - Are error responses consistent (no stack traces in production)?
 - Does the `require_admin_writes` 503 message ("admin SA key not set") leak infrastructure details to callers? Should it be a generic "service unavailable" instead?
 - Type annotations across auth modules — `auth/admin.py` uses `object | None` for `authority` parameter. Audit all auth module signatures for proper typing (Protocol or ABC for Authority).
+- Grants allow referencing nonexistent role names — no validation that role names in a grant actually exist in SM. Typos silently fail (Authority skips missing roles with a warning). Consider: validate on write (hard-fail or warn?), validate on UI form submission, or surface warnings in the grants detail page.
+- Admin self-revocation returns raw 403 JSON instead of graceful redirect — when an admin removes their own grant via the UI, the POST redirect hits `require_admin_ui` which returns a JSON 403. Should redirect to dashboard or logout with a message instead. Decide: should self-revocation be allowed? If yes, catch 403 and redirect gracefully.
 
 ## Output Files
 
