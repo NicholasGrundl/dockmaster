@@ -65,32 +65,35 @@ or `/auth/grants`.
 
 ## Implementation Sections
 
-### 1. Ephemeral Key Manager
+### 1. Ephemeral Key Management ✅ IMPLEMENTED (Session 1)
 
-New module: `src/dockmaster/auth/key_manager.py`
+> **Implementation diverged from spec.** The original "KeyManager" monolith was split into
+> two classes with cleaner separation of concerns. See D22–D27 in progress file.
 
-**Responsibilities:**
-- Generate 2048-bit RSA keypair on construction
-- Assign a unique `kid` (e.g. `dk-{date}-{uuid[:8]}`)
-- Private key lives only in memory (never written to disk)
-- Public key registry: load existing keys from JSON file, append new key, prune expired keys
-- Registry persisted via `platformdirs` (e.g. `~/.local/share/dockmaster/jwks-registry.json`)
+**Actual architecture (two classes):**
 
-**Key retention:** Keep public keys for `max(DOCKMASTER_TOKEN_TTL * 2, 1 hour)` after the
-keypair that signed them was retired (i.e. after a restart). This allows tokens signed by
-the previous key to remain verifiable until they expire.
+**`JWTTokenIssuer`** — `src/dockmaster/auth/token_issuer.py`
+- Generates 2048-bit RSA keypair on construction
+- Assigns unique `kid` (`dk-{date}-{uuid[:8]}`)
+- Private key lives only in memory (never written to disk, never leaves this class)
+- Exposes `current_kid` and `current_public_jwk` properties (public key only)
+- Signs Type C JWTs via `sign(subject, audience, ttl, extra_claims) → str`
+- No file I/O — single responsibility: signing
 
-**Interface sketch:**
-```
-KeyManager:
-  current_private_key: RSAPrivateKey  (in memory only)
-  current_kid: str
-  public_jwks: list[dict]             (all active public keys in JWK format)
+**`EphemeralKeyCache(KeyCache)`** — added to `src/dockmaster/auth/key_cache.py`
+- Receives `(kid, public_jwk)` from issuer at construction — no private key material
+- Loads/saves public key registry from platformdirs JSON file
+- Prunes stale keys by absolute age (`now - created_at > retention_padded`)
+- Current key is never pruned regardless of age
+- `retention` defaults to 43200s (12h), padded 1% for clock drift
+- Not tied to token TTL — independent retention parameter
+- Pruning only at construction (restart). No mid-process rotation.
+- `get_key()`/`get_all_keys()` serve from memory. `update()` is no-op.
 
-  rotate()           → generate new keypair, append to registry, prune old
-  get_jwks()         → {"keys": [...]}  (for JWKS endpoint)
-  sign(claims)       → str             (JWT signed with current key)
-```
+**Key design decisions:**
+- Private keys stay with the signer, public keys stay with the cache (D22)
+- Consistent with ServiceAccountKeyCache pattern (holds GCP creds for transport, not signing)
+- No `rotate()` method — keypair is ephemeral-per-process. Mid-process rotation is a future item.
 
 ### 2. JWKS Endpoint
 

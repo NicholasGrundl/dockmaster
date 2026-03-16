@@ -142,3 +142,13 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **Context**: Need operational guides for various deployment targets.
 - **When**: After Phase 5+ when the service is feature-complete enough to deploy.
 - **Scope**: Docker standalone, GCP Cloud Run, Kubernetes (Helm chart), Caddy reverse proxy integration.
+
+### Ephemeral Key Retention Tied to Token TTL
+- **Context**: Phase 7 EphemeralKeyCache uses a fixed 12h retention for old public keys. Could optionally be configured to use `DOCKMASTER_TOKEN_TTL` as the retention period (with safety padding) for tighter key lifecycle management.
+- **When**: If operational requirements demand tighter key hygiene or shorter retention windows.
+- **Effort**: Small — `EphemeralKeyCache` already accepts `retention` param, just needs a setting to wire it.
+
+### Mid-Process Ephemeral Key Rotation
+- **Context**: Phase 7 ephemeral keypair lives for the lifetime of the process. No mid-process rotation. For long-running instances, rotation would limit blast radius of a memory dump.
+- **When**: When dockmaster runs as a long-lived process (weeks+) in production.
+- **Effort**: Medium — JWTTokenIssuer.rotate() + EphemeralKeyCache.add_key() + background timer.

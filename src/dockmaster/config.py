@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     # --- RBAC ---
     rbac_cache_ttl: int = 300
 
+    # --- Dockmaster Token Issuance (Phase 7) ---
+    dockmaster_token_ttl: int = 900
+    allowed_redirect_uris: str | set[str] = ""
+    allowed_origins: str | set[str] = ""
+    jwks_registry_path: str | None = None
+
     # --- Admin ---
     admin_sa_key_file: str | None = None
     dockmaster_admin_emails: str | set[str] = ""
@@ -70,7 +76,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def postprocess(self) -> "Settings":
         # Parse comma-separated authorization fields into sets
-        for field in ("authorized_issuers", "authorized_domains", "authorized_audience", "dockmaster_admin_emails"):
+        for field in ("authorized_issuers", "authorized_domains", "authorized_audience", "dockmaster_admin_emails", "allowed_redirect_uris", "allowed_origins"):
             raw = getattr(self, field)
             parsed = _parse_comma_separated(raw)
             object.__setattr__(self, field, parsed)

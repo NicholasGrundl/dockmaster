@@ -1,4 +1,10 @@
-"""KeyCache — TTL-based public key cache with pluggable update()."""
+"""KeyCache — TTL-based public key cache with pluggable update().
+
+Includes:
+- KeyCache: base class with TTL expiry
+- ServiceAccountKeyCache: GCP IAM + Google OIDC public keys
+- EphemeralKeyCache: local ephemeral public key registry with file persistence
+"""
 
 from __future__ import annotations
 
@@ -157,4 +163,99 @@ class ServiceAccountKeyCache(KeyCache):
             _log.warning("Failed to enumerate SA keys from IAM", exc_info=True)
 
         self._keys = new_keys
+        self._updated_at = time.time()
+
+
+class EphemeralKeyCache(KeyCache):
+    """Public key registry for ephemeral RSA keypairs with file persistence.
+
+    Receives the current public key from JWTTokenIssuer at construction.
+    Loads/saves a registry file so public keys from previous process instances
+    remain available for verifying in-flight tokens after a restart.
+
+    No private key material ever touches this class.
+    """
+
+    DEFAULT_RETENTION = 43200  # 12 hours
+    SAFETY_FACTOR = 1.01  # 1% padding for clock drift
+
+    def __init__(
+        self,
+        kid: str,
+        public_jwk: dict,
+        registry_path: str,
+        retention: int = DEFAULT_RETENTION,
+    ) -> None:
+        # Skip TTL-based expiry from base class — keys are static for process lifetime
+        super().__init__(expiry=999_999_999)
+
+        self._current_kid = kid
+        self._retention = retention
+        self._retention_padded = retention * self.SAFETY_FACTOR
+        self._registry_path = Path(registry_path)
+
+        # Load existing registry, add current key, prune stale, save, populate _keys
+        entries = self._load_registry()
+        entries = self._add_current_key(entries, kid, public_jwk)
+        entries = self._prune_stale(entries)
+        self._save_registry(entries)
+        self._populate_keys(entries)
+
+    def update(self) -> None:
+        """No-op — keys are static for the process lifetime."""
+
+    def _load_registry(self) -> list[dict]:
+        """Load key entries from registry file. Returns empty list on any failure."""
+        try:
+            data = json.loads(self._registry_path.read_text())
+            return data.get("keys", [])
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return []
+
+    def _add_current_key(self, entries: list[dict], kid: str, public_jwk: dict) -> list[dict]:
+        """Add or update the current key entry."""
+        # Remove any existing entry with the same kid (handles re-registration)
+        entries = [e for e in entries if e["kid"] != kid]
+        entries.append({
+            "kid": kid,
+            "public_jwk": public_jwk,
+            "created_at": time.time(),
+        })
+        return entries
+
+    def _prune_stale(self, entries: list[dict]) -> list[dict]:
+        """Remove entries older than retention, except the current key."""
+        now = time.time()
+        return [
+            e
+            for e in entries
+            if e["kid"] == self._current_kid
+            or (now - e["created_at"]) <= self._retention_padded
+        ]
+
+    def _save_registry(self, entries: list[dict]) -> None:
+        """Persist the registry to disk."""
+        self._registry_path.parent.mkdir(parents=True, exist_ok=True)
+        self._registry_path.write_text(json.dumps({"keys": entries}, indent=2))
+
+    def _populate_keys(self, entries: list[dict]) -> None:
+        """Build the in-memory _keys dict from registry entries.
+
+        Converts JWK dicts to PEM strings for compatibility with ServiceRealm's
+        jwt.decode() which expects PEM keys.
+        """
+        from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        for entry in entries:
+            jwk = entry["public_jwk"]
+            try:
+                n = int.from_bytes(base64.urlsafe_b64decode(jwk["n"] + "=="), "big")
+                e = int.from_bytes(base64.urlsafe_b64decode(jwk["e"] + "=="), "big")
+                pub_key = RSAPublicNumbers(e, n).public_key()
+                pem = pub_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo).decode()
+                self._keys[entry["kid"]] = pem
+            except Exception:
+                _log.warning("Failed to load ephemeral key %s from registry", entry["kid"])
+
         self._updated_at = time.time()

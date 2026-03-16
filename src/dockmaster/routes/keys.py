@@ -19,7 +19,7 @@ async def get_public_key(kid: str, request: Request) -> PlainTextResponse:
     if realm is None:
         return JSONResponse(status_code=503, content={"error": "Auth service not configured"})
 
-    pem = realm.key_cache.get_key(kid)
+    pem = realm.get_key(kid)
     if pem is None:
         return JSONResponse(status_code=404, content={"error": f"Key {kid} was not found."})
 

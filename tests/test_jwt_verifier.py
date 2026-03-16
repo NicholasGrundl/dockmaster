@@ -88,6 +88,71 @@ class TestVerifyWithoutKid:
             realm.verify(token)
 
 
+class TestMultiCacheVerification:
+    """ServiceRealm with multiple key caches (Phase 7)."""
+
+    def test_finds_key_in_second_cache(self, fake_sa_key_data, rsa_public_key_pem):
+        from dockmaster.auth.jwt_signer import ServiceUser
+        from dockmaster.auth.jwt_verifier import ServiceRealm
+
+        su = ServiceUser(credentials=fake_sa_key_data)
+        token = su.get_token(subject="user@example.com", service_name="svc")
+
+        empty_cache = FakeKeyCache({})
+        real_cache = FakeKeyCache({"test-key-id-001": rsa_public_key_pem})
+        realm = ServiceRealm(key_cache=[empty_cache, real_cache])
+
+        claims = realm.verify(token)
+        assert claims["sub"] == "user@example.com"
+
+    def test_first_cache_takes_priority(self, rsa_private_key_pem, rsa_public_key_pem):
+        from dockmaster.auth.jwt_verifier import ServiceRealm
+
+        token = pyjwt.encode(
+            {"sub": "u@ex.com", "iss": "test"},
+            rsa_private_key_pem,
+            algorithm="RS256",
+            headers={"kid": "shared-kid"},
+        )
+
+        cache_a = FakeKeyCache({"shared-kid": rsa_public_key_pem})
+        cache_b = FakeKeyCache({"shared-kid": "wrong-pem"})
+        realm = ServiceRealm(key_cache=[cache_a, cache_b])
+
+        claims = realm.verify(token)
+        assert claims["sub"] == "u@ex.com"
+
+    def test_unknown_kid_across_all_caches_raises(self, fake_sa_key_data):
+        from dockmaster.auth.jwt_signer import ServiceUser
+        from dockmaster.auth.jwt_verifier import ServiceRealm
+
+        su = ServiceUser(credentials=fake_sa_key_data)
+        token = su.get_token(subject="u@ex.com", service_name="svc")
+
+        cache_a = FakeKeyCache({"other-a": "pem-a"})
+        cache_b = FakeKeyCache({"other-b": "pem-b"})
+        realm = ServiceRealm(key_cache=[cache_a, cache_b])
+
+        with pytest.raises(ValueError, match="Unknown key"):
+            realm.verify(token)
+
+    def test_fallback_without_kid_searches_all_caches(self, rsa_private_key_pem, rsa_public_key_pem):
+        from dockmaster.auth.jwt_verifier import ServiceRealm
+
+        token = pyjwt.encode(
+            {"sub": "u@ex.com", "iss": "test"},
+            rsa_private_key_pem,
+            algorithm="RS256",
+        )
+
+        empty_cache = FakeKeyCache({})
+        real_cache = FakeKeyCache({"right-key": rsa_public_key_pem})
+        realm = ServiceRealm(key_cache=[empty_cache, real_cache])
+
+        claims = realm.verify(token)
+        assert claims["sub"] == "u@ex.com"
+
+
 class TestVerifyEdgeCases:
     """Edge cases and malformed tokens."""
 

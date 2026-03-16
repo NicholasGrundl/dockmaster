@@ -1,13 +1,76 @@
 # Implementation Progress
 
-*Last updated: 2026-03-13*
+*Last updated: 2026-03-16*
 
 ## Current Phase: Phase 7 — Ephemeral Keypair + Redirect URI + Token Issuance
-**Approach**: TBD (spec complete, implementation not started)
-**Status**: SPEC COMPLETE — ready for implementation
+**Approach**: TDD for foundation modules, unit tests for endpoints
+**Status**: IN PROGRESS
 
 **Spec**: `_blueprint/features/implementation-phase7-ephemeral-keypair-redirect.md`
 **Reference**: `_blueprint/features/planning/phase7-auth-flows-analysis.md`
+
+## Session plan
+
+### Session 1 — Foundation (sub-tasks 1–4)
+### Session 2 — Core Endpoints (sub-tasks 5–7)
+### Session 3 — New Capabilities (sub-tasks 8–12)
+### Session 4 — Integration + Polish (sub-task 13)
+
+## Phase 7 sub-tasks
+
+### Session 1 — Foundation
+- [x] 1. Settings — `DOCKMASTER_TOKEN_TTL` (int, default 900), `ALLOWED_REDIRECT_URIS` (str|set[str]), `ALLOWED_ORIGINS` (str|set[str]), `JWKS_REGISTRY_PATH` (str|None) + 11 tests GREEN
+- [x] 2. JWTTokenIssuer (TDD) — `auth/token_issuer.py`: generates ephemeral RSA keypair on construction, holds private key + current kid in memory only, `sign(subject, audience, ttl, extra_claims) → str`, exposes `current_kid` + `current_public_jwk` property. No I/O, no file management. 14 tests GREEN
+- [x] 3. EphemeralKeyCache(KeyCache) (TDD) — added to `auth/key_cache.py`: receives `(kid, public_jwk)` from issuer at construction, loads registry from platformdirs file, adds new key with `created_at`, prunes stale keys by absolute age (`now - created_at > retention_padded`), current key never pruned. `retention` defaults to 43200s (12h), padded 1%. Pruning only at construction. 14 tests GREEN
+- [x] 4. Lifespan wiring + ServiceRealm update — `ServiceRealm(key_cache)` accepts `KeyCacheLike | list[KeyCacheLike]`, normalizes to list, checks in order. Added `realm.get_key(kid)` method (searches all caches). Updated `routes/keys.py` to use `realm.get_key()`. Lifespan creates issuer → ephemeral_cache → realm with `[ephemeral_cache, sa_cache]`. 4 new multi-cache tests GREEN
+
+### Session 2 — Core Endpoints
+- [ ] 5. JWKS + OIDC discovery — `routes/jwks.py`: `GET /.well-known/jwks.json`, `GET /auth/jwks` (public, no auth), `GET /.well-known/openid-configuration` (static OIDC metadata). JWKS data from `issuer.public_jwks` or `ephemeral_cache.get_all_keys()`. + tests
+- [ ] 6. ServiceRealm verification — verify both SA-signed and ephemeral-signed JWTs work end-to-end via kid lookup across the cache list. + tests
+- [ ] 7. Exchange endpoint update — switch `/auth/exchange` from `ServiceUser.get_token()` (Type B) to `JWTTokenIssuer.sign()` (Type C, iss="dockmaster"). No API contract change, just token format. + tests
+
+### Session 3 — New Capabilities
+- [ ] 8. Token endpoint — `POST /auth/token?service=<target>`: session cookie or CLI auth → Type C JWT. Returns `{access_token, token_type, expires_in, refresh_token: null}`. + tests
+- [ ] 9. Grants endpoint — `GET /auth/grants?subject=X&target=Y`: Type A auth, resolves roles → flat permission list via Authority. + tests
+- [ ] 10. Auth code flow — auth code store (in-memory, single-use, 5min expiry), extend `_validate_redirect_uri()` to check `ALLOWED_REDIRECT_URIS`, update `/auth/callback` to generate code for external redirects, new `POST /auth/code/exchange` endpoint. + tests
+- [ ] 11. CLI `token` command — `cli/token.py`: `dockmaster token <service>`, calls `POST /auth/token`, prints JWT to stdout. + tests
+- [ ] 12. CORS middleware — `CORSMiddleware` in `create_app()` with `ALLOWED_ORIGINS` setting. + tests
+
+### Wrap-up
+- [ ] 13. Lint + full suite green — regressions check, update progress file
+
+## Design decisions (Phase 7 planning session)
+- 2026-03-16: D21 — `JWTTokenIssuer` (not `DockTokenIssuer`) — name describes function, user preference
+- 2026-03-16: D22 — JWTTokenIssuer owns the private key, EphemeralKeyCache is a dumb public key store. Private keys never touch cache objects. Consistent with ServiceAccountKeyCache pattern (holds GCP creds for API auth, not signing keys).
+- 2026-03-16: D23 — ServiceRealm.key_cache accepts `KeyCacheLike | list[KeyCacheLike]`, normalizes to list. Check order = construction order. Ephemeral first (local, fast), SA second (GCP, slower). Backward compatible — single cache still works.
+- 2026-03-16: D24 — EphemeralKeyCache retention defaults to 12h (43200s), NOT tied to token TTL. Padded 1% for clock drift. Configurable via param for future use. If retention < TTL, tokens just expire early (secure, user gets new token).
+- 2026-03-16: D25 — Pruning only at construction (restart). No mid-process rotation. Keypair is ephemeral-per-process. Mid-process rotation noted as future enhancement.
+- 2026-03-16: D26 — Pruning logic: keep if kid == current_kid OR (now - entry.created_at) <= retention_padded (absolute age check). Registry stores {kid, public_jwk, created_at} per key. Corrected from original "relative to current key" approach which would never prune on fresh starts.
+- 2026-03-16: D27 — Removed `realm.key_cache` property. Added `realm.get_key(kid)` method that searches all caches in order. Updated `routes/keys.py` to use it. No backward-compat shim — clean break.
+
+## New files (Phase 7, Session 1)
+- `src/dockmaster/auth/token_issuer.py` — JWTTokenIssuer (ephemeral RSA signing)
+- `tests/test_token_issuer.py` — 14 tests
+- `tests/test_ephemeral_key_cache.py` — 14 tests
+
+## Modified files (Phase 7, Session 1)
+- `src/dockmaster/config.py` — 4 new settings (dockmaster_token_ttl, allowed_redirect_uris, allowed_origins, jwks_registry_path)
+- `src/dockmaster/auth/key_cache.py` — added EphemeralKeyCache class
+- `src/dockmaster/auth/jwt_verifier.py` — ServiceRealm accepts list of caches, added get_key() method
+- `src/dockmaster/main.py` — lifespan creates JWTTokenIssuer + EphemeralKeyCache, wires multi-cache ServiceRealm
+- `src/dockmaster/routes/keys.py` — uses realm.get_key() instead of realm.key_cache.get_key()
+- `tests/test_config.py` — 11 new Phase 7 settings tests + fixed admin_emails env leak
+- `tests/test_jwt_verifier.py` — 4 new multi-cache tests
+
+## Test status (Phase 7, Session 1)
+- `tests/test_config.py` GREEN (31 tests)
+- `tests/test_token_issuer.py` GREEN (14 tests)
+- `tests/test_ephemeral_key_cache.py` GREEN (14 tests)
+- `tests/test_jwt_verifier.py` GREEN (11 tests — 4 new)
+- Full suite: 344 tests GREEN (43 new)
+
+## Next session: pick up at
+"Session 2, sub-task 5: JWKS + OIDC discovery endpoints"
 
 ## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after

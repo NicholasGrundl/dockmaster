@@ -13,7 +13,8 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from dockmaster.auth.jwt_signer import ServiceUser
 from dockmaster.auth.jwt_verifier import ServiceRealm
-from dockmaster.auth.key_cache import ServiceAccountKeyCache
+from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
+from dockmaster.auth.token_issuer import JWTTokenIssuer
 from dockmaster.auth.oauth import create_oauth
 from dockmaster.config import get_settings
 from dockmaster.logging import setup_logging
@@ -87,14 +88,37 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.signer = None
         log.warning("SA_KEY_FILE not set — JWT signing disabled (auth endpoints will return 503)")
 
-    # --- Key cache + JWT verifier (SA key preferred, ADC fallback for IAM calls) ---
-    cache = ServiceAccountKeyCache(
+    # --- Ephemeral token issuer (always available — generates keypair in memory) ---
+    app.state.token_issuer = JWTTokenIssuer(ttl=settings.dockmaster_token_ttl)
+    log.info("token_issuer_initialized", kid=app.state.token_issuer.current_kid)
+
+    # --- Key caches + JWT verifier ---
+    key_caches: list = []
+
+    # Ephemeral key cache (local, fast — checked first)
+    registry_path = settings.jwks_registry_path
+    if registry_path is None:
+        from platformdirs import user_data_dir
+
+        registry_path = str(Path(user_data_dir("dockmaster")) / "jwks-registry.json")
+    ephemeral_cache = EphemeralKeyCache(
+        kid=app.state.token_issuer.current_kid,
+        public_jwk=app.state.token_issuer.current_public_jwk,
+        registry_path=registry_path,
+    )
+    key_caches.append(ephemeral_cache)
+    log.info("ephemeral_key_cache_initialized", registry_path=registry_path)
+
+    # SA key cache (GCP IAM + Google OIDC — checked second)
+    sa_cache = ServiceAccountKeyCache(
         credentials=sa_key_data,
         project=settings.secrets_project,
         expiry=300,
     )
-    app.state.realm = ServiceRealm(key_cache=cache)
-    log.info("jwt_verifier_initialized", auth_source="sa_key" if sa_key_data else "adc")
+    key_caches.append(sa_cache)
+
+    app.state.realm = ServiceRealm(key_cache=key_caches)
+    log.info("jwt_verifier_initialized", num_caches=len(key_caches))
 
     # --- UI config ---
     app.state.ui_config = load_ui_config(settings.ui_config_path)

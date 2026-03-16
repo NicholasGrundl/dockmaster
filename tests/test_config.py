@@ -27,6 +27,10 @@ class TestSettingsDefaults:
             "REDIS_URL",
             "SESSION_SECRET_KEY",
             "DOCKMASTER_ADMIN_EMAILS",
+            "DOCKMASTER_TOKEN_TTL",
+            "ALLOWED_REDIRECT_URIS",
+            "ALLOWED_ORIGINS",
+            "JWKS_REGISTRY_PATH",
         ]:
             monkeypatch.delenv(var, raising=False)
 
@@ -115,7 +119,8 @@ class TestAdminSettings:
         settings = Settings(dockmaster_admin_emails="a@co.com,b@co.com", _env_file=None)
         assert settings.dockmaster_admin_emails == {"a@co.com", "b@co.com"}
 
-    def test_admin_emails_empty_default(self):
+    def test_admin_emails_empty_default(self, monkeypatch):
+        monkeypatch.delenv("DOCKMASTER_ADMIN_EMAILS", raising=False)
         settings = Settings(_env_file=None)
         assert settings.dockmaster_admin_emails == set()
 
@@ -150,6 +155,63 @@ class TestClientSecret:
         assert settings.client_secret.get_secret_value() == "mysecret"
         assert "mysecret" not in str(settings.client_secret)
         assert "mysecret" not in repr(settings.client_secret)
+
+
+class TestPhase7Settings:
+    """Test Phase 7 settings: token TTL, redirect URIs, CORS origins, JWKS registry path."""
+
+    def test_dockmaster_token_ttl_default(self):
+        settings = Settings(_env_file=None)
+        assert settings.dockmaster_token_ttl == 900
+
+    def test_dockmaster_token_ttl_custom(self):
+        settings = Settings(dockmaster_token_ttl=3600, _env_file=None)
+        assert settings.dockmaster_token_ttl == 3600
+
+    def test_dockmaster_token_ttl_from_env(self, monkeypatch):
+        monkeypatch.setenv("DOCKMASTER_TOKEN_TTL", "1800")
+        settings = Settings(_env_file=None)
+        assert settings.dockmaster_token_ttl == 1800
+
+    def test_allowed_redirect_uris_default_empty(self):
+        settings = Settings(_env_file=None)
+        assert settings.allowed_redirect_uris == set()
+
+    def test_allowed_redirect_uris_comma_separated(self):
+        settings = Settings(
+            allowed_redirect_uris="https://app.example.com/callback,https://other.com/cb",
+            _env_file=None,
+        )
+        assert settings.allowed_redirect_uris == {
+            "https://app.example.com/callback",
+            "https://other.com/cb",
+        }
+
+    def test_allowed_redirect_uris_from_env(self, monkeypatch):
+        monkeypatch.setenv("ALLOWED_REDIRECT_URIS", "https://a.com/cb, https://b.com/cb")
+        settings = Settings(_env_file=None)
+        assert settings.allowed_redirect_uris == {"https://a.com/cb", "https://b.com/cb"}
+
+    def test_allowed_origins_default_empty(self):
+        settings = Settings(_env_file=None)
+        assert settings.allowed_origins == set()
+
+    def test_allowed_origins_comma_separated(self):
+        settings = Settings(allowed_origins="https://app.example.com,https://other.com", _env_file=None)
+        assert settings.allowed_origins == {"https://app.example.com", "https://other.com"}
+
+    def test_allowed_origins_from_env(self, monkeypatch):
+        monkeypatch.setenv("ALLOWED_ORIGINS", "https://a.com, https://b.com")
+        settings = Settings(_env_file=None)
+        assert settings.allowed_origins == {"https://a.com", "https://b.com"}
+
+    def test_jwks_registry_path_default_none(self):
+        settings = Settings(_env_file=None)
+        assert settings.jwks_registry_path is None
+
+    def test_jwks_registry_path_custom(self):
+        settings = Settings(jwks_registry_path="/tmp/jwks.json", _env_file=None)
+        assert settings.jwks_registry_path == "/tmp/jwks.json"
 
 
 class TestGetSettings:
