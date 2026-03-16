@@ -30,8 +30,8 @@
 - [x] 7. Exchange endpoint update — switched `/auth/exchange` from `signer.get_token()` (Type B) to `token_issuer.sign()` (Type C, iss="dockmaster"). 14 tests GREEN (2 new: Type C output assertion, 503 when issuer missing). Lint fixed.
 
 ### Session 3 — New Capabilities
-- [ ] 8. Token endpoint — `POST /auth/token?service=<target>`: session cookie or CLI auth → Type C JWT. Returns `{access_token, token_type, expires_in, refresh_token: null}`. + tests
-- [ ] 9. Grants endpoint — `GET /auth/grants?subject=X&target=Y`: Type A auth, resolves roles → flat permission list via Authority. + tests
+- [x] 8. Token endpoint — `POST /auth/token?service=<target>`: dual auth (session cookie first, Bearer JWT fallback) → Type C JWT. Returns `{access_token, token_type, expires_in, refresh_token: null}`. New `routes/token.py`. Also switched `_handle_cli_callback` in `login.py` to `token_issuer.sign()` (Type C). 9 tests GREEN
+- [x] 9. Grants endpoint — `GET /auth/grants?subject=X&target=Y`: Type A auth, resolves roles → flat `target:perm` list via `Authority.get_permissions()`. 6 endpoint tests + 4 authority tests GREEN
 - [ ] 10. Auth code flow — auth code store (in-memory, single-use, 5min expiry), extend `_validate_redirect_uri()` to check `ALLOWED_REDIRECT_URIS`, update `/auth/callback` to generate code for external redirects, new `POST /auth/code/exchange` endpoint. + tests
 - [ ] 11. CLI `token` command — `cli/token.py`: `dockmaster token <service>`, calls `POST /auth/token`, prints JWT to stdout. + tests
 - [ ] 12. CORS middleware — `CORSMiddleware` in `create_app()` with `ALLOWED_ORIGINS` setting. + tests
@@ -81,10 +81,28 @@
 ## Test status (Phase 7, Session 2)
 - `tests/test_realm_e2e.py` GREEN (13 tests — new)
 - `tests/test_exchange.py` GREEN (14 tests — 2 new)
-- Full suite: 359 tests GREEN (15 new, 0 regressions)
+- Full suite at session 2 close: 359 tests GREEN (15 new)
+
+## New files (Phase 7, Session 3)
+- `src/dockmaster/routes/token.py` — POST /auth/token (dual auth: session cookie + Bearer JWT)
+- `tests/test_token_endpoint.py` — 9 tests
+
+## Modified files (Phase 7, Session 3)
+- `src/dockmaster/main.py` — registered token_router
+- `src/dockmaster/routes/login.py` — CLI callback switched from signer.get_token() to token_issuer.sign() (Type C)
+- `src/dockmaster/rbac/authority.py` — added get_permissions() method
+- `src/dockmaster/routes/permissions.py` — added GET /auth/grants endpoint
+- `tests/test_authority.py` — 4 new get_permissions tests
+- `tests/test_permissions.py` — 6 new grants endpoint tests
+
+## Test status (Phase 7, Session 3)
+- `tests/test_token_endpoint.py` GREEN (9 tests — new)
+- `tests/test_authority.py` GREEN (14 tests — 4 new)
+- `tests/test_permissions.py` GREEN (16 tests — 6 new)
+- Full suite: 378 tests GREEN (34 new across sessions 2+3, 0 regressions)
 
 ## Next session: pick up at
-"Session 3, sub-task 8: Token endpoint (POST /auth/token)"
+"Session 3 continued, sub-task 11: CLI token command"
 
 ## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after

@@ -94,3 +94,49 @@ class Authority:
 
         # 4. Exact string match
         return permission in permissions_set
+
+    async def get_permissions(self, subject: str, target: str) -> set[str]:
+        """Return all permissions the subject has for the target service.
+
+        Returns an empty set if the target or subject is not found.
+        """
+        # 1. Load service grants for target
+        grants_key = f"grants:{target}"
+        if self._is_cached(grants_key):
+            service_grants = self._cache_get(grants_key)
+        else:
+            try:
+                loop = asyncio.get_event_loop()
+                service_grants = await loop.run_in_executor(None, self._storage.get_service_grants, target)
+            except NotFound:
+                logger.debug("target_not_found", target=target)
+                return set()
+            self._cache_set(grants_key, service_grants)
+
+        # 2. Find subject's grant entry
+        grant = None
+        for g in service_grants.grants:
+            if g.subject == subject:
+                grant = g
+                break
+
+        if grant is None:
+            return set()
+
+        # 3. Load each role and collect permissions
+        permissions_set: set[str] = set()
+        for role_name in grant.roles:
+            role_key = f"role:{role_name}"
+            if self._is_cached(role_key):
+                role = self._cache_get(role_key)
+            else:
+                try:
+                    loop = asyncio.get_event_loop()
+                    role = await loop.run_in_executor(None, self._storage.get_role, role_name)
+                except NotFound:
+                    logger.warning("role_not_found", role_name=role_name)
+                    continue
+                self._cache_set(role_key, role)
+            permissions_set.update(role.permissions)
+
+        return permissions_set

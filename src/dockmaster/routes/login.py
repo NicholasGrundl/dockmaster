@@ -139,15 +139,15 @@ CLI_TOKEN_TTL = 900  # 15 minutes
 
 
 def _handle_cli_callback(request: Request, email: str, redirect_uri: str) -> RedirectResponse:
-    """Mint a short-lived JWT and redirect to the CLI's localhost callback."""
-    signer = getattr(request.app.state, "signer", None)
-    if signer is None:
-        raise HTTPException(status_code=503, detail="JWT signing not configured")
+    """Mint a short-lived Type C JWT and redirect to the CLI's localhost callback."""
+    token_issuer = getattr(request.app.state, "token_issuer", None)
+    if token_issuer is None:
+        raise HTTPException(status_code=503, detail="Token issuer not configured")
 
-    token = signer.get_token(
+    token = token_issuer.sign(
         subject=email,
-        service_name="dockmaster",
-        expiry=CLI_TOKEN_TTL,
+        audience="dockmaster",
+        ttl=CLI_TOKEN_TTL,
     )
 
     target = f"{redirect_uri}?{urlencode({'token': token})}"

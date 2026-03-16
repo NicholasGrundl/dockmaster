@@ -173,3 +173,34 @@ class TestCache:
         await auth.has_permission("alice@example.com", "svc-b", "read")
 
         assert storage.get_service_grants.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# get_permissions
+# ---------------------------------------------------------------------------
+
+
+class TestGetPermissions:
+    @pytest.fixture
+    def authority(self) -> Authority:
+        storage = _mock_storage()
+        _setup_storage(storage)
+        return _make_authority(storage)
+
+    async def test_returns_all_permissions(self, authority: Authority):
+        """Alice has viewer + editor → {read, list, write}."""
+        result = await authority.get_permissions("alice@example.com", "data-pipeline")
+        assert result == {"read", "list", "write"}
+
+    async def test_single_role_permissions(self, authority: Authority):
+        """Bob has viewer only → {read, list}."""
+        result = await authority.get_permissions("bob@example.com", "data-pipeline")
+        assert result == {"read", "list"}
+
+    async def test_unknown_subject_returns_empty(self, authority: Authority):
+        result = await authority.get_permissions("nobody@example.com", "data-pipeline")
+        assert result == set()
+
+    async def test_unknown_target_returns_empty(self, authority: Authority):
+        result = await authority.get_permissions("alice@example.com", "nonexistent")
+        assert result == set()

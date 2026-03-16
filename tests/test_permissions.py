@@ -143,3 +143,75 @@ class TestErrorHandling:
                 headers={"Authorization": f"Bearer {valid_token}"},
             )
             assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# GET /auth/grants — grants resolution
+# ---------------------------------------------------------------------------
+
+
+class TestGrantsEndpoint:
+    def test_returns_resolved_grants(self, perm_client, valid_token, mock_authority):
+        """Grants endpoint returns resolved permissions as target:perm strings."""
+        mock_authority.get_permissions = AsyncMock(return_value={"read", "write"})
+        resp = perm_client.get(
+            "/auth/grants",
+            params={"subject": "alice@example.com", "target": "billing"},
+            headers={"Authorization": f"Bearer {valid_token}"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["subject"] == "alice@example.com"
+        assert data["target"] == "billing"
+        assert sorted(data["grants"]) == ["billing:read", "billing:write"]
+
+    def test_empty_grants_for_unknown_subject(self, perm_client, valid_token, mock_authority):
+        """Unknown subject returns empty grants list."""
+        mock_authority.get_permissions = AsyncMock(return_value=set())
+        resp = perm_client.get(
+            "/auth/grants",
+            params={"subject": "nobody@example.com", "target": "billing"},
+            headers={"Authorization": f"Bearer {valid_token}"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["grants"] == []
+
+    def test_requires_auth(self, perm_client):
+        """No Bearer token → 401."""
+        resp = perm_client.get(
+            "/auth/grants",
+            params={"subject": "alice@example.com", "target": "billing"},
+        )
+        assert resp.status_code == 401
+
+    def test_missing_params_returns_422(self, perm_client, valid_token):
+        """Missing required query params → 422."""
+        resp = perm_client.get(
+            "/auth/grants",
+            params={"subject": "alice@example.com"},
+            headers={"Authorization": f"Bearer {valid_token}"},
+        )
+        assert resp.status_code == 422
+
+    def test_authority_error_returns_500(self, perm_client, valid_token, mock_authority):
+        mock_authority.get_permissions = AsyncMock(side_effect=RuntimeError("SM down"))
+        resp = perm_client.get(
+            "/auth/grants",
+            params={"subject": "alice@example.com", "target": "billing"},
+            headers={"Authorization": f"Bearer {valid_token}"},
+        )
+        assert resp.status_code == 500
+
+    def test_no_authority_returns_503(self, app, fake_realm, valid_token):
+        """Authority not configured → 503."""
+        with TestClient(app) as c:
+            app.state.realm = fake_realm
+            app.state.authority = None
+            resp = c.get(
+                "/auth/grants",
+                params={"subject": "alice@example.com", "target": "billing"},
+                headers={"Authorization": f"Bearer {valid_token}"},
+            )
+            assert resp.status_code == 503

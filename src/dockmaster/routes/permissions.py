@@ -1,10 +1,11 @@
-"""Routes: GET /auth/has — permission check endpoints."""
+"""Routes: GET /auth/has, GET /auth/grants — permission check and grants resolution."""
 
 from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
 
 from dockmaster.auth.middleware import get_current_user
 
@@ -59,3 +60,38 @@ async def has_permission_query(
 ) -> Response:
     """Check permission via query parameters."""
     return await _check_permission(request, subject, target, permission)
+
+
+class GrantsResponse(BaseModel):
+    subject: str
+    target: str
+    grants: list[str]
+
+
+@router.get("/grants", response_model=GrantsResponse)
+async def get_grants(
+    request: Request,
+    subject: str,
+    target: str,
+    _user: dict = Depends(get_current_user),
+) -> GrantsResponse:
+    """Return all resolved permissions for a subject on a target service.
+
+    Auth: Bearer JWT (Type A SA JWT).
+    Returns a flat list of "target:permission" strings.
+    """
+    authority = getattr(request.app.state, "authority", None)
+    if authority is None:
+        raise HTTPException(status_code=503, detail="RBAC service not configured")
+
+    try:
+        permissions = await authority.get_permissions(subject, target)
+    except Exception:
+        logger.exception("grants_resolution_error", subject=subject, target=target)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+    return GrantsResponse(
+        subject=subject,
+        target=target,
+        grants=sorted(f"{target}:{p}" for p in permissions),
+    )
