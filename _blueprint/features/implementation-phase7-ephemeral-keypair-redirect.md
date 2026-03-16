@@ -1,6 +1,7 @@
 ---
 state: Draft
 changelog:
+  "2026-03-16 session3": "Sessions 2-3 — exchange→Type C, token endpoint, grants endpoint, CLI token command, JWKS+OIDC deferred (D28-D29)"
   "2026-03-16 session1": "Implementation updates — KeyManager split into JWTTokenIssuer + EphemeralKeyCache, ServiceRealm multi-cache, class renames (D21-D27)"
   "2026-03-13 17h": "Senior review complete — added CORS, OIDC discovery, updated decisions"
   "2026-03-13 16h": "Initial outline from planning interview — decisions made, flows defined"
@@ -96,31 +97,12 @@ or `/auth/grants`.
 - Consistent with ServiceAccountKeyCache pattern (holds GCP creds for transport, not signing)
 - No `rotate()` method — keypair is ephemeral-per-process. Mid-process rotation is a future item.
 
-### 2. JWKS Endpoint
+### 2. JWKS Endpoint — DEFERRED (D28)
 
-New route module: `src/dockmaster/routes/jwks.py`
-
-**Endpoints:**
-- `GET /.well-known/jwks.json` — standard RFC 7517 path
-- `GET /auth/jwks` — same data, under the `/auth` namespace
-
-Both return the ephemeral public keys (from `EphemeralKeyCache` or `JWTTokenIssuer.current_public_jwk`). Public endpoint — no authentication required.
-
-**Response format:**
-```json
-{
-  "keys": [
-    {
-      "kty": "RSA",
-      "alg": "RS256",
-      "use": "sig",
-      "kid": "dk-2026-03-13-a1b2c3",
-      "n": "<base64url modulus>",
-      "e": "AQAB"
-    }
-  ]
-}
-```
+> **Deferred to backlog.** Consumers will use dockmaster SDK/middleware with
+> `/auth/key/{kid}` instead of standard JWKS auto-discovery. SA keys would
+> require PEM→JWK conversion that no consumer needs today. Will add when
+> external OIDC middleware integration is needed. See `feature-backlog.md`.
 
 ### 3. Token Issuer ✅ IMPLEMENTED (Session 1)
 
@@ -139,43 +121,52 @@ JWTTokenIssuer:
 ```
 
 **Replaces `ServiceUser` for all dockmaster-issued tokens.** `ServiceUser` continues to exist
-for signing Type A SA JWTs (used by the CLI and service-to-service auth).
+for signing Type A SA JWTs (service-to-service auth). CLI login callback also switched to
+`JWTTokenIssuer` as of Session 3.
 
 Extra claims cannot override core claims (sub, iss, aud, etc.) — core claims are applied last.
 
-### 4. Token Endpoint
+### 4. Token Endpoint ✅ IMPLEMENTED (Session 3)
 
-New endpoint in existing or new route module.
+New route module: `src/dockmaster/routes/token.py`
 
 - `POST /auth/token?service=<target_service>`
-- **Auth:** Session cookie (browser) or CLI credentials
+- **Auth:** Dual auth — session cookie first (browser), Bearer JWT fallback (CLI)
 - **Returns:** `{access_token, token_type: "bearer", expires_in, refresh_token: null}`
 - **refresh_token is null** — seam for future refresh token support
 
+**Actual implementation:**
+- `_email_from_session()` checks session cookie → session store → email
+- `_email_from_bearer()` checks Bearer JWT via `realm.verify()` → email claim
+- Session checked first (fast, local), Bearer second (requires realm verification)
+- 9 tests: session auth, Bearer auth, missing service, 401 cases, 503 fallback
+
 Used by:
 - Browser SPAs with a dockmaster session (from auth code flow)
-- CLI `dockmaster token <service>` command
+- CLI `dockmaster token <service>` command (manual E2E verified)
 
-### 5. Grants Endpoint
+### 5. Grants Endpoint ✅ IMPLEMENTED (Session 3)
 
-New endpoint: `GET /auth/grants`
+Added to existing: `src/dockmaster/routes/permissions.py`
 
-- **Auth:** Type A SA JWT (same as `/auth/has`)
-- **Query params:** `subject`, `target`
-- **Returns:** `{subject, target, grants: ["service:perm", ...]}`
-- **Resolves:** Loads service grants from RBAC storage, resolves roles → permissions,
-  returns flat `service:permission` list
+- `GET /auth/grants?subject=X&target=Y`
+- **Auth:** Type A SA JWT (same as `/auth/has`) — uses `get_current_user` dependency
+- **Returns:** `{subject, target, grants: ["target:perm", ...]}`
+- **Resolves:** via new `Authority.get_permissions()` method → roles → flat permission set
 
-Complements `/auth/has` (single permission check) with a bulk grants lookup.
+Also added `Authority.get_permissions(subject, target) → set[str]` to `rbac/authority.py`.
+6 endpoint tests + 4 authority unit tests.
 
-### 6. Exchange Endpoint Update
+### 6. Exchange Endpoint Update ✅ IMPLEMENTED (Session 2)
 
-Modify: `src/dockmaster/routes/exchange.py`
+Modified: `src/dockmaster/routes/exchange.py`
 
-- Switch signing from `ServiceUser` (Type B) to `JWTTokenIssuer` (Type C)
+- Switched from `signer.get_token()` (Type B) to `token_issuer.sign()` (Type C)
+- Uses `app.state.token_issuer` instead of `app.state.signer`
 - Same input: Type A SA JWT with subject + service params
 - Output: Type C JWT (ephemeral-signed, `iss: "dockmaster"`)
 - No breaking changes to the API contract — just the token format changes
+- 14 tests (2 new: Type C output assertion, 503 when issuer missing)
 
 ### 7. Auth Code Flow
 
@@ -207,7 +198,7 @@ New module: `src/dockmaster/auth/auth_code.py` (or extend login routes)
 - **Returns:** `{access_token, token_type, expires_in, refresh_token: null}`
 - **Signs:** Type C JWT with `JWTTokenIssuer`
 
-### 8. ServiceRealm Extension ✅ IMPLEMENTED (Session 1)
+### 8. ServiceRealm Extension ✅ IMPLEMENTED (Session 1), E2E VERIFIED (Session 2)
 
 Modify: `src/dockmaster/auth/jwt_verifier.py`
 
@@ -218,18 +209,26 @@ Modify: `src/dockmaster/auth/jwt_verifier.py`
 - Removed `realm.key_cache` property — replaced by `realm.get_key()` (D27)
 - `routes/keys.py` updated to use `realm.get_key(kid)`
 - Lifespan passes `[ephemeral_cache, sa_cache]` — ephemeral checked first (local, fast)
+- **Session 2:** 13 e2e tests added (`tests/test_realm_e2e.py`) proving both Type C (ephemeral)
+  and Type A/B (SA) tokens verify through the same multi-cache realm, including cross-restart
+  token verification via registry persistence.
 
-### 9. CLI `token` Command
+### 9. CLI `token` Command ✅ IMPLEMENTED (Session 3)
 
 New module: `src/dockmaster/cli/token.py`
 
 - `dockmaster token <service>` (positional arg)
 - Loads stored CLI credentials (from `dockmaster login`)
 - Calls `POST /auth/token?service=<service>` with Bearer auth
-- Prints the Type C JWT to stdout
+- Prints the Type C JWT to stdout (pipeable)
 - Exit 1 if not logged in or token request fails
+- 5 tests, manual E2E verified
 
-Register in `src/dockmaster/cli/main.py`.
+Also registered in `src/dockmaster/cli/main.py`.
+
+**CLI login callback also updated:** `_handle_cli_callback()` in `routes/login.py` now
+uses `token_issuer.sign()` instead of `signer.get_token()`, so CLI login tokens are
+also Type C.
 
 ### 10. CORS Middleware
 
@@ -246,26 +245,9 @@ Modify: `src/dockmaster/main.py`
 - Allow methods: `GET`, `POST`
 - Allow credentials: `True`
 
-### 11. OIDC Discovery Endpoint
+### 11. OIDC Discovery Endpoint — DEFERRED (D28)
 
-New route (in JWKS route module or standalone).
-
-- `GET /.well-known/openid-configuration`
-- Public endpoint — no authentication required
-- Returns static JSON with endpoint locations
-
-```json
-{
-  "issuer": "dockmaster",
-  "jwks_uri": "/.well-known/jwks.json",
-  "token_endpoint": "/auth/token",
-  "authorization_endpoint": "/auth/login",
-  "grant_types_supported": ["authorization_code"],
-  "response_types_supported": ["code"],
-  "subject_types_supported": ["public"],
-  "id_token_signing_alg_values_supported": ["RS256"]
-}
-```
+> **Deferred with JWKS endpoint.** See Section 2 above.
 
 ### 12. Settings
 

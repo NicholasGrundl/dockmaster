@@ -85,10 +85,13 @@
 
 ## New files (Phase 7, Session 3)
 - `src/dockmaster/routes/token.py` — POST /auth/token (dual auth: session cookie + Bearer JWT)
+- `src/dockmaster/cli/token.py` — CLI `dockmaster token <service>` command
 - `tests/test_token_endpoint.py` — 9 tests
+- `tests/test_cli_token.py` — 5 tests
 
 ## Modified files (Phase 7, Session 3)
 - `src/dockmaster/main.py` — registered token_router
+- `src/dockmaster/cli/main.py` — registered token_command
 - `src/dockmaster/routes/login.py` — CLI callback switched from signer.get_token() to token_issuer.sign() (Type C)
 - `src/dockmaster/rbac/authority.py` — added get_permissions() method
 - `src/dockmaster/routes/permissions.py` — added GET /auth/grants endpoint
@@ -97,12 +100,14 @@
 
 ## Test status (Phase 7, Session 3)
 - `tests/test_token_endpoint.py` GREEN (9 tests — new)
+- `tests/test_cli_token.py` GREEN (5 tests — new)
 - `tests/test_authority.py` GREEN (14 tests — 4 new)
 - `tests/test_permissions.py` GREEN (16 tests — 6 new)
-- Full suite: 378 tests GREEN (34 new across sessions 2+3, 0 regressions)
+- Full suite: 383 tests GREEN (39 new across sessions 2+3, 0 regressions)
+- Manual E2E: `dockmaster token billing` verified against live dev server
 
 ## Next session: pick up at
-"Session 3 continued, sub-task 11: CLI token command"
+"Session 3 continued, sub-task 10: Auth code flow (or sub-task 12: CORS middleware)"
 
 ## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after
