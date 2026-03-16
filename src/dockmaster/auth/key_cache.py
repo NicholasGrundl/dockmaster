@@ -216,21 +216,20 @@ class EphemeralKeyCache(KeyCache):
         """Add or update the current key entry."""
         # Remove any existing entry with the same kid (handles re-registration)
         entries = [e for e in entries if e["kid"] != kid]
-        entries.append({
-            "kid": kid,
-            "public_jwk": public_jwk,
-            "created_at": time.time(),
-        })
+        entries.append(
+            {
+                "kid": kid,
+                "public_jwk": public_jwk,
+                "created_at": time.time(),
+            }
+        )
         return entries
 
     def _prune_stale(self, entries: list[dict]) -> list[dict]:
         """Remove entries older than retention, except the current key."""
         now = time.time()
         return [
-            e
-            for e in entries
-            if e["kid"] == self._current_kid
-            or (now - e["created_at"]) <= self._retention_padded
+            e for e in entries if e["kid"] == self._current_kid or (now - e["created_at"]) <= self._retention_padded
         ]
 
     def _save_registry(self, entries: list[dict]) -> None:

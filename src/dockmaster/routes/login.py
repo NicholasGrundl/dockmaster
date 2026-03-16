@@ -10,6 +10,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, URLSafeSerializer
+from pydantic import BaseModel
 
 from dockmaster.config import Settings, get_settings
 
@@ -31,20 +32,24 @@ def _get_signer(settings: Settings) -> URLSafeSerializer:
     return URLSafeSerializer(settings.session_secret_key)
 
 
-def _validate_redirect_uri(uri: str | None) -> str | None:
+def _validate_redirect_uri(uri: str | None, allowed_redirect_uris: set[str] | None = None) -> str | None:
     """Validate and return the redirect URI, or None if not provided.
 
-    Currently only allows localhost URIs (for CLI OAuth flow).
-    Future: extend to support registered external service redirect URIs.
+    Allows localhost URIs (CLI flow) and URIs in the ALLOWED_REDIRECT_URIS allowlist
+    (external service flow).
     """
     if not uri:
         return None
-    if not _LOCALHOST_RE.match(uri):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid redirect_uri: only localhost URIs are currently allowed",
-        )
-    return uri
+    # Localhost always allowed (CLI flow)
+    if _LOCALHOST_RE.match(uri):
+        return uri
+    # Check against configured allowlist
+    if allowed_redirect_uris and uri in allowed_redirect_uris:
+        return uri
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid redirect_uri: not in allowlist",
+    )
 
 
 @router.get("/login")
@@ -62,7 +67,7 @@ async def login(
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
 
-    validated_redirect = _validate_redirect_uri(redirect_uri)
+    validated_redirect = _validate_redirect_uri(redirect_uri, settings.allowed_redirect_uris)
 
     state = str(uuid.uuid4())
     _pending_states[state] = {"redirect_uri": validated_redirect}
@@ -102,10 +107,15 @@ async def callback(request: Request, settings: Settings = Depends(get_settings))
     if domain not in settings.authorized_domains:
         raise HTTPException(status_code=403, detail=f"Domain not allowed: {domain}")
 
-    # CLI flow: mint JWT and redirect to localhost callback
-    cli_redirect = state_meta.get("redirect_uri")
-    if cli_redirect:
-        return _handle_cli_callback(request, email, cli_redirect)
+    # Redirect flow: allowlisted URI → auth code, localhost (CLI) → direct JWT
+    redirect_target = state_meta.get("redirect_uri")
+    if redirect_target:
+        if redirect_target in settings.allowed_redirect_uris:
+            return _handle_external_callback(request, email, redirect_target, state)
+        if _LOCALHOST_RE.match(redirect_target):
+            return _handle_cli_callback(request, email, redirect_target)
+        # Should not reach here — _validate_redirect_uri would have rejected it
+        raise HTTPException(status_code=400, detail="Invalid redirect_uri")
 
     # Browser flow: create session and set cookie
     session_store = getattr(request.app.state, "session_store", None)
@@ -136,6 +146,23 @@ async def callback(request: Request, settings: Settings = Depends(get_settings))
 
 
 CLI_TOKEN_TTL = 900  # 15 minutes
+
+
+def _handle_external_callback(
+    request: Request,
+    email: str,
+    redirect_uri: str,
+    state: str,
+) -> RedirectResponse:
+    """Generate an auth code and redirect to the external service."""
+    auth_code_store = getattr(request.app.state, "auth_code_store", None)
+    if auth_code_store is None:
+        raise HTTPException(status_code=503, detail="Auth code store not configured")
+
+    code = auth_code_store.create(subject=email, redirect_uri=redirect_uri)
+    target = f"{redirect_uri}?{urlencode({'code': code, 'state': state})}"
+    logger.info("auth_code_issued", email=email, redirect_uri=redirect_uri)
+    return RedirectResponse(url=target, status_code=302)
 
 
 def _handle_cli_callback(request: Request, email: str, redirect_uri: str) -> RedirectResponse:
@@ -226,3 +253,42 @@ async def get_sessions(request: Request, settings: Settings = Depends(get_settin
     from dockmaster.rbac.admin_ops import list_sessions_by_email
 
     return await list_sessions_by_email(session_store, email)
+
+
+class CodeExchangeRequest(BaseModel):
+    """Request body for POST /auth/code/exchange."""
+
+    code: str
+    redirect_uri: str
+
+
+@router.post("/code/exchange")
+async def code_exchange(body: CodeExchangeRequest, request: Request) -> dict:
+    """Exchange an authorization code for a Type C JWT.
+
+    The code must be valid (exists, not expired, not already used) and the
+    redirect_uri must match the one used when the code was created.
+    """
+    auth_code_store = getattr(request.app.state, "auth_code_store", None)
+    if auth_code_store is None:
+        raise HTTPException(status_code=503, detail="Auth code store not configured")
+
+    token_issuer = getattr(request.app.state, "token_issuer", None)
+    if token_issuer is None:
+        raise HTTPException(status_code=503, detail="Token issuer not configured")
+
+    entry = auth_code_store.consume(body.code, redirect_uri=body.redirect_uri)
+    if entry is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired authorization code")
+
+    token = token_issuer.sign(
+        subject=entry.subject,
+        audience="dockmaster",
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": token_issuer.default_ttl,
+        "refresh_token": None,
+    }

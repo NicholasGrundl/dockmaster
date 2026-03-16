@@ -4,7 +4,7 @@
 
 ## Current Phase: Phase 7 — Ephemeral Keypair + Redirect URI + Token Issuance
 **Approach**: TDD for foundation modules, unit tests for endpoints
-**Status**: IN PROGRESS
+**Status**: COMPLETE (pending manual E2E verification)
 
 **Spec**: `_blueprint/features/implementation-phase7-ephemeral-keypair-redirect.md`
 **Reference**: `_blueprint/features/planning/phase7-auth-flows-analysis.md`
@@ -14,7 +14,7 @@
 ### Session 1 — Foundation (sub-tasks 1–4)
 ### Session 2 — Core Endpoints (sub-tasks 5–7)
 ### Session 3 — New Capabilities (sub-tasks 8–12)
-### Session 4 — Integration + Polish (sub-task 13)
+### Session 4 — Wrap-up (sub-tasks 10, 12, 13)
 
 ## Phase 7 sub-tasks
 
@@ -32,12 +32,12 @@
 ### Session 3 — New Capabilities
 - [x] 8. Token endpoint — `POST /auth/token?service=<target>`: dual auth (session cookie first, Bearer JWT fallback) → Type C JWT. Returns `{access_token, token_type, expires_in, refresh_token: null}`. New `routes/token.py`. Also switched `_handle_cli_callback` in `login.py` to `token_issuer.sign()` (Type C). 9 tests GREEN
 - [x] 9. Grants endpoint — `GET /auth/grants?subject=X&target=Y`: Type A auth, resolves roles → flat `target:perm` list via `Authority.get_permissions()`. 6 endpoint tests + 4 authority tests GREEN
-- [ ] 10. Auth code flow — auth code store (in-memory, single-use, 5min expiry), extend `_validate_redirect_uri()` to check `ALLOWED_REDIRECT_URIS`, update `/auth/callback` to generate code for external redirects, new `POST /auth/code/exchange` endpoint. + tests
+- [x] 10. Auth code flow — `AuthCodeStore` (in-memory, single-use, 5min expiry) in `auth/auth_code.py`, extended `_validate_redirect_uri()` to check `ALLOWED_REDIRECT_URIS`, updated `/auth/callback` to generate code for external redirects (localhost still gets direct JWT), new `POST /auth/code/exchange` endpoint, `CodeExchangeRequest` pydantic model. 8 store tests + 14 endpoint tests GREEN
 - [x] 11. CLI `token` command — `cli/token.py`: `dockmaster token <service>`, calls `POST /auth/token`, prints JWT to stdout. 5 tests GREEN
-- [ ] 12. CORS middleware — `CORSMiddleware` in `create_app()` with `ALLOWED_ORIGINS` setting. + tests
+- [x] 12. CORS middleware — `CORSMiddleware` in `create_app()` with `ALLOWED_ORIGINS` setting, conditional (only added when origins configured). 6 tests GREEN
 
 ### Wrap-up
-- [ ] 13. Lint + full suite green — regressions check, update progress file
+- [x] 13. Lint + full suite green — 411 tests GREEN (28 new), ruff clean, format clean
 
 ## Design decisions (Phase 7 planning session)
 - 2026-03-16: D21 — `JWTTokenIssuer` (not `DockTokenIssuer`) — name describes function, user preference
@@ -106,8 +106,25 @@
 - Full suite: 383 tests GREEN (39 new across sessions 2+3, 0 regressions)
 - Manual E2E: `dockmaster token billing` verified against live dev server
 
+## New files (Phase 7, Session 4)
+- `src/dockmaster/auth/auth_code.py` — AuthCodeStore (in-memory, single-use, TTL-based expiry)
+- `tests/test_auth_code.py` — 8 tests (create, consume, single-use, expiry, prune, uniqueness)
+- `tests/test_auth_code_flow.py` — 14 tests (redirect URI allowlist, code exchange endpoint, callback external redirect)
+- `tests/test_cors.py` — 6 tests (preflight, allowed/disallowed origins, credentials, disabled)
+- `docs/GUIDE-auth-code-flow-e2e.md` — manual E2E test guide for auth code flow
+
+## Modified files (Phase 7, Session 4)
+- `src/dockmaster/main.py` — added CORSMiddleware (conditional), AuthCodeStore in lifespan
+- `src/dockmaster/routes/login.py` — extended `_validate_redirect_uri()` with allowlist, added `_handle_external_callback()`, added `POST /auth/code/exchange` endpoint with `CodeExchangeRequest` model
+
+## Test status (Phase 7, Session 4)
+- `tests/test_auth_code.py` GREEN (8 tests — new)
+- `tests/test_auth_code_flow.py` GREEN (14 tests — new)
+- `tests/test_cors.py` GREEN (6 tests — new)
+- Full suite: 411 tests GREEN (28 new, 0 regressions)
+
 ## Next session: pick up at
-"Session 3 continued, sub-task 10: Auth code flow (or sub-task 12: CORS middleware)"
+"Phase 7 COMPLETE — manual E2E verification via docs/GUIDE-auth-code-flow-e2e.md, then Phase 8a planning"
 
 ## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after

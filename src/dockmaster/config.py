@@ -76,7 +76,14 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def postprocess(self) -> "Settings":
         # Parse comma-separated authorization fields into sets
-        for field in ("authorized_issuers", "authorized_domains", "authorized_audience", "dockmaster_admin_emails", "allowed_redirect_uris", "allowed_origins"):
+        for field in (
+            "authorized_issuers",
+            "authorized_domains",
+            "authorized_audience",
+            "dockmaster_admin_emails",
+            "allowed_redirect_uris",
+            "allowed_origins",
+        ):
             raw = getattr(self, field)
             parsed = _parse_comma_separated(raw)
             object.__setattr__(self, field, parsed)

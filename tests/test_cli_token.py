@@ -34,7 +34,12 @@ class TestTokenCommand:
         with patch("dockmaster.cli.token.httpx.Client") as mock_cls:
             mock_client = mock_cls.return_value.__enter__.return_value
             mock_client.post.return_value = _mock_response(
-                json_data={"access_token": "eyJ.test.token", "token_type": "bearer", "expires_in": 900, "refresh_token": None}
+                json_data={
+                    "access_token": "eyJ.test.token",
+                    "token_type": "bearer",
+                    "expires_in": 900,
+                    "refresh_token": None,
+                }
             )
 
             result = runner.invoke(app, ["token", "billing"])
@@ -62,9 +67,7 @@ class TestTokenCommand:
         """Server error → exit code 1 with error message."""
         with patch("dockmaster.cli.token.httpx.Client") as mock_cls:
             mock_client = mock_cls.return_value.__enter__.return_value
-            mock_client.post.return_value = _mock_response(
-                status_code=401, json_data={"detail": "Not authenticated"}
-            )
+            mock_client.post.return_value = _mock_response(status_code=401, json_data={"detail": "Not authenticated"})
 
             result = runner.invoke(app, ["token", "billing"])
 

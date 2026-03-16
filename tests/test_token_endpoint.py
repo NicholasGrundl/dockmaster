@@ -35,7 +35,9 @@ def token_settings() -> Settings:
 
 
 @pytest.fixture
-def token_client(app: FastAPI, token_settings: Settings, token_issuer: JWTTokenIssuer, session_store: InMemorySessionStore) -> TestClient:
+def token_client(
+    app: FastAPI, token_settings: Settings, token_issuer: JWTTokenIssuer, session_store: InMemorySessionStore
+) -> TestClient:
     """TestClient with token_issuer and session_store wired."""
     app.dependency_overrides[get_settings] = lambda: token_settings
     with TestClient(app) as client:
@@ -44,14 +46,14 @@ def token_client(app: FastAPI, token_settings: Settings, token_issuer: JWTTokenI
         yield client
 
 
-def _create_session_cookie(session_store: InMemorySessionStore, settings: Settings, email: str = "user@example.com", ttl: int = 3600) -> str:
+def _create_session_cookie(
+    session_store: InMemorySessionStore, settings: Settings, email: str = "user@example.com", ttl: int = 3600
+) -> str:
     """Create a session and return the signed cookie value."""
     session_id = f"test-session-{email}"
     loop = asyncio.new_event_loop()
     try:
-        loop.run_until_complete(
-            session_store.set(session_id, {"email": email, "name": "Test User"}, ttl=ttl)
-        )
+        loop.run_until_complete(session_store.set(session_id, {"email": email, "name": "Test User"}, ttl=ttl))
     finally:
         loop.close()
     signer = URLSafeSerializer(settings.session_secret_key)

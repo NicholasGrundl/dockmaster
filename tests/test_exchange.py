@@ -47,7 +47,9 @@ def exchange_client(exchange_app: FastAPI, token_issuer: JWTTokenIssuer, fake_re
 class _ExchangeTestClient:
     """Context manager that enters TestClient and overwrites token_issuer/realm after lifespan."""
 
-    def __init__(self, app: FastAPI, settings: Settings, realm: ServiceRealm, token_issuer: JWTTokenIssuer | None = None):
+    def __init__(
+        self, app: FastAPI, settings: Settings, realm: ServiceRealm, token_issuer: JWTTokenIssuer | None = None
+    ):
         self._app = app
         self._token_issuer = token_issuer or JWTTokenIssuer(ttl=900)
         self._realm = realm

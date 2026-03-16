@@ -9,11 +9,13 @@ from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from dockmaster.auth.jwt_signer import ServiceUser
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
+from dockmaster.auth.auth_code import AuthCodeStore
 from dockmaster.auth.token_issuer import JWTTokenIssuer
 from dockmaster.auth.oauth import create_oauth
 from dockmaster.config import get_settings
@@ -121,6 +123,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.realm = ServiceRealm(key_cache=key_caches)
     log.info("jwt_verifier_initialized", num_caches=len(key_caches))
 
+    # --- Auth code store (for OAuth auth code flow with external redirects) ---
+    app.state.auth_code_store = AuthCodeStore(ttl=300)
+    log.info("auth_code_store_initialized", ttl=300)
+
     # --- UI config ---
     app.state.ui_config = load_ui_config(settings.ui_config_path)
 
@@ -192,6 +198,15 @@ def create_app() -> FastAPI:
         description="Auth microservice for fine-grained RBAC via Google services",
         lifespan=lifespan,
     )
+    # CORS — allow configured origins for SPA cross-origin access
+    if settings.allowed_origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=sorted(settings.allowed_origins),
+            allow_methods=["GET", "POST"],
+            allow_headers=["Authorization", "Content-Type"],
+            allow_credentials=True,
+        )
     # Starlette SessionMiddleware is required by Authlib for OAuth state management
     application.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
     application.include_router(health_router, prefix="/auth")
