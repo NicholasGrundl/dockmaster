@@ -1,6 +1,7 @@
 ---
 state: Draft
 changelog:
+  "2026-03-16 session1": "Implementation updates — KeyManager split into JWTTokenIssuer + EphemeralKeyCache, ServiceRealm multi-cache, class renames (D21-D27)"
   "2026-03-13 17h": "Senior review complete — added CORS, OIDC discovery, updated decisions"
   "2026-03-13 16h": "Initial outline from planning interview — decisions made, flows defined"
 ---
@@ -103,7 +104,7 @@ New route module: `src/dockmaster/routes/jwks.py`
 - `GET /.well-known/jwks.json` — standard RFC 7517 path
 - `GET /auth/jwks` — same data, under the `/auth` namespace
 
-Both return `KeyManager.get_jwks()`. Public endpoint — no authentication required.
+Both return the ephemeral public keys (from `EphemeralKeyCache` or `JWTTokenIssuer.current_public_jwk`). Public endpoint — no authentication required.
 
 **Response format:**
 ```json
@@ -121,26 +122,26 @@ Both return `KeyManager.get_jwks()`. Public endpoint — no authentication requi
 }
 ```
 
-### 3. Token Issuer (`DockTokenIssuer`)
+### 3. Token Issuer ✅ IMPLEMENTED (Session 1)
 
-New module: `src/dockmaster/auth/token_issuer.py`
+> **Renamed from `DockTokenIssuer` to `JWTTokenIssuer`** (D21). Merged with Section 1 —
+> the issuer owns the keypair directly (no separate KeyManager). See Section 1 above for
+> full details.
 
-**Responsibilities:**
-- Sign Type C JWTs using the `KeyManager`'s current ephemeral key
-- Build standard claims: `sub`, `email`, `iss` ("dockmaster"), `aud`, `iat`, `exp`, `kid`
-- Configurable TTL via `DOCKMASTER_TOKEN_TTL` setting
-
-**Interface sketch:**
+**Actual interface:**
 ```
-DockTokenIssuer:
-  key_manager: KeyManager
+JWTTokenIssuer:
   default_ttl: int
+  current_kid: str
+  current_public_jwk: dict  (read-only property)
 
-  issue(subject, audience, ttl=None, extra_claims=None) → str
+  sign(subject, audience, ttl=None, extra_claims=None) → str
 ```
 
 **Replaces `ServiceUser` for all dockmaster-issued tokens.** `ServiceUser` continues to exist
 for signing Type A SA JWTs (used by the CLI and service-to-service auth).
+
+Extra claims cannot override core claims (sub, iss, aud, etc.) — core claims are applied last.
 
 ### 4. Token Endpoint
 
@@ -171,7 +172,7 @@ Complements `/auth/has` (single permission check) with a bulk grants lookup.
 
 Modify: `src/dockmaster/routes/exchange.py`
 
-- Switch signing from `ServiceUser` (Type B) to `DockTokenIssuer` (Type C)
+- Switch signing from `ServiceUser` (Type B) to `JWTTokenIssuer` (Type C)
 - Same input: Type A SA JWT with subject + service params
 - Output: Type C JWT (ephemeral-signed, `iss: "dockmaster"`)
 - No breaking changes to the API contract — just the token format changes
@@ -204,17 +205,19 @@ New module: `src/dockmaster/auth/auth_code.py` (or extend login routes)
 - **Input:** `{code, redirect_uri}`
 - **Validates:** code exists, not expired, not used, redirect_uri matches
 - **Returns:** `{access_token, token_type, expires_in, refresh_token: null}`
-- **Signs:** Type C JWT with `DockTokenIssuer`
+- **Signs:** Type C JWT with `JWTTokenIssuer`
 
-### 8. ServiceRealm Extension
+### 8. ServiceRealm Extension ✅ IMPLEMENTED (Session 1)
 
-Modify: `src/dockmaster/auth/key_cache.py` (or `ServiceRealm`)
+Modify: `src/dockmaster/auth/jwt_verifier.py`
 
-- Add ephemeral public keys from `KeyManager` to the key lookup
-- `ServiceRealm.verify()` already does kid-based lookup — just needs to find ephemeral
-  keys alongside GCP SA keys
-- **Approach:** Either inject ephemeral keys into `ServiceAccountKeyCache`, or give
-  `ServiceRealm` a second key source. TBD during implementation.
+- `ServiceRealm(key_cache)` now accepts `KeyCacheLike | list[KeyCacheLike]` (D23)
+- Normalizes single cache to `[cache]` — fully backward compatible
+- `_verify_with_kid()` and `_verify_without_kid()` iterate all caches in order
+- Added `realm.get_key(kid)` convenience method (searches all caches)
+- Removed `realm.key_cache` property — replaced by `realm.get_key()` (D27)
+- `routes/keys.py` updated to use `realm.get_key(kid)`
+- Lifespan passes `[ephemeral_cache, sa_cache]` — ephemeral checked first (local, fast)
 
 ### 9. CLI `token` Command
 
@@ -275,22 +278,22 @@ New settings in `src/dockmaster/config.py`:
 | `ALLOWED_ORIGINS` | `str \| set[str]` | `set()` | Comma-separated CORS allowed origins |
 | `JWKS_REGISTRY_PATH` | `str \| None` | `None` (platformdirs default) | Override path for JWKS public key registry file |
 
-### 13. Lifespan Wiring
+### 13. Lifespan Wiring ✅ IMPLEMENTED (Session 1)
 
 Modify: `src/dockmaster/main.py`
 
-- Initialize `KeyManager` (generates keypair, loads/updates registry)
-- Initialize `DockTokenIssuer` with `KeyManager`
-- Attach both to `app.state`
-- Register JWKS routes (including `/.well-known/jwks.json` without `/auth` prefix)
-- Extend `ServiceRealm` key cache to include ephemeral public keys
+- Initialize `JWTTokenIssuer(ttl=settings.dockmaster_token_ttl)` → `app.state.token_issuer`
+- Initialize `EphemeralKeyCache(kid, public_jwk, registry_path)` using issuer's public key
+- Registry path: `settings.jwks_registry_path` or platformdirs default
+- `ServiceRealm(key_cache=[ephemeral_cache, sa_cache])` — ephemeral first
+- Still TODO: Register JWKS routes (Session 2, sub-task 5)
 
 ### 14. Testing Approach
 
 | Module | Approach | Key test cases |
 |---|---|---|
-| `KeyManager` | TDD | Key generation, JWK export, registry persistence, key pruning |
-| `DockTokenIssuer` | TDD | Token signing, claims validation, TTL, kid in header |
+| `JWTTokenIssuer` | TDD ✅ | Keypair generation, token signing, claims, TTL, kid in header — 14 tests |
+| `EphemeralKeyCache` | TDD ✅ | Registry persistence, key pruning, JWK→PEM conversion — 14 tests |
 | JWKS endpoint | Unit | Response format, both paths serve same data, no auth required |
 | `/auth/grants` | TDD | Grants resolution, Type A auth required, unknown subject/target |
 | `/auth/token` | Unit | Session auth, CLI auth, missing service param, response format |
@@ -298,7 +301,7 @@ Modify: `src/dockmaster/main.py`
 | `/auth/code/exchange` | Unit | Valid exchange, expired code, wrong redirect_uri, replay |
 | Exchange update | Unit | Returns Type C (not Type B), claims format, iss = "dockmaster" |
 | CLI `token` | Unit | Happy path, not logged in, service arg |
-| ServiceRealm extension | Unit | Verifies both SA and ephemeral JWTs by kid |
+| ServiceRealm extension | Unit ✅ | Multi-cache lookup, priority ordering, backward compat — 4 tests |
 | OIDC discovery | Unit | Response format, correct endpoint URLs |
 | CORS | Unit | Allowed origins get CORS headers, others don't |
 
