@@ -33,7 +33,7 @@
 - [x] 8. Token endpoint — `POST /auth/token?service=<target>`: dual auth (session cookie first, Bearer JWT fallback) → Type C JWT. Returns `{access_token, token_type, expires_in, refresh_token: null}`. New `routes/token.py`. Also switched `_handle_cli_callback` in `login.py` to `token_issuer.sign()` (Type C). 9 tests GREEN
 - [x] 9. Grants endpoint — `GET /auth/grants?subject=X&target=Y`: Type A auth, resolves roles → flat `target:perm` list via `Authority.get_permissions()`. 6 endpoint tests + 4 authority tests GREEN
 - [ ] 10. Auth code flow — auth code store (in-memory, single-use, 5min expiry), extend `_validate_redirect_uri()` to check `ALLOWED_REDIRECT_URIS`, update `/auth/callback` to generate code for external redirects, new `POST /auth/code/exchange` endpoint. + tests
-- [ ] 11. CLI `token` command — `cli/token.py`: `dockmaster token <service>`, calls `POST /auth/token`, prints JWT to stdout. + tests
+- [x] 11. CLI `token` command — `cli/token.py`: `dockmaster token <service>`, calls `POST /auth/token`, prints JWT to stdout. 5 tests GREEN
 - [ ] 12. CORS middleware — `CORSMiddleware` in `create_app()` with `ALLOWED_ORIGINS` setting. + tests
 
 ### Wrap-up

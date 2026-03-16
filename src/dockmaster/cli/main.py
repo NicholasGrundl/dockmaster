@@ -8,6 +8,7 @@ from dockmaster.cli.auth import login_command, logout_command
 from dockmaster.cli.check import check_command
 from dockmaster.cli.grants import grant_app
 from dockmaster.cli.roles import role_app
+from dockmaster.cli.token import token_command
 
 app = typer.Typer(
     name="dockmaster",
@@ -23,3 +24,4 @@ app.add_typer(grant_app, name="grant")
 app.command("login")(login_command)
 app.command("logout")(logout_command)
 app.command("check")(check_command)
+app.command("token")(token_command)
