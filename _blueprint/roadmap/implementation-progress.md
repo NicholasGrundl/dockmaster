@@ -25,9 +25,9 @@
 - [x] 4. Lifespan wiring + ServiceRealm update — `ServiceRealm(key_cache)` accepts `KeyCacheLike | list[KeyCacheLike]`, normalizes to list, checks in order. Added `realm.get_key(kid)` method (searches all caches). Updated `routes/keys.py` to use `realm.get_key()`. Lifespan creates issuer → ephemeral_cache → realm with `[ephemeral_cache, sa_cache]`. 4 new multi-cache tests GREEN
 
 ### Session 2 — Core Endpoints
-- [ ] 5. JWKS + OIDC discovery — `routes/jwks.py`: `GET /.well-known/jwks.json`, `GET /auth/jwks` (public, no auth), `GET /.well-known/openid-configuration` (static OIDC metadata). JWKS data from `issuer.public_jwks` or `ephemeral_cache.get_all_keys()`. + tests
-- [ ] 6. ServiceRealm verification — verify both SA-signed and ephemeral-signed JWTs work end-to-end via kid lookup across the cache list. + tests
-- [ ] 7. Exchange endpoint update — switch `/auth/exchange` from `ServiceUser.get_token()` (Type B) to `JWTTokenIssuer.sign()` (Type C, iss="dockmaster"). No API contract change, just token format. + tests
+- [~] 5. ~~JWKS + OIDC discovery~~ — DEFERRED to backlog. Consumers will use dockmaster SDK/middleware with `/auth/key/{kid}` instead of JWKS auto-discovery. No current consumer needs standard OIDC JWKS.
+- [x] 6. ServiceRealm verification — 13 tests GREEN: Type C (ephemeral) and Type A/B (SA) tokens both verify through multi-cache realm, kid routing correct, cross-restart token verification works
+- [x] 7. Exchange endpoint update — switched `/auth/exchange` from `signer.get_token()` (Type B) to `token_issuer.sign()` (Type C, iss="dockmaster"). 14 tests GREEN (2 new: Type C output assertion, 503 when issuer missing). Lint fixed.
 
 ### Session 3 — New Capabilities
 - [ ] 8. Token endpoint — `POST /auth/token?service=<target>`: session cookie or CLI auth → Type C JWT. Returns `{access_token, token_type, expires_in, refresh_token: null}`. + tests
@@ -47,11 +47,16 @@
 - 2026-03-16: D25 — Pruning only at construction (restart). No mid-process rotation. Keypair is ephemeral-per-process. Mid-process rotation noted as future enhancement.
 - 2026-03-16: D26 — Pruning logic: keep if kid == current_kid OR (now - entry.created_at) <= retention_padded (absolute age check). Registry stores {kid, public_jwk, created_at} per key. Corrected from original "relative to current key" approach which would never prune on fresh starts.
 - 2026-03-16: D27 — Removed `realm.key_cache` property. Added `realm.get_key(kid)` method that searches all caches in order. Updated `routes/keys.py` to use it. No backward-compat shim — clean break.
+- 2026-03-16: D28 — JWKS + OIDC discovery endpoints deferred to backlog. Consumers will use dockmaster SDK/middleware with `/auth/key/{kid}` instead of standard JWKS auto-discovery. SA keys would require PEM→JWK conversion that no consumer needs. Will add when external OIDC middleware integration is needed.
+- 2026-03-16: D29 — Vocab unification (ServiceUser.get_token vs JWTTokenIssuer.sign) added to Phase 8a audit scope. Not blocking for Phase 7.
 
 ## New files (Phase 7, Session 1)
 - `src/dockmaster/auth/token_issuer.py` — JWTTokenIssuer (ephemeral RSA signing)
 - `tests/test_token_issuer.py` — 14 tests
 - `tests/test_ephemeral_key_cache.py` — 14 tests
+
+## New files (Phase 7, Session 2)
+- `tests/test_realm_e2e.py` — 13 tests (Type C + Type A/B coexistence, cross-restart verification)
 
 ## Modified files (Phase 7, Session 1)
 - `src/dockmaster/config.py` — 4 new settings (dockmaster_token_ttl, allowed_redirect_uris, allowed_origins, jwks_registry_path)
@@ -62,15 +67,24 @@
 - `tests/test_config.py` — 11 new Phase 7 settings tests + fixed admin_emails env leak
 - `tests/test_jwt_verifier.py` — 4 new multi-cache tests
 
+## Modified files (Phase 7, Session 2)
+- `src/dockmaster/routes/exchange.py` — switched from `signer.get_token()` to `token_issuer.sign()` (Type C)
+- `tests/test_exchange.py` — updated to wire `token_issuer` instead of `signer`, added Type C output test + 503 test (14 total)
+- `tests/test_token_issuer.py` — removed unused imports (lint fix)
+
 ## Test status (Phase 7, Session 1)
 - `tests/test_config.py` GREEN (31 tests)
 - `tests/test_token_issuer.py` GREEN (14 tests)
 - `tests/test_ephemeral_key_cache.py` GREEN (14 tests)
 - `tests/test_jwt_verifier.py` GREEN (11 tests — 4 new)
-- Full suite: 344 tests GREEN (43 new)
+
+## Test status (Phase 7, Session 2)
+- `tests/test_realm_e2e.py` GREEN (13 tests — new)
+- `tests/test_exchange.py` GREEN (14 tests — 2 new)
+- Full suite: 359 tests GREEN (15 new, 0 regressions)
 
 ## Next session: pick up at
-"Session 2, sub-task 5: JWKS + OIDC discovery endpoints"
+"Session 3, sub-task 8: Token endpoint (POST /auth/token)"
 
 ## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after

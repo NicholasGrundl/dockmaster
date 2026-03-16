@@ -108,6 +108,7 @@ For each finding:
 - **Recommendation**: What to fix and when (Phase 7 or separate)
 
 Example findings to investigate:
+- **Vocab/naming inconsistency across signing classes**: `ServiceUser.get_token(subject, service_name, expiry, payload)` vs `JWTTokenIssuer.sign(subject, audience, ttl, extra_claims)`. Both sign JWTs but use different method names and parameter conventions. Audit should catalog all signing/verification call sites, propose a unified naming convention, and decide whether to: (1) rename both to `.sign()` with consistent params, (2) extract a shared `TokenSigner` protocol, or (3) keep as-is with documentation. This adds cognitive load for developers switching between the two paths.
 - Is `/auth/refresh` too open? (anyone with a valid Google refresh token can get a dockmaster JWT)
 - Are session cookies `HttpOnly` and `Secure`?
 - Does `/auth/principal` leak info to unauthenticated users? (currently returns `{}`, which is fine)

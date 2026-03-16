@@ -1,9 +1,6 @@
 """Tests for JWTTokenIssuer — ephemeral RSA keypair JWT signing."""
 
-import time
-
 import jwt
-import pytest
 
 from dockmaster.auth.token_issuer import JWTTokenIssuer
 

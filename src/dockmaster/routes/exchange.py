@@ -34,9 +34,9 @@ async def exchange_token(
     """Exchange a Google JWT or access token for a dockmaster JWT."""
 
     # --- Step 0: Ensure auth singletons are available ---
-    signer = getattr(request.app.state, "signer", None)
+    token_issuer = getattr(request.app.state, "token_issuer", None)
     realm = getattr(request.app.state, "realm", None)
-    if signer is None:
+    if token_issuer is None:
         raise HTTPException(status_code=503, detail="Auth service not configured")
 
     # --- Step 1: Extract Bearer token ---
@@ -104,12 +104,12 @@ async def exchange_token(
     # --- Step 7: Parse expiry ---
     expiry = int(request.query_params.get("expiry", "3600"))
 
-    # --- Step 8: Sign dockmaster JWT ---
-    dockmaster_token = signer.get_token(
+    # --- Step 8: Sign Type C JWT (ephemeral-signed, iss="dockmaster") ---
+    dockmaster_token = token_issuer.sign(
         subject=email,
-        service_name=service,
-        expiry=expiry,
-        payload=profile_claims,
+        audience=service,
+        ttl=expiry,
+        extra_claims=profile_claims,
     )
 
     return ExchangeResponse(

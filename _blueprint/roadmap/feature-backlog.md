@@ -148,6 +148,18 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **When**: If operational requirements demand tighter key hygiene or shorter retention windows.
 - **Effort**: Small — `EphemeralKeyCache` already accepts `retention` param, just needs a setting to wire it.
 
+### JWKS Endpoint + OIDC Discovery
+- **Context**: Phase 7 spec included `GET /.well-known/jwks.json`, `GET /auth/jwks`, and `GET /.well-known/openid-configuration`. Deferred because: (1) consumers will use dockmaster's own SDK/middleware which calls `/auth/key/{kid}` directly, (2) serving SA keys in JWK format requires PEM→JWK conversion that no consumer needs today, (3) ephemeral-only JWKS would be incomplete.
+- **When**: When external services need standard OIDC/JWT middleware integration (auto-discovery via JWKS URL).
+- **Effort**: Small-Medium — ephemeral keys have JWK data natively, SA keys need PEM→JWK conversion. Consider adding `get_all_jwks()` to base `KeyCache` at that time.
+- **Prerequisite**: Decide scope (ephemeral-only vs all keys) and whether to add JWK conversion to `KeyCache` base class.
+
+### Vocab Unification: ServiceUser.get_token() vs JWTTokenIssuer.sign()
+- **Context**: Two JWT signing classes exist with different method names: `ServiceUser.get_token(subject, service_name, expiry, payload)` and `JWTTokenIssuer.sign(subject, audience, ttl, extra_claims)`. Both do the same thing (sign a JWT), but the naming divergence adds cognitive load. Parameters also differ (`service_name` vs `audience`, `expiry` vs `ttl`, `payload` vs `extra_claims`).
+- **When**: Phase 8a (Audit — Endpoint Inventory). Fits naturally into the naming consistency pass.
+- **Effort**: Small — rename methods and params to a consistent convention, update all callers and tests.
+- **Options**: (1) Unify both to `.sign()` with consistent param names, (2) keep `ServiceUser` as-is since it's legacy/GCP-facing, only document the mapping, (3) extract a shared `TokenSigner` protocol.
+
 ### Mid-Process Ephemeral Key Rotation
 - **Context**: Phase 7 ephemeral keypair lives for the lifetime of the process. No mid-process rotation. For long-running instances, rotation would limit blast radius of a memory dump.
 - **When**: When dockmaster runs as a long-lived process (weeks+) in production.
