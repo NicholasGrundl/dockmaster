@@ -7,11 +7,16 @@ Shared auth helpers used across route modules:
 
 from __future__ import annotations
 
+import hashlib
+
+import structlog
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from itsdangerous import BadSignature, URLSafeSerializer
 
 from dockmaster.config import Settings
+
+logger = structlog.get_logger(__name__)
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -43,6 +48,14 @@ async def get_current_user(
     """Verify the Bearer token and return decoded claims.
 
     Raises HTTP 401 for missing or invalid tokens.
+
+    Note: This dependency intentionally does NOT validate the ``aud`` (audience)
+    claim. Dockmaster is the token issuer, and its own endpoints (permission
+    checks, claims introspection) are designed to accept any valid
+    dockmaster-issued JWT regardless of which downstream service the token is
+    scoped to. Audience validation is the responsibility of downstream services
+    — they check ``aud`` to confirm a token was intended for them, preventing
+    lateral replay across services.
     """
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -54,4 +67,14 @@ async def get_current_user(
     try:
         return realm.verify(credentials.credentials)
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+        token_fingerprint = hashlib.sha256(
+            credentials.credentials.encode()
+        ).hexdigest()[:8]
+        logger.warning(
+            "jwt_verification_failed",
+            error=str(exc),
+            token_fingerprint=token_fingerprint,
+        )
+        raise HTTPException(
+            status_code=401, detail="Invalid or expired token"
+        ) from exc

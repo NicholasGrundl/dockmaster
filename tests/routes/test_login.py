@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from itsdangerous import URLSafeSerializer
 
 from dockmaster.config import Settings
-from dockmaster.routes.login import _pending_states
 from dockmaster.sessions.memory import InMemorySessionStore
 
 
@@ -74,17 +73,18 @@ class TestLogin:
         assert call_kwargs.kwargs.get("prompt") == "select_account"
 
     def test_login_stores_csrf_state(self, mocker, login_client, mock_oauth):
-        """Login should store a CSRF state value."""
+        """Login should store a CSRF state in the oauth_state_store."""
         from starlette.responses import RedirectResponse
 
         mock_oauth.google.authorize_redirect = mocker.AsyncMock(
             return_value=RedirectResponse(url="https://accounts.google.com/o/oauth2/auth")
         )
 
-        _pending_states.clear()
+        oauth_state_store = login_client.app.state.oauth_state_store
+        before = len(oauth_state_store)
         login_client.get("/auth/login", follow_redirects=False)
 
-        assert len(_pending_states) == 1
+        assert len(oauth_state_store) == before + 1
 
 
 class TestCallback:
@@ -92,7 +92,8 @@ class TestCallback:
 
     def test_callback_creates_session_and_redirects(self, mocker, login_client, mock_oauth, session_store):
         """Valid callback -> session created, cookie set, redirect to /ui/."""
-        _pending_states["valid-state"] = {"redirect_uri": None}
+        oauth_state_store = login_client.app.state.oauth_state_store
+        state_key = oauth_state_store.create({"redirect_uri": None})
 
         mock_oauth.google.authorize_access_token = mocker.AsyncMock(
             return_value={
@@ -108,7 +109,7 @@ class TestCallback:
         )
 
         response = login_client.get(
-            "/auth/callback?code=auth-code&state=valid-state",
+            f"/auth/callback?code=auth-code&state={state_key}",
             follow_redirects=False,
         )
 
@@ -118,8 +119,6 @@ class TestCallback:
 
     def test_callback_invalid_state_returns_401(self, login_client):
         """Callback with wrong state -> 401."""
-        _pending_states.clear()
-
         response = login_client.get(
             "/auth/callback?code=auth-code&state=bad-state",
             follow_redirects=False,
@@ -129,7 +128,8 @@ class TestCallback:
 
     def test_callback_domain_not_allowed_returns_403(self, mocker, login_client, mock_oauth):
         """Callback with unauthorized email domain -> 403."""
-        _pending_states["valid-state"] = {"redirect_uri": None}
+        oauth_state_store = login_client.app.state.oauth_state_store
+        state_key = oauth_state_store.create({"redirect_uri": None})
 
         mock_oauth.google.authorize_access_token = mocker.AsyncMock(
             return_value={
@@ -138,7 +138,7 @@ class TestCallback:
         )
 
         response = login_client.get(
-            "/auth/callback?code=auth-code&state=valid-state",
+            f"/auth/callback?code=auth-code&state={state_key}",
             follow_redirects=False,
         )
 

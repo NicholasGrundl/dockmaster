@@ -146,16 +146,29 @@ class TestExchangeJWTPath:
         assert "Domain not allowed" in response.json()["detail"]
 
     def test_custom_expiry(self, exchange_client, signer):
-        """?expiry=7200 controls dockmaster JWT lifetime."""
+        """?expiry within cap is honored."""
         token = signer.sign(subject="user@example.com", audience="test-service")
 
         response = exchange_client.post(
-            "/auth/exchange?expiry=7200",
+            "/auth/exchange?expiry=1800",
             headers={"Authorization": f"Bearer {token}"},
         )
 
         assert response.status_code == 200
-        assert response.json()["expiry"] == 7200
+        assert response.json()["expiry"] == 1800
+
+    def test_expiry_clamped_to_max(self, exchange_client, signer):
+        """?expiry above max_token_ttl is silently clamped."""
+        token = signer.sign(subject="user@example.com", audience="test-service")
+
+        response = exchange_client.post(
+            "/auth/exchange?expiry=86400",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        # Default max_token_ttl is 3600
+        assert response.json()["expiry"] == 3600
 
     def test_profile_claims_forwarded(self, exchange_client, signer):
         """Profile claims from JWT are forwarded to dockmaster token."""

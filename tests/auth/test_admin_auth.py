@@ -191,4 +191,4 @@ class TestRequireAdminWrites:
 
         resp = TestClient(app).get("/admin/test-write")
         assert resp.status_code == 503
-        assert "admin SA" in resp.json()["detail"].lower() or "not configured" in resp.json()["detail"].lower()
+        assert resp.json()["detail"] == "Write operations are not available"

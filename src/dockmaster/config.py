@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     secrets_project: str | None = None
     log_level: str = "INFO"
     enable_docs: bool = False
+    security_headers: bool = True
 
     # --- Authorization ---
     # Typed as str to prevent pydantic-settings from attempting JSON decode on env vars.
@@ -44,12 +45,10 @@ class Settings(BaseSettings):
     # --- OAuth ---
     client_id: str | None = None
     client_secret: SecretStr | None = None
-    default_client_id: str | None = None
     client_id_suffix: str = ".apps.googleusercontent.com"
 
     # --- Google Endpoints ---
     access_token_endpoint: str = "https://oauth2.googleapis.com/tokeninfo"
-    refresh_token_endpoint: str = "https://www.googleapis.com/oauth2/v4/token"
     userinfo_endpoint: str = "https://www.googleapis.com/oauth2/v3/userinfo"
 
     # --- UI ---
@@ -60,6 +59,7 @@ class Settings(BaseSettings):
 
     # --- Dockmaster Token Issuance (Phase 7) ---
     dockmaster_token_ttl: int = 900
+    max_token_ttl: int = 3600
     allowed_redirect_uris: str | set[str] = ""
     allowed_origins: str | set[str] = ""
     jwks_registry_path: str | None = None

@@ -102,8 +102,18 @@ async def exchange_token(
     # --- Step 6: Copy profile claims ---
     profile_claims = {k: claims[k] for k in PROFILE_CLAIM_KEYS if k in claims}
 
-    # --- Step 7: Parse expiry ---
-    expiry = int(request.query_params.get("expiry", "3600"))
+    # --- Step 7: Parse and cap expiry ---
+    max_ttl = settings.max_token_ttl
+    requested_expiry = int(request.query_params.get("expiry", "3600"))
+    expiry = min(requested_expiry, max_ttl)
+    if requested_expiry > max_ttl:
+        logger.warning(
+            "token_expiry_clamped",
+            requested=requested_expiry,
+            clamped_to=max_ttl,
+            email=email,
+            service=service,
+        )
 
     # --- Step 8: Sign Type C JWT (ephemeral-signed, iss="dockmaster") ---
     dockmaster_token = token_issuer.sign(

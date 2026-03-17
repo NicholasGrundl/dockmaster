@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from dockmaster.config import Settings
 from dockmaster.main import create_app
-from dockmaster.routes.login import _pending_states, _validate_redirect_uri
+from dockmaster.routes.login import _validate_redirect_uri
 
 
 # ---------------------------------------------------------------------------
@@ -200,8 +200,8 @@ class TestCallbackExternalRedirect:
         code_exchange_app.state.oauth = mock_oauth
 
         # Plant a pending state with an external redirect_uri
-        state_id = "test-state-123"
-        _pending_states[state_id] = {"redirect_uri": "https://app.example.com/callback"}
+        oauth_state_store = code_exchange_app.state.oauth_state_store
+        state_id = oauth_state_store.create({"redirect_uri": "https://app.example.com/callback"})
 
         resp = code_exchange_client.get(
             f"/auth/callback?state={state_id}&code=google-auth-code",
@@ -228,8 +228,8 @@ class TestCallbackExternalRedirect:
         mock_oauth.google = mock_google
         code_exchange_app.state.oauth = mock_oauth
 
-        state_id = "test-state-456"
-        _pending_states[state_id] = {"redirect_uri": "http://localhost:9876/callback"}
+        oauth_state_store = code_exchange_app.state.oauth_state_store
+        state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
 
         resp = code_exchange_client.get(
             f"/auth/callback?state={state_id}&code=google-auth-code",

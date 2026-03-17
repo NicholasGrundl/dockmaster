@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import structlog
 from fastapi import Depends, HTTPException, Request
 
 from dockmaster.auth.dependencies import get_current_user
 from dockmaster.config import Settings
+
+logger = structlog.get_logger(__name__)
 
 
 async def _is_admin(
@@ -72,7 +75,11 @@ async def require_admin_writes(request: Request) -> None:
     """
     admin_client = getattr(request.app.state, "admin_storage", None)
     if admin_client is None:
+        logger.warning(
+            "admin_writes_unavailable",
+            error="admin_storage not configured on app.state",
+        )
         raise HTTPException(
             status_code=503,
-            detail="RBAC write operations not configured (admin SA key not set)",
+            detail="Write operations are not available",
         )

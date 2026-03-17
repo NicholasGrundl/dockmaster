@@ -13,6 +13,7 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel
 
 from dockmaster.auth.dependencies import get_session_data
+from dockmaster.auth.ttl_store import TTLStore
 from dockmaster.config import Settings
 
 logger = structlog.get_logger(__name__)
@@ -24,9 +25,8 @@ PROFILE_CLAIM_KEYS = ("email", "name", "picture", "given_name", "family_name", "
 # Regex for allowed CLI redirect URIs (localhost only, any port)
 _LOCALHOST_RE = re.compile(r"^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/.*)?$")
 
-# In-memory CSRF state store (maps state → metadata dict).
-# Metadata: {"redirect_uri": str | None}
-_pending_states: dict[str, dict] = {}
+# OAuth state TTL — 10 minutes is generous for a login flow round-trip
+OAUTH_STATE_TTL = 600
 
 
 def _get_signer(settings: Settings) -> URLSafeSerializer:
@@ -70,8 +70,8 @@ async def login(
     settings: Settings = request.app.state.settings
     validated_redirect = _validate_redirect_uri(redirect_uri, settings.allowed_redirect_uris)
 
-    state = str(uuid.uuid4())
-    _pending_states[state] = {"redirect_uri": validated_redirect}
+    oauth_state_store: TTLStore[dict] = request.app.state.oauth_state_store
+    state = oauth_state_store.create({"redirect_uri": validated_redirect})
 
     callback_uri = str(request.url_for("callback"))
     return await oauth.google.authorize_redirect(
@@ -92,9 +92,10 @@ async def callback(request: Request):
 
     # Validate CSRF state
     state = request.query_params.get("state")
-    if not state or state not in _pending_states:
+    oauth_state_store: TTLStore[dict] = request.app.state.oauth_state_store
+    state_meta = oauth_state_store.consume(state) if state else None
+    if state_meta is None:
         raise HTTPException(status_code=401, detail="Invalid OAuth state")
-    state_meta = _pending_states.pop(state)
 
     # Exchange code for tokens
     token_response = await oauth.google.authorize_access_token(request)

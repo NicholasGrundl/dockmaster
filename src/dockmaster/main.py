@@ -12,10 +12,13 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from dockmaster.middleware import SecurityHeadersMiddleware
+
 from dockmaster.auth.jwt_signers import EphemeralKeypairSigner, ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
 from dockmaster.auth.auth_code import AuthCodeStore
+from dockmaster.auth.ttl_store import TTLStore
 from dockmaster.auth.oauth import create_oauth
 from dockmaster.config import Settings, get_settings
 from dockmaster.logging import setup_logging
@@ -26,7 +29,6 @@ from dockmaster.routes.keys import router as keys_router
 from dockmaster.routes.login import router as login_router
 from dockmaster.routes.admin import router as admin_router
 from dockmaster.routes.permissions import router as permissions_router
-from dockmaster.routes.refresh import router as refresh_router
 from dockmaster.routes.token import router as token_router
 from dockmaster.routes.admin_ui import router as admin_ui_router
 from dockmaster.routes.ui import protected_router as ui_protected_router
@@ -124,6 +126,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.auth_code_store = AuthCodeStore(ttl=300)
     log.info("auth_code_store_initialized", ttl=300)
 
+    # --- OAuth state store (CSRF state tokens for login flow) ---
+    from dockmaster.routes.login import OAUTH_STATE_TTL
+
+    app.state.oauth_state_store = TTLStore[dict](ttl=OAUTH_STATE_TTL)
+    log.info("oauth_state_store_initialized", ttl=OAUTH_STATE_TTL)
+
     # --- UI config ---
     app.state.ui_config = load_ui_config(settings.ui_config_path)
 
@@ -200,6 +208,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if settings.enable_docs else None,
     )
     application.state.settings = settings
+    # Security headers — safe defaults regardless of reverse proxy config
+    if settings.security_headers:
+        application.add_middleware(SecurityHeadersMiddleware)
     # CORS — allow configured origins for SPA cross-origin access
     if settings.allowed_origins:
         application.add_middleware(
@@ -216,7 +227,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(claims_router, prefix="/auth")
     application.include_router(exchange_router, prefix="/auth")
     application.include_router(login_router, prefix="/auth")
-    application.include_router(refresh_router, prefix="/auth")
     application.include_router(permissions_router, prefix="/auth")
     application.include_router(token_router, prefix="/auth")
     application.include_router(admin_router, prefix="/admin")

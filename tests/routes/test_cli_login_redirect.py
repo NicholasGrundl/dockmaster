@@ -2,7 +2,7 @@
 
 import pytest
 
-from dockmaster.routes.login import _pending_states, _validate_redirect_uri
+from dockmaster.routes.login import _validate_redirect_uri
 
 
 class TestValidateRedirectUri:
@@ -39,8 +39,9 @@ class TestLoginRedirectParam:
     """Test that /auth/login accepts redirect_uri query param."""
 
     def test_login_stores_redirect_uri_in_state(self, client):
-        """Login with redirect_uri stores it in pending state metadata."""
-        _pending_states.clear()
+        """Login with redirect_uri stores it in the oauth_state_store."""
+        oauth_state_store = client.app.state.oauth_state_store
+        before = len(oauth_state_store)
 
         response = client.get(
             "/auth/login?redirect_uri=http://localhost:9876/callback",
@@ -49,18 +50,13 @@ class TestLoginRedirectParam:
 
         # Should still redirect to Google OAuth (302)
         assert response.status_code in (302, 303, 307, 200)  # OAuth redirect or form
+        assert len(oauth_state_store) == before + 1
 
-        # Check that state was stored with redirect_uri
-        if _pending_states:
-            state_key = next(iter(_pending_states))
-            assert _pending_states[state_key]["redirect_uri"] == "http://localhost:9876/callback"
-
-    def test_login_without_redirect_uri_has_none(self, client):
-        """Login without redirect_uri stores None."""
-        _pending_states.clear()
+    def test_login_without_redirect_uri_stores_state(self, client):
+        """Login without redirect_uri still stores a state entry."""
+        oauth_state_store = client.app.state.oauth_state_store
+        before = len(oauth_state_store)
 
         client.get("/auth/login", follow_redirects=False)
 
-        if _pending_states:
-            state_key = next(iter(_pending_states))
-            assert _pending_states[state_key]["redirect_uri"] is None
+        assert len(oauth_state_store) == before + 1

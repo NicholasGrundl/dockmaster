@@ -1,14 +1,16 @@
 """In-memory authorization code store for OAuth auth code flow.
 
 Codes are single-use, cryptographically random, and expire after a configurable TTL.
+Built on TTLStore for key generation, TTL, and pruning.
 """
 
 from __future__ import annotations
 
-import secrets
 import time
 
 from pydantic import BaseModel, Field
+
+from dockmaster.auth.ttl_store import TTLStore
 
 
 class AuthCodeEntry(BaseModel):
@@ -20,18 +22,19 @@ class AuthCodeEntry(BaseModel):
 
 
 class AuthCodeStore:
-    """In-memory store for single-use authorization codes."""
+    """In-memory store for single-use authorization codes.
+
+    Wraps TTLStore with domain-specific create/consume signatures that
+    enforce redirect_uri matching on consumption.
+    """
 
     def __init__(self, ttl: int = 300) -> None:
-        self._codes: dict[str, AuthCodeEntry] = {}
-        self._ttl = ttl
+        self._store = TTLStore[AuthCodeEntry](ttl=ttl)
 
     def create(self, subject: str, redirect_uri: str) -> str:
         """Generate a new auth code and store it. Returns the code string."""
-        self._prune_expired()
-        code = secrets.token_urlsafe(32)
-        self._codes[code] = AuthCodeEntry(subject=subject, redirect_uri=redirect_uri)
-        return code
+        entry = AuthCodeEntry(subject=subject, redirect_uri=redirect_uri)
+        return self._store.create(entry)
 
     def consume(self, code: str, redirect_uri: str) -> AuthCodeEntry | None:
         """Consume a code if valid. Returns the entry or None.
@@ -39,19 +42,15 @@ class AuthCodeStore:
         A code is invalid if it doesn't exist, is expired, or the redirect_uri
         doesn't match. Consumed codes are deleted (single-use).
         """
-        entry = self._codes.pop(code, None)
+        entry = self._store.consume(code)
         if entry is None:
             return None
-        if time.time() - entry.created_at > self._ttl:
-            return None
         if entry.redirect_uri != redirect_uri:
-            # Put it back? No — single-use. A failed attempt consumes the code.
+            # Mismatched URI — code is still consumed (single-use).
             return None
         return entry
 
-    def _prune_expired(self) -> None:
-        """Remove expired codes."""
-        now = time.time()
-        expired = [k for k, v in self._codes.items() if now - v.created_at > self._ttl]
-        for k in expired:
-            del self._codes[k]
+    @property
+    def _codes(self) -> dict:
+        """Expose internal entries for test assertions."""
+        return self._store._entries
