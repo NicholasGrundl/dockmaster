@@ -11,18 +11,15 @@ from pydantic import BaseModel
 
 from dockmaster.config import Settings, get_settings
 
-logger = structlog.get_logger("dockmaster.refresh")
+logger = structlog.get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["jwt"])
 
 PROFILE_CLAIM_KEYS = ("name", "picture", "given_name", "family_name", "locale")
 
 
 class RefreshTokenRequest(BaseModel):
-    """Request body for POST /auth/refresh.
-
-    NOTE: Legacy used field name ``token`` — intentionally renamed to ``refresh_token``.
-    """
+    """Request body for POST /auth/refresh."""
 
     refresh_token: str
     client_id: str | None = None
@@ -75,7 +72,7 @@ async def refresh(
         raise HTTPException(status_code=503, detail="Secrets storage not configured")
 
     try:
-        client_secret = await asyncio.get_event_loop().run_in_executor(
+        client_secret = await asyncio.get_running_loop().run_in_executor(
             None, secrets_storage.get_client_secret, client_id
         )
     except Exception:
@@ -145,16 +142,16 @@ async def refresh(
     # --- Step 7: Resolve service audience ---
     service = body.service or audience
 
-    # --- Step 8: Sign dockmaster JWT ---
-    signer = getattr(request.app.state, "signer", None)
-    if signer is None:
-        raise HTTPException(status_code=503, detail="JWT signer not configured")
+    # --- Step 8: Sign dockmaster JWT (Type C — ephemeral keypair) ---
+    token_issuer = getattr(request.app.state, "token_issuer", None)
+    if token_issuer is None:
+        raise HTTPException(status_code=503, detail="Token issuer not configured")
 
-    dockmaster_token = signer.get_token(
+    dockmaster_token = token_issuer.sign(
         subject=email,
-        service_name=service,
-        expiry=body.expiry,
-        payload=profile_claims,
+        audience=service,
+        ttl=body.expiry,
+        extra_claims=profile_claims,
     )
 
     return RefreshResponse(

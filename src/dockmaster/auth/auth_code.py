@@ -7,16 +7,16 @@ from __future__ import annotations
 
 import secrets
 import time
-from dataclasses import dataclass, field
+
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class AuthCodeEntry:
+class AuthCodeEntry(BaseModel):
     """A pending authorization code."""
 
     subject: str
     redirect_uri: str
-    created_at: float = field(default_factory=time.time)
+    created_at: float = Field(default_factory=time.time)
 
 
 class AuthCodeStore:

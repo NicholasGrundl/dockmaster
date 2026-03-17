@@ -10,9 +10,9 @@ from pydantic import BaseModel
 from dockmaster.auth.token_validator import validate_access_token
 from dockmaster.config import Settings, get_settings
 
-logger = structlog.get_logger("dockmaster.exchange")
+logger = structlog.get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["jwt"])
 _bearer = HTTPBearer(auto_error=False)
 
 PROFILE_CLAIM_KEYS = ("name", "picture", "given_name", "family_name", "locale")

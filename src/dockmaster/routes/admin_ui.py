@@ -12,7 +12,7 @@ from dockmaster.rbac.admin_ops import RoleConflictError
 from dockmaster.rbac.models import Grant
 from dockmaster.routes.ui import _ui_config, templates
 
-router = APIRouter()
+router = APIRouter(tags=["admin-ui"])
 
 
 def _can_write(request: Request) -> bool:

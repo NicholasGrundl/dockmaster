@@ -23,7 +23,7 @@ from pathlib import Path
 import structlog
 from pydantic import BaseModel
 
-log = structlog.get_logger("dockmaster.ui")
+log = structlog.get_logger(__name__)
 
 
 class UIConfig(BaseModel):

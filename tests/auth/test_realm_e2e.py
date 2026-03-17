@@ -10,10 +10,9 @@ import json
 
 import pytest
 
-from dockmaster.auth.jwt_signer import ServiceUser
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner, ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import EphemeralKeyCache
-from dockmaster.auth.token_issuer import JWTTokenIssuer
 
 
 class FakeKeyCache:
@@ -30,13 +29,13 @@ class FakeKeyCache:
 
 
 @pytest.fixture
-def issuer() -> JWTTokenIssuer:
+def issuer() -> EphemeralKeypairSigner:
     """Fresh ephemeral token issuer."""
-    return JWTTokenIssuer(ttl=900)
+    return EphemeralKeypairSigner(ttl=900)
 
 
 @pytest.fixture
-def ephemeral_cache(issuer: JWTTokenIssuer, tmp_path) -> EphemeralKeyCache:
+def ephemeral_cache(issuer: EphemeralKeypairSigner, tmp_path) -> EphemeralKeyCache:
     """EphemeralKeyCache wired to the test issuer's public key."""
     registry_path = str(tmp_path / "jwks-registry.json")
     return EphemeralKeyCache(
@@ -60,10 +59,10 @@ def multi_realm(ephemeral_cache, sa_cache) -> ServiceRealm:
 
 
 class TestEphemeralTokenVerification:
-    """Type C tokens (JWTTokenIssuer) through ServiceRealm."""
+    """Type C tokens (EphemeralKeypairSigner) through ServiceRealm."""
 
     def test_ephemeral_token_verifies(self, multi_realm, issuer):
-        """Type C token signed by JWTTokenIssuer verifies through multi-cache realm."""
+        """Type C token signed by EphemeralKeypairSigner verifies through multi-cache realm."""
         token = issuer.sign(subject="user@example.com", audience="billing-service")
         claims = multi_realm.verify(token)
 
@@ -103,12 +102,12 @@ class TestEphemeralTokenVerification:
 
 
 class TestSATokenVerification:
-    """Type A/B tokens (ServiceUser) through the same multi-cache realm."""
+    """Type A/B tokens (ServiceAccountSigner) through the same multi-cache realm."""
 
     def test_sa_token_verifies(self, multi_realm, fake_sa_key_data):
-        """Type A/B token signed by ServiceUser verifies through multi-cache realm."""
-        su = ServiceUser(credentials=fake_sa_key_data)
-        token = su.get_token(subject="user@example.com", service_name="test-service")
+        """Type A/B token signed by ServiceAccountSigner verifies through multi-cache realm."""
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
+        token = su.sign(subject="user@example.com", audience="test-service")
         claims = multi_realm.verify(token)
 
         assert claims["sub"] == "user@example.com"
@@ -116,8 +115,8 @@ class TestSATokenVerification:
 
     def test_sa_token_found_in_second_cache(self, multi_realm, fake_sa_key_data):
         """SA token's kid is not in ephemeral cache, found in SA cache (second)."""
-        su = ServiceUser(credentials=fake_sa_key_data)
-        token = su.get_token(subject="u@ex.com", service_name="svc")
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
+        token = su.sign(subject="u@ex.com", audience="svc")
 
         # Verify it works — the ephemeral cache won't have this kid,
         # so the realm must check the SA cache (second in order)
@@ -135,8 +134,8 @@ class TestBothSignersCoexist:
         type_c_claims = multi_realm.verify(type_c_token)
 
         # Type A/B (SA)
-        su = ServiceUser(credentials=fake_sa_key_data)
-        type_ab_token = su.get_token(subject="bob@example.com", service_name="billing")
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
+        type_ab_token = su.sign(subject="bob@example.com", audience="billing")
         type_ab_claims = multi_realm.verify(type_ab_token)
 
         # Both verified successfully with correct issuers
@@ -206,7 +205,7 @@ class TestEphemeralKeyCacheIntegration:
         registry_path = str(tmp_path / "registry.json")
 
         # Process 1: create issuer + cache
-        issuer1 = JWTTokenIssuer(ttl=900)
+        issuer1 = EphemeralKeypairSigner(ttl=900)
         EphemeralKeyCache(
             kid=issuer1.current_kid,
             public_jwk=issuer1.current_public_jwk,
@@ -214,7 +213,7 @@ class TestEphemeralKeyCacheIntegration:
         )
 
         # Process 2: new issuer + cache (loads registry from disk)
-        issuer2 = JWTTokenIssuer(ttl=900)
+        issuer2 = EphemeralKeypairSigner(ttl=900)
         cache2 = EphemeralKeyCache(
             kid=issuer2.current_kid,
             public_jwk=issuer2.current_public_jwk,
@@ -231,7 +230,7 @@ class TestEphemeralKeyCacheIntegration:
         sa_cache = FakeKeyCache({fake_sa_key_data["private_key_id"]: rsa_public_key_pem})
 
         # Process 1: sign a token
-        issuer1 = JWTTokenIssuer(ttl=900)
+        issuer1 = EphemeralKeypairSigner(ttl=900)
         token = issuer1.sign(subject="alice@example.com", audience="billing")
         EphemeralKeyCache(
             kid=issuer1.current_kid,
@@ -240,7 +239,7 @@ class TestEphemeralKeyCacheIntegration:
         )
 
         # Process 2: new issuer, new cache (loads old key from registry)
-        issuer2 = JWTTokenIssuer(ttl=900)
+        issuer2 = EphemeralKeypairSigner(ttl=900)
         cache2 = EphemeralKeyCache(
             kid=issuer2.current_kid,
             public_jwk=issuer2.current_public_jwk,

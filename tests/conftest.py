@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dockmaster.auth.jwt_signer import ServiceUser
+from dockmaster.auth.jwt_signers import ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import KeyCache
 from dockmaster.config import Settings, get_settings
@@ -149,15 +149,15 @@ def fake_realm(fake_sa_key_data, rsa_public_key_pem) -> ServiceRealm:
 
 
 @pytest.fixture
-def signer(fake_sa_key_data) -> ServiceUser:
-    """ServiceUser that signs with the test RSA private key."""
-    return ServiceUser(fake_sa_key_data)
+def signer(fake_sa_key_data) -> ServiceAccountSigner:
+    """ServiceAccountSigner that signs with the test RSA private key."""
+    return ServiceAccountSigner(fake_sa_key_data)
 
 
 @pytest.fixture
 def valid_token(signer) -> str:
     """A valid signed JWT for use in Authorization headers."""
-    return signer.get_token(subject="test@example.com", service_name="test-service")
+    return signer.sign(subject="test@example.com", audience="test-service")
 
 
 @pytest.fixture

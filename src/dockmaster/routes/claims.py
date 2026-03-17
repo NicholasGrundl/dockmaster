@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from dockmaster.auth.middleware import get_current_user
+from dockmaster.auth.dependencies import get_current_user
 
-router = APIRouter()
+router = APIRouter(tags=["jwt"])
 
 
 @router.get("/claims")

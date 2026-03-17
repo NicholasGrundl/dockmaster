@@ -54,10 +54,9 @@ class TestPathEndpoint:
         )
         assert resp.status_code == 403
         body = resp.json()
-        assert body["status"] == "Error"
-        assert "alice@example.com" in body["message"]
-        assert "write" in body["message"]
-        assert "data-pipeline" in body["message"]
+        assert "alice@example.com" in body["detail"]
+        assert "write" in body["detail"]
+        assert "data-pipeline" in body["detail"]
 
     def test_requires_auth(self, perm_client):
         """No Bearer token -> 401."""
@@ -98,7 +97,7 @@ class TestQueryEndpoint:
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert resp.status_code == 403
-        assert "bob@example.com" in resp.json()["message"]
+        assert "bob@example.com" in resp.json()["detail"]
 
     def test_requires_auth(self, perm_client):
         resp = perm_client.get(

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 from pydantic import BaseModel
 
-from dockmaster.auth.middleware import get_current_user
+from dockmaster.auth.dependencies import get_current_user
 
-logger = structlog.get_logger("dockmaster.permissions")
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["permissions"])
 
@@ -29,12 +29,9 @@ async def _check_permission(request: Request, subject: str, target: str, permiss
     if granted:
         return Response(status_code=204)
 
-    return JSONResponse(
+    raise HTTPException(
         status_code=403,
-        content={
-            "status": "Error",
-            "message": f"{subject} does not have {permission} for {target}",
-        },
+        detail=f"{subject} does not have {permission} for {target}",
     )
 
 

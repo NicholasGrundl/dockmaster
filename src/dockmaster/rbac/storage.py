@@ -10,7 +10,7 @@ from google.cloud.secretmanager_v1 import SecretManagerServiceClient
 
 from dockmaster.rbac.models import Role, ServiceGrants
 
-logger = structlog.get_logger("dockmaster.rbac.storage")
+logger = structlog.get_logger(__name__)
 
 
 class SecretsStorage:

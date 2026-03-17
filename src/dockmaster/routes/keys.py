@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-router = APIRouter()
+router = APIRouter(tags=["jwt"])
 
 
 @router.get("/key/{kid}")

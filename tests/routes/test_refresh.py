@@ -81,11 +81,12 @@ def mock_realm(mocker):
 
 
 @pytest.fixture
-def mock_signer(mocker):
-    """Mock ServiceUser that returns a predictable dockmaster JWT."""
-    signer = mocker.MagicMock()
-    signer.get_token.return_value = "dockmaster.test.jwt"
-    return signer
+def mock_token_issuer(mocker):
+    """Mock EphemeralKeypairSigner that returns a predictable dockmaster JWT."""
+    issuer = mocker.MagicMock()
+    issuer.sign.return_value = "dockmaster.test.jwt"
+    issuer.default_ttl = 900
+    return issuer
 
 
 def _mock_httpx_response(status_code: int, json_data: dict) -> httpx.Response:
@@ -103,14 +104,14 @@ def refresh_client(
     refresh_settings: Settings,
     mock_secrets_storage,
     mock_realm,
-    mock_signer,
+    mock_token_issuer,
 ) -> TestClient:
     """TestClient wired for refresh tests with all dependencies mocked."""
     app.dependency_overrides[get_settings] = lambda: refresh_settings
     with TestClient(app) as c:
         app.state.secrets_storage = mock_secrets_storage
         app.state.realm = mock_realm
-        app.state.signer = mock_signer
+        app.state.token_issuer = mock_token_issuer
         yield c
 
 
@@ -151,7 +152,7 @@ async def _async_return(value):
 class TestRefreshHappyPath:
     """POST /auth/refresh — valid refresh token."""
 
-    def test_valid_refresh_returns_dockmaster_jwt(self, mocker, refresh_client, mock_signer):
+    def test_valid_refresh_returns_dockmaster_jwt(self, mocker, refresh_client, mock_token_issuer):
         mock_client = _build_mock_httpx(mocker)
         mocker.patch("dockmaster.routes.refresh.httpx.AsyncClient", return_value=mock_client)
         response = refresh_client.post(
@@ -167,7 +168,7 @@ class TestRefreshHappyPath:
         assert data["access_token"] == GOOGLE_TOKEN_RESPONSE["access_token"]
         assert data["claims"]["name"] == "Test User"
 
-    def test_signer_called_with_correct_args(self, mocker, refresh_client, mock_signer):
+    def test_issuer_called_with_correct_args(self, mocker, refresh_client, mock_token_issuer):
         mock_client = _build_mock_httpx(mocker)
         mocker.patch("dockmaster.routes.refresh.httpx.AsyncClient", return_value=mock_client)
         refresh_client.post(
@@ -175,11 +176,11 @@ class TestRefreshHappyPath:
             json={"refresh_token": "test-refresh-token", "service": "my-service", "expiry": 7200},
         )
 
-        mock_signer.get_token.assert_called_once_with(
+        mock_token_issuer.sign.assert_called_once_with(
             subject="user@example.com",
-            service_name="my-service",
-            expiry=7200,
-            payload={
+            audience="my-service",
+            ttl=7200,
+            extra_claims={
                 "name": "Test User",
                 "given_name": "Test",
                 "family_name": "User",

@@ -10,17 +10,17 @@ from __future__ import annotations
 
 import base64
 import json
-import logging
 import time
 from pathlib import Path
 
 import httpx
+import structlog
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-_log = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 def _cert_to_public_key_pem(pem: str) -> str:
@@ -113,7 +113,7 @@ class ServiceAccountKeyCache(KeyCache):
             for kid, cert_pem in resp.json().items():
                 new_keys[kid] = _cert_to_public_key_pem(cert_pem)
         except Exception:
-            _log.warning("Failed to fetch Google OIDC certs", exc_info=True)
+            logger.warning("failed_to_fetch_google_oidc_certs", exc_info=True)
 
         # --- GCP IAM service account keys ---
         try:
@@ -157,10 +157,10 @@ class ServiceAccountKeyCache(KeyCache):
                             raw_pem = base64.b64decode(key_data["publicKeyData"]).decode()
                             new_keys[kid] = _cert_to_public_key_pem(raw_pem)
                     except Exception:
-                        _log.warning("Failed to fetch keys for SA %s", sa_email, exc_info=True)
+                        logger.warning("failed_to_fetch_sa_keys", sa_email=sa_email, exc_info=True)
                 request = iam.projects().serviceAccounts().list_next(request, result)
         except Exception:
-            _log.warning("Failed to enumerate SA keys from IAM", exc_info=True)
+            logger.warning("failed_to_enumerate_sa_keys", exc_info=True)
 
         self._keys = new_keys
         self._updated_at = time.time()
@@ -255,6 +255,6 @@ class EphemeralKeyCache(KeyCache):
                 pem = pub_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo).decode()
                 self._keys[entry["kid"]] = pem
             except Exception:
-                _log.warning("Failed to load ephemeral key %s from registry", entry["kid"])
+                logger.warning("failed_to_load_ephemeral_key", kid=entry["kid"])
 
         self._updated_at = time.time()

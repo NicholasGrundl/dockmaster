@@ -8,9 +8,9 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from itsdangerous import BadSignature, URLSafeSerializer
 
 from dockmaster.auth.admin import _is_admin
+from dockmaster.auth.dependencies import get_session_data
 from dockmaster.config import Settings, get_settings
 from dockmaster.ui.config import UIConfig
 
@@ -26,25 +26,15 @@ def _timestamp_to_datetime(ts: int | float) -> str:
 templates.env.filters["timestamp_to_datetime"] = _timestamp_to_datetime
 
 # Public router — no auth guard
-public_router = APIRouter()
+public_router = APIRouter(tags=["ui"])
 
 # Protected router — requires active session
-protected_router = APIRouter()
+protected_router = APIRouter(tags=["ui"])
 
 
 async def _get_session_user(request: Request, settings: Settings) -> dict | None:
     """Extract user data from session cookie. Returns None if not authenticated."""
-    session_store = getattr(request.app.state, "session_store", None)
-    cookie = request.cookies.get("session_id")
-    if not cookie or not session_store:
-        return None
-
-    signer = URLSafeSerializer(settings.session_secret_key)
-    try:
-        session_id = signer.loads(cookie)
-        return await session_store.get(session_id)
-    except BadSignature:
-        return None
+    return await get_session_data(request, settings)
 
 
 async def require_ui_session(request: Request, settings: Settings = Depends(get_settings)) -> dict:

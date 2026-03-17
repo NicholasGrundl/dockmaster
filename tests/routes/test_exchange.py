@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from dockmaster.auth.jwt_verifier import ServiceRealm
-from dockmaster.auth.token_issuer import JWTTokenIssuer
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
 from dockmaster.config import Settings, get_settings
 
 
@@ -28,13 +28,15 @@ def exchange_app(app: FastAPI, exchange_settings: Settings) -> FastAPI:
 
 
 @pytest.fixture
-def token_issuer() -> JWTTokenIssuer:
+def token_issuer() -> EphemeralKeypairSigner:
     """Ephemeral token issuer for exchange tests."""
-    return JWTTokenIssuer(ttl=900)
+    return EphemeralKeypairSigner(ttl=900)
 
 
 @pytest.fixture
-def exchange_client(exchange_app: FastAPI, token_issuer: JWTTokenIssuer, fake_realm: ServiceRealm) -> TestClient:
+def exchange_client(
+    exchange_app: FastAPI, token_issuer: EphemeralKeypairSigner, fake_realm: ServiceRealm
+) -> TestClient:
     """TestClient wired with token_issuer, realm, and exchange settings."""
     with TestClient(exchange_app) as c:
         exchange_app.state.token_issuer = token_issuer
@@ -46,10 +48,10 @@ class _ExchangeTestClient:
     """Context manager that enters TestClient and overwrites token_issuer/realm after lifespan."""
 
     def __init__(
-        self, app: FastAPI, settings: Settings, realm: ServiceRealm, token_issuer: JWTTokenIssuer | None = None
+        self, app: FastAPI, settings: Settings, realm: ServiceRealm, token_issuer: EphemeralKeypairSigner | None = None
     ):
         self._app = app
-        self._token_issuer = token_issuer or JWTTokenIssuer(ttl=900)
+        self._token_issuer = token_issuer or EphemeralKeypairSigner(ttl=900)
         self._realm = realm
         app.dependency_overrides[get_settings] = lambda: settings
 
@@ -69,9 +71,9 @@ class TestExchangeJWTPath:
 
     def test_valid_jwt_returns_dockmaster_token(self, exchange_client, signer):
         """Valid JWT with matching settings -> 200 with dockmaster JWT."""
-        token = signer.get_token(
+        token = signer.sign(
             subject="user@example.com",
-            service_name="test-service",
+            audience="test-service",
             payload={"name": "Test User", "picture": "https://example.com/photo.jpg"},
         )
 
@@ -96,7 +98,7 @@ class TestExchangeJWTPath:
             authorized_domains={"example.com"},
             authorized_audience={"test-service"},
         )
-        token = signer.get_token(subject="user@example.com", service_name="test-service")
+        token = signer.sign(subject="user@example.com", audience="test-service")
 
         with _ExchangeTestClient(app, settings, fake_realm) as client:
             response = client.post(
@@ -114,7 +116,7 @@ class TestExchangeJWTPath:
             authorized_domains={"example.com"},
             authorized_audience={"allowed-service"},
         )
-        token = signer.get_token(subject="user@example.com", service_name="wrong-service")
+        token = signer.sign(subject="user@example.com", audience="wrong-service")
 
         with _ExchangeTestClient(app, settings, fake_realm) as client:
             response = client.post(
@@ -132,7 +134,7 @@ class TestExchangeJWTPath:
             authorized_domains={"shipyard.com"},
             authorized_audience={"test-service"},
         )
-        token = signer.get_token(subject="user@example.com", service_name="test-service")
+        token = signer.sign(subject="user@example.com", audience="test-service")
 
         with _ExchangeTestClient(app, settings, fake_realm) as client:
             response = client.post(
@@ -145,7 +147,7 @@ class TestExchangeJWTPath:
 
     def test_custom_expiry(self, exchange_client, signer):
         """?expiry=7200 controls dockmaster JWT lifetime."""
-        token = signer.get_token(subject="user@example.com", service_name="test-service")
+        token = signer.sign(subject="user@example.com", audience="test-service")
 
         response = exchange_client.post(
             "/auth/exchange?expiry=7200",
@@ -157,9 +159,9 @@ class TestExchangeJWTPath:
 
     def test_profile_claims_forwarded(self, exchange_client, signer):
         """Profile claims from JWT are forwarded to dockmaster token."""
-        token = signer.get_token(
+        token = signer.sign(
             subject="user@example.com",
-            service_name="test-service",
+            audience="test-service",
             payload={
                 "name": "Jane Doe",
                 "given_name": "Jane",
@@ -182,7 +184,7 @@ class TestExchangeJWTPath:
 
     def test_profile_claims_absent_when_not_in_jwt(self, exchange_client, signer):
         """JWT without profile claims -> empty claims dict."""
-        token = signer.get_token(subject="user@example.com", service_name="test-service")
+        token = signer.sign(subject="user@example.com", audience="test-service")
 
         response = exchange_client.post(
             "/auth/exchange",
@@ -196,7 +198,7 @@ class TestExchangeJWTPath:
         """Exchange output is a Type C token (iss='dockmaster', ephemeral kid)."""
         import jwt as pyjwt
 
-        input_token = signer.get_token(subject="user@example.com", service_name="test-service")
+        input_token = signer.sign(subject="user@example.com", audience="test-service")
         response = exchange_client.post(
             "/auth/exchange",
             headers={"Authorization": f"Bearer {input_token}"},

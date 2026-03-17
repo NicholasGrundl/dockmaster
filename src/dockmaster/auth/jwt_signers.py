@@ -1,19 +1,91 @@
-"""JWTTokenIssuer — signs Type C JWTs with an ephemeral RSA keypair."""
+"""JWT signers — ServiceAccountSigner and EphemeralKeypairSigner.
+
+Two signer classes that produce RS256 JWTs with different key sources:
+
+- ServiceAccountSigner: signs with a GCP service account private key (persistent, external)
+- EphemeralKeypairSigner: signs with a self-generated RSA keypair (ephemeral, in-memory)
+"""
 
 from __future__ import annotations
 
 import base64
+import json
 import time
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption
-from cryptography.hazmat.primitives.serialization import PrivateFormat
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 
 
-class JWTTokenIssuer:
+class ServiceAccountSigner:
+    """Signs JWTs using a GCP service account private key.
+
+    Initialized once at app startup (lifespan singleton). The key file is
+    parsed on construction, not per-request.
+    """
+
+    def __init__(self, credentials: str | dict) -> None:
+        if isinstance(credentials, str):
+            data = json.loads(Path(credentials).read_text())
+        else:
+            data = credentials
+
+        self._private_key: str = data["private_key"]
+        self.private_key_id: str = data["private_key_id"]
+        self.client_email: str = data["client_email"]
+
+    def sign(
+        self,
+        subject: str | None,
+        audience: str,
+        expiry: int = 3600,
+        payload: dict | None = None,
+    ) -> str:
+        """Sign and return a JWT string.
+
+        Args:
+            subject: The `sub` and `email` claim. Falls back to client_email if None.
+            audience: The `aud` claim (target service).
+            expiry: Token lifetime in seconds (default 3600).
+            payload: Extra claims to merge into the token.
+        """
+        payload = payload or {}
+        now = int(time.time())
+        effective_subject = subject or self.client_email
+
+        claims = {
+            "iss": self.client_email,
+            "sub": effective_subject,
+            "email": effective_subject,
+            "aud": audience,
+            "iat": now,
+            "exp": now + expiry,
+            **payload,
+        }
+
+        return jwt.encode(
+            claims,
+            self._private_key,
+            algorithm="RS256",
+            headers={"kid": self.private_key_id},
+        )
+
+    def get_authorization(
+        self,
+        subject: str | None = None,
+        audience: str = "",
+        expiry: int = 3600,
+        payload: dict | None = None,
+    ) -> str:
+        """Return a ``Bearer <token>`` string for use in Authorization headers."""
+        token = self.sign(subject=subject, audience=audience, expiry=expiry, payload=payload)
+        return f"Bearer {token}"
+
+
+class EphemeralKeypairSigner:
     """Signs identity JWTs using an ephemeral RSA keypair generated at construction.
 
     The private key lives only in memory — never written to disk.

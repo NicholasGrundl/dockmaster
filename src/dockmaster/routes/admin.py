@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from dockmaster.auth.admin import require_admin_api, require_admin_writes
 from dockmaster.rbac import admin_ops
 from dockmaster.rbac.admin_ops import RoleConflictError
-from dockmaster.rbac.models import Grant
+from dockmaster.rbac.models import Grant, Role, ServiceGrants
 
 router = APIRouter(tags=["admin"])
 
@@ -30,6 +30,16 @@ class UpdateRoleRequest(BaseModel):
 
 class PutGrantsRequest(BaseModel):
     grants: list[Grant]
+
+
+class RevokeSessionResponse(BaseModel):
+    revoked: bool
+    session_id: str
+
+
+class RevokeByEmailResponse(BaseModel):
+    revoked: int
+    email: str
 
 
 # ------------------------------------------------------------------
@@ -57,7 +67,7 @@ def _get_session_store(request: Request):
 # ------------------------------------------------------------------
 
 
-@router.get("/roles")
+@router.get("/roles", response_model=list[str])
 async def list_roles(
     request: Request,
     _admin: dict = Depends(require_admin_api),
@@ -67,7 +77,7 @@ async def list_roles(
     return await admin_ops.list_roles(storage)
 
 
-@router.get("/roles/{name}")
+@router.get("/roles/{name}", response_model=Role)
 async def get_role(
     request: Request,
     name: str,
@@ -82,7 +92,7 @@ async def get_role(
     return role.model_dump()
 
 
-@router.post("/roles", status_code=201)
+@router.post("/roles", status_code=201, response_model=Role)
 async def create_role(
     request: Request,
     body: CreateRoleRequest,
@@ -99,7 +109,7 @@ async def create_role(
     return role.model_dump()
 
 
-@router.put("/roles/{name}")
+@router.put("/roles/{name}", response_model=Role)
 async def update_role(
     request: Request,
     name: str,
@@ -136,7 +146,7 @@ async def delete_role(
 # ------------------------------------------------------------------
 
 
-@router.get("/grants")
+@router.get("/grants", response_model=list[str])
 async def list_grants(
     request: Request,
     _admin: dict = Depends(require_admin_api),
@@ -146,7 +156,7 @@ async def list_grants(
     return await admin_ops.list_service_grants(storage)
 
 
-@router.get("/grants/{service}")
+@router.get("/grants/{service}", response_model=ServiceGrants)
 async def get_grants(
     request: Request,
     service: str,
@@ -161,7 +171,7 @@ async def get_grants(
     return sg.model_dump()
 
 
-@router.post("/grants/{service}")
+@router.post("/grants/{service}", response_model=ServiceGrants)
 async def put_grants(
     request: Request,
     service: str,
@@ -219,7 +229,7 @@ async def list_sessions_by_email(
     return await admin_ops.list_sessions_by_email(store, email)
 
 
-@router.delete("/sessions/id/{session_id}")
+@router.delete("/sessions/id/{session_id}", response_model=RevokeSessionResponse)
 async def revoke_session(
     request: Request,
     session_id: str,
@@ -233,7 +243,7 @@ async def revoke_session(
     return {"revoked": True, "session_id": session_id}
 
 
-@router.delete("/sessions/email/{email}")
+@router.delete("/sessions/email/{email}", response_model=RevokeByEmailResponse)
 async def revoke_sessions_by_email(
     request: Request,
     email: str,

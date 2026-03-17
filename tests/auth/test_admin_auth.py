@@ -109,7 +109,7 @@ def _admin_app(
 
 def _override_jwt_user(app: FastAPI, email: str) -> None:
     """Override get_current_user to return a user dict with the given email."""
-    from dockmaster.auth.middleware import get_current_user
+    from dockmaster.auth.dependencies import get_current_user
 
     app.dependency_overrides[get_current_user] = lambda: {"email": email, "sub": email}
 

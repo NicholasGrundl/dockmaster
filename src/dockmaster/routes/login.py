@@ -12,11 +12,12 @@ from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel
 
+from dockmaster.auth.dependencies import get_session_data
 from dockmaster.config import Settings, get_settings
 
-logger = structlog.get_logger("dockmaster.login")
+logger = structlog.get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["oauth"])
 
 PROFILE_CLAIM_KEYS = ("email", "name", "picture", "given_name", "family_name", "locale")
 
@@ -206,48 +207,23 @@ async def logout(request: Request, settings: Settings = Depends(get_settings)):
 @router.get("/principal")
 async def get_principal(request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """Return current session profile, or {} if not authenticated."""
-    session_store = getattr(request.app.state, "session_store", None)
-    if session_store is None:
-        return {}
-
-    cookie = request.cookies.get("session_id")
-    if not cookie:
-        return {}
-
-    signer = _get_signer(settings)
-    try:
-        session_id = signer.loads(cookie)
-    except BadSignature:
-        return {}
-
-    data = await session_store.get(session_id)
+    data = await get_session_data(request, settings)
     return data or {}
 
 
 @router.get("/sessions")
 async def get_sessions(request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """Return current user's active sessions, or {} if not authenticated."""
-    session_store = getattr(request.app.state, "session_store", None)
-    if session_store is None:
-        return {}
-
-    cookie = request.cookies.get("session_id")
-    if not cookie:
-        return {}
-
-    signer = _get_signer(settings)
-    try:
-        session_id = signer.loads(cookie)
-    except BadSignature:
-        return {}
-
-    data = await session_store.get(session_id)
+    data = await get_session_data(request, settings)
     if not data:
         return {}
 
-    # Filter all sessions to only those matching this user's email
     email = data.get("email")
     if not email:
+        return {}
+
+    session_store = getattr(request.app.state, "session_store", None)
+    if session_store is None:
         return {}
 
     from dockmaster.rbac.admin_ops import list_sessions_by_email

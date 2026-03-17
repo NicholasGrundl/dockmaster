@@ -11,7 +11,7 @@ from google.api_core.exceptions import NotFound
 
 from dockmaster.rbac.storage import SecretsStorage
 
-logger = structlog.get_logger("dockmaster.rbac.authority")
+logger = structlog.get_logger(__name__)
 
 
 class Authority:
@@ -59,7 +59,7 @@ class Authority:
             service_grants = self._cache_get(grants_key)
         else:
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 service_grants = await loop.run_in_executor(None, self._storage.get_service_grants, target)
             except NotFound:
                 logger.debug("target_not_found", target=target)
@@ -84,7 +84,7 @@ class Authority:
                 role = self._cache_get(role_key)
             else:
                 try:
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     role = await loop.run_in_executor(None, self._storage.get_role, role_name)
                 except NotFound:
                     logger.warning("role_not_found", role_name=role_name)
@@ -106,7 +106,7 @@ class Authority:
             service_grants = self._cache_get(grants_key)
         else:
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 service_grants = await loop.run_in_executor(None, self._storage.get_service_grants, target)
             except NotFound:
                 logger.debug("target_not_found", target=target)
@@ -131,7 +131,7 @@ class Authority:
                 role = self._cache_get(role_key)
             else:
                 try:
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     role = await loop.run_in_executor(None, self._storage.get_role, role_name)
                 except NotFound:
                     logger.warning("role_not_found", role_name=role_name)

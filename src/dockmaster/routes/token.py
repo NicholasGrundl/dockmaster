@@ -8,14 +8,14 @@ from __future__ import annotations
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel
 
+from dockmaster.auth.dependencies import get_session_data
 from dockmaster.config import Settings, get_settings
 
-logger = structlog.get_logger("dockmaster.token")
+logger = structlog.get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["jwt"])
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -28,21 +28,9 @@ class TokenResponse(BaseModel):
 
 async def _email_from_session(request: Request, settings: Settings) -> str | None:
     """Try to extract email from session cookie. Returns None if not authenticated."""
-    session_store = getattr(request.app.state, "session_store", None)
-    cookie = request.cookies.get("session_id")
-    if not cookie or not session_store:
-        return None
-
-    signer = URLSafeSerializer(settings.session_secret_key)
-    try:
-        session_id = signer.loads(cookie)
-    except BadSignature:
-        return None
-
-    data = await session_store.get(session_id)
+    data = await get_session_data(request, settings)
     if not data:
         return None
-
     return data.get("email")
 
 

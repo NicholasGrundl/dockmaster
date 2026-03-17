@@ -10,14 +10,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from itsdangerous import URLSafeSerializer
 
-from dockmaster.auth.token_issuer import JWTTokenIssuer
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
 from dockmaster.config import Settings, get_settings
 from dockmaster.sessions.memory import InMemorySessionStore
 
 
 @pytest.fixture
-def token_issuer() -> JWTTokenIssuer:
-    return JWTTokenIssuer(ttl=900)
+def token_issuer() -> EphemeralKeypairSigner:
+    return EphemeralKeypairSigner(ttl=900)
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def token_settings() -> Settings:
 
 @pytest.fixture
 def token_client(
-    app: FastAPI, token_settings: Settings, token_issuer: JWTTokenIssuer, session_store: InMemorySessionStore
+    app: FastAPI, token_settings: Settings, token_issuer: EphemeralKeypairSigner, session_store: InMemorySessionStore
 ) -> TestClient:
     """TestClient with token_issuer and session_store wired."""
     app.dependency_overrides[get_settings] = lambda: token_settings
@@ -110,7 +110,7 @@ class TestTokenEndpointBearerAuth:
     def test_bearer_auth_returns_token(self, token_client, app, signer, fake_realm, token_issuer):
         """Valid Bearer JWT + service → 200 with Type C JWT."""
         app.state.realm = fake_realm
-        input_token = signer.get_token(subject="cli-user@example.com", service_name="dockmaster")
+        input_token = signer.sign(subject="cli-user@example.com", audience="dockmaster")
 
         response = token_client.post(
             "/auth/token?service=billing",
@@ -129,7 +129,7 @@ class TestTokenEndpointBearerAuth:
     def test_bearer_auth_missing_service(self, token_client, app, signer, fake_realm):
         """Bearer auth without ?service= → 400."""
         app.state.realm = fake_realm
-        input_token = signer.get_token(subject="user@example.com", service_name="dockmaster")
+        input_token = signer.sign(subject="user@example.com", audience="dockmaster")
 
         response = token_client.post(
             "/auth/token",

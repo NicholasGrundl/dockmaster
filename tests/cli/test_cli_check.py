@@ -35,7 +35,7 @@ class TestCheck:
         mock_client = mock_cls.return_value.__enter__.return_value
         mock_client.get.return_value = _mock_response(
             status_code=403,
-            json_data={"status": "Error", "message": "denied"},
+            json_data={"detail": "denied"},
         )
 
         result = runner.invoke(app, ["check", "user@x.com", "myapi", "-p", "read"])

@@ -21,11 +21,11 @@ class TestVerifyWithKid:
     """ServiceRealm.verify() when token has a kid header."""
 
     def test_round_trip_sign_verify(self, fake_sa_key_data, rsa_public_key_pem):
-        from dockmaster.auth.jwt_signer import ServiceUser
+        from dockmaster.auth.jwt_signers import ServiceAccountSigner
         from dockmaster.auth.jwt_verifier import ServiceRealm
 
-        su = ServiceUser(credentials=fake_sa_key_data)
-        token = su.get_token(subject="user@example.com", service_name="svc")
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
+        token = su.sign(subject="user@example.com", audience="svc")
 
         cache = FakeKeyCache({"test-key-id-001": rsa_public_key_pem})
         realm = ServiceRealm(key_cache=cache)
@@ -35,11 +35,11 @@ class TestVerifyWithKid:
         assert claims["iss"] == "test-sa@test-project.iam.gserviceaccount.com"
 
     def test_unknown_kid_raises(self, fake_sa_key_data):
-        from dockmaster.auth.jwt_signer import ServiceUser
+        from dockmaster.auth.jwt_signers import ServiceAccountSigner
         from dockmaster.auth.jwt_verifier import ServiceRealm
 
-        su = ServiceUser(credentials=fake_sa_key_data)
-        token = su.get_token(subject="u@ex.com", service_name="svc")
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
+        token = su.sign(subject="u@ex.com", audience="svc")
 
         cache = FakeKeyCache({"other-key": "not-a-real-pem"})
         realm = ServiceRealm(key_cache=cache)
@@ -92,11 +92,11 @@ class TestMultiCacheVerification:
     """ServiceRealm with multiple key caches (Phase 7)."""
 
     def test_finds_key_in_second_cache(self, fake_sa_key_data, rsa_public_key_pem):
-        from dockmaster.auth.jwt_signer import ServiceUser
+        from dockmaster.auth.jwt_signers import ServiceAccountSigner
         from dockmaster.auth.jwt_verifier import ServiceRealm
 
-        su = ServiceUser(credentials=fake_sa_key_data)
-        token = su.get_token(subject="user@example.com", service_name="svc")
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
+        token = su.sign(subject="user@example.com", audience="svc")
 
         empty_cache = FakeKeyCache({})
         real_cache = FakeKeyCache({"test-key-id-001": rsa_public_key_pem})
@@ -123,11 +123,11 @@ class TestMultiCacheVerification:
         assert claims["sub"] == "u@ex.com"
 
     def test_unknown_kid_across_all_caches_raises(self, fake_sa_key_data):
-        from dockmaster.auth.jwt_signer import ServiceUser
+        from dockmaster.auth.jwt_signers import ServiceAccountSigner
         from dockmaster.auth.jwt_verifier import ServiceRealm
 
-        su = ServiceUser(credentials=fake_sa_key_data)
-        token = su.get_token(subject="u@ex.com", service_name="svc")
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
+        token = su.sign(subject="u@ex.com", audience="svc")
 
         cache_a = FakeKeyCache({"other-a": "pem-a"})
         cache_b = FakeKeyCache({"other-b": "pem-b"})
@@ -175,12 +175,12 @@ class TestVerifyEdgeCases:
             realm.verify("")
 
     def test_expired_token_raises(self, fake_sa_key_data, rsa_public_key_pem):
-        from dockmaster.auth.jwt_signer import ServiceUser
+        from dockmaster.auth.jwt_signers import ServiceAccountSigner
         from dockmaster.auth.jwt_verifier import ServiceRealm
 
-        su = ServiceUser(credentials=fake_sa_key_data)
+        su = ServiceAccountSigner(credentials=fake_sa_key_data)
         # expiry=0 means it expires immediately
-        token = su.get_token(subject="u@ex.com", service_name="svc", expiry=-1)
+        token = su.sign(subject="u@ex.com", audience="svc", expiry=-1)
 
         cache = FakeKeyCache({"test-key-id-001": rsa_public_key_pem})
         realm = ServiceRealm(key_cache=cache)

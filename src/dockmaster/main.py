@@ -12,11 +12,10 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from dockmaster.auth.jwt_signer import ServiceUser
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner, ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
 from dockmaster.auth.auth_code import AuthCodeStore
-from dockmaster.auth.token_issuer import JWTTokenIssuer
 from dockmaster.auth.oauth import create_oauth
 from dockmaster.config import get_settings
 from dockmaster.logging import setup_logging
@@ -54,8 +53,6 @@ def _build_gcp_credentials(sa_key_data: dict | None, log: structlog.stdlib.Bound
 
     Returns a google.auth.credentials.Credentials instance.
     """
-    # TODO(phase5): Research whether broad cloud-platform scope is appropriate
-    # vs narrower scopes. See https://developers.google.com/identity/protocols/oauth2/scopes
     scopes = ["https://www.googleapis.com/auth/cloud-platform"]
 
     if sa_key_data:
@@ -77,7 +74,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
     settings = get_settings()
     setup_logging(settings.log_level)
-    log = structlog.get_logger("dockmaster")
+    log = structlog.get_logger(__name__)
     log.info("starting up", log_level=settings.log_level)
 
     # --- Load SA key (shared across all GCP consumers) ---
@@ -85,14 +82,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # --- JWT signer (requires SA key — no ADC fallback, needs private key) ---
     if sa_key_data:
-        app.state.signer = ServiceUser(sa_key_data)
-        log.info("jwt_signer_initialized", email=sa_key_data.get("client_email"))
+        app.state.signer = ServiceAccountSigner(sa_key_data)
+        log.info("sa_signer_initialized", email=sa_key_data.get("client_email"))
     else:
         app.state.signer = None
         log.warning("SA_KEY_FILE not set — JWT signing disabled (auth endpoints will return 503)")
 
     # --- Ephemeral token issuer (always available — generates keypair in memory) ---
-    app.state.token_issuer = JWTTokenIssuer(ttl=settings.dockmaster_token_ttl)
+    app.state.token_issuer = EphemeralKeypairSigner(ttl=settings.dockmaster_token_ttl)
     log.info("token_issuer_initialized", kid=app.state.token_issuer.current_kid)
 
     # --- Key caches + JWT verifier ---

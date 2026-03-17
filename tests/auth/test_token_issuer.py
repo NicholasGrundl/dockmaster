@@ -1,20 +1,20 @@
-"""Tests for JWTTokenIssuer — ephemeral RSA keypair JWT signing."""
+"""Tests for EphemeralKeypairSigner — ephemeral RSA keypair JWT signing."""
 
 import jwt
 
-from dockmaster.auth.token_issuer import JWTTokenIssuer
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
 
 
-class TestJWTTokenIssuerConstruction:
+class TestEphemeralKeypairSignerConstruction:
     """Test keypair generation and properties on construction."""
 
     def test_generates_kid_on_construction(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         assert issuer.current_kid is not None
         assert issuer.current_kid.startswith("dk-")
 
     def test_kid_contains_date_and_uuid(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         parts = issuer.current_kid.split("-")
         # dk-YYYY-MM-DD-uuid8
         assert parts[0] == "dk"
@@ -22,12 +22,12 @@ class TestJWTTokenIssuerConstruction:
         assert len(parts[-1]) == 8  # uuid[:8]
 
     def test_generates_unique_kids(self):
-        a = JWTTokenIssuer(ttl=900)
-        b = JWTTokenIssuer(ttl=900)
+        a = EphemeralKeypairSigner(ttl=900)
+        b = EphemeralKeypairSigner(ttl=900)
         assert a.current_kid != b.current_kid
 
     def test_current_public_jwk_format(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         jwk = issuer.current_public_jwk
         assert jwk["kty"] == "RSA"
         assert jwk["alg"] == "RS256"
@@ -37,28 +37,28 @@ class TestJWTTokenIssuerConstruction:
         assert "e" in jwk  # exponent
 
     def test_public_jwk_does_not_contain_private_fields(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         jwk = issuer.current_public_jwk
         # RSA private key fields must not be present
         for field in ("d", "p", "q", "dp", "dq", "qi"):
             assert field not in jwk
 
     def test_default_ttl_stored(self):
-        issuer = JWTTokenIssuer(ttl=1800)
+        issuer = EphemeralKeypairSigner(ttl=1800)
         assert issuer.default_ttl == 1800
 
 
-class TestJWTTokenIssuerSigning:
+class TestEphemeralKeypairSignerSigning:
     """Test JWT signing behavior."""
 
     def test_sign_returns_valid_jwt(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(subject="nick@example.com", audience="billing-service")
         # Should be a three-part JWT
         assert token.count(".") == 2
 
     def test_sign_claims_content(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(subject="nick@example.com", audience="billing-service")
         # Decode without verification to inspect claims
         claims = jwt.decode(token, options={"verify_signature": False})
@@ -70,26 +70,26 @@ class TestJWTTokenIssuerSigning:
         assert "exp" in claims
 
     def test_sign_uses_default_ttl(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(subject="nick@example.com", audience="svc")
         claims = jwt.decode(token, options={"verify_signature": False})
         assert claims["exp"] - claims["iat"] == 900
 
     def test_sign_ttl_override(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(subject="nick@example.com", audience="svc", ttl=3600)
         claims = jwt.decode(token, options={"verify_signature": False})
         assert claims["exp"] - claims["iat"] == 3600
 
     def test_sign_kid_in_header(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(subject="nick@example.com", audience="svc")
         header = jwt.get_unverified_header(token)
         assert header["kid"] == issuer.current_kid
         assert header["alg"] == "RS256"
 
     def test_sign_extra_claims(self):
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(
             subject="nick@example.com",
             audience="svc",
@@ -101,7 +101,7 @@ class TestJWTTokenIssuerSigning:
 
     def test_sign_extra_claims_cannot_override_core(self):
         """Extra claims should not override sub, iss, aud, etc."""
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(
             subject="nick@example.com",
             audience="svc",
@@ -113,7 +113,7 @@ class TestJWTTokenIssuerSigning:
 
     def test_sign_verifiable_with_public_key(self):
         """Token signed by issuer should be verifiable with its public JWK."""
-        issuer = JWTTokenIssuer(ttl=900)
+        issuer = EphemeralKeypairSigner(ttl=900)
         token = issuer.sign(subject="nick@example.com", audience="svc")
 
         # Build public key from JWK

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import Depends, HTTPException, Request
 
-from dockmaster.auth.middleware import get_current_user
+from dockmaster.auth.dependencies import get_current_user
 from dockmaster.config import Settings, get_settings
 
 
