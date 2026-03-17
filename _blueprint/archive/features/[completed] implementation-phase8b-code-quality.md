@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-16": "Created — code quality review spec with two-pass approach"
 ---

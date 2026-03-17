@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-16 16h": "Pass 2 complete — interactive decisions, action plan appended"
   "2026-03-16": "Created — Pass 1 complete: FastAPI patterns, naming, docstrings, API surface"

@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-16": "Created — deployment readiness audit findings from interview + app audit"
 ---

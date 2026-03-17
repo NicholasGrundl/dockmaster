@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-16": "Created — test suite audit findings from coverage + pattern analysis"
 ---

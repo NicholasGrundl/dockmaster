@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-16": "Created — deployment readiness audit spec, interview-driven Caddy/Docker planning"
 ---

@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-16 session3": "Sessions 2-3 — exchange→Type C, token endpoint, grants endpoint, CLI token command, JWKS+OIDC deferred (D28-D29)"
   "2026-03-16 session1": "Implementation updates — KeyManager split into JWTTokenIssuer + EphemeralKeyCache, ServiceRealm multi-cache, class renames (D21-D27)"

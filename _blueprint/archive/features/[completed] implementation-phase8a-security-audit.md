@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-17": "Pass 2 started — implementing security fixes (S-001/S-014 done, settings refactor complete)"
   "2026-03-16": "Created — restructured from original 8a spec, expanded scope for Phase 7 completeness"

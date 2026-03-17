@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Finalized
 changelog:
   "2026-03-16": "Created — full endpoint inventory, auth DAG, info leakage, boundary analysis, gap analysis"
 ---

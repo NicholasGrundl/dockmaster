@@ -1,5 +1,5 @@
 ---
-state: Draft
+state: Superseded
 changelog:
   "2026-03-12 16h": "Added Phase 6 findings: 503 info leak concern, authority type annotation audit"
   "2026-03-12": "Created — auth surface audit phase, unified Mermaid DAG"
