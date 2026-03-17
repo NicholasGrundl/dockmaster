@@ -269,20 +269,17 @@ Phase 10: UI Tests ................................... PLANNED
 
 ---
 
-## Phase 8e: Auth Dependency Conventions — PLANNED
+## Phase 8e: App Architecture Conventions — PLANNED
 
-> Standardise how routes declare auth requirements. Router-level `allow_*` gates,
-> `require_permission(service, permission)` RBAC factory, and `require_*` infra checks.
-> Makes the auth zone of any route self-documenting.
+> Standardize three cross-cutting concerns: auth dependency conventions,
+> middleware organization, and settings injection.
 
 **Spec**: [`features/implementation-phase8e-auth-conventions.md`](../features/implementation-phase8e-auth-conventions.md)
 
 **Deliverables:**
-- `allow_authenticated`, `allow_admin`, `allow_admin_ui` in `auth/dependencies.py`
-- `require_permission(service, permission)` factory in `auth/dependencies.py`
-- All admin/authenticated routers use router-level `dependencies=[...]`
-- All routers tagged with auth zone (`"public"`, `"authenticated"`, `"admin-api"`, etc.)
-- `auth/admin.py` consolidated into `auth/dependencies.py`
+- **Pillar 1 — Auth conventions**: `allow_jwt`, `allow_session`, `allow_jwt_or_session`, `allow_google_credential`, `allow_jwt_admin`, `allow_session_admin` gates in `auth/dependencies.py`. `require_permission(service, permission)` RBAC factory. `needs_admin_storage` system capability check. Router-level `dependencies=[...]` on all non-public routers. `auth/admin.py` removed.
+- **Pillar 2 — Middleware consolidation**: `setup_middleware(app, settings)` helper in `main.py`. Middleware classes/constants in `middleware.py`.
+- **Pillar 3 — Settings DI bridge**: `get_settings(request)` bridge in `config.py`. All routes use `Annotated[Settings, Depends(get_settings)]`.
 
 ---
 
