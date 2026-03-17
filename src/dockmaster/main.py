@@ -220,7 +220,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["Authorization", "Content-Type"],
             allow_credentials=True,
         )
-    # Starlette SessionMiddleware is required by Authlib for OAuth state management
+    # Starlette SessionMiddleware — creates a separate "session" cookie used internally
+    # by Authlib during the OAuth redirect flow. This is distinct from the application's
+    # own "session_id" cookie (server-side sessions via InMemorySessionStore + itsdangerous).
+    # Both cookies are signed with session_secret_key. The Starlette session cookie may
+    # be removable now that OAuth CSRF state is managed by TTLStore (see S-005/S-012),
+    # but requires verifying Authlib doesn't use it during token exchange.
     application.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
     application.include_router(health_router, prefix="/auth")
     application.include_router(keys_router, prefix="/auth")

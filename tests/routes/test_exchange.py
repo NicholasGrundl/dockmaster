@@ -107,7 +107,7 @@ class TestExchangeJWTPath:
             )
 
         assert response.status_code == 403
-        assert "Issuer not allowed" in response.json()["detail"]
+        assert response.json()["detail"] == "Access denied"
 
     def test_audience_not_allowed(self, app, signer, fake_realm, fake_sa_key_data):
         """JWT with wrong audience -> 403."""
@@ -125,7 +125,7 @@ class TestExchangeJWTPath:
             )
 
         assert response.status_code == 403
-        assert "Audience not allowed" in response.json()["detail"]
+        assert response.json()["detail"] == "Access denied"
 
     def test_domain_not_allowed(self, app, signer, fake_realm, fake_sa_key_data):
         """JWT with unauthorized email domain -> 403."""
@@ -143,7 +143,7 @@ class TestExchangeJWTPath:
             )
 
         assert response.status_code == 403
-        assert "Domain not allowed" in response.json()["detail"]
+        assert response.json()["detail"] == "Access denied"
 
     def test_custom_expiry(self, exchange_client, signer):
         """?expiry within cap is honored."""

@@ -61,11 +61,13 @@ async def exchange_token(
         # JWT path: check issuer and audience
         iss = claims.get("iss", "")
         if iss not in settings.authorized_issuers:
-            raise HTTPException(status_code=403, detail=f"Issuer not allowed: {iss}")
+            logger.warning("issuer_not_allowed", iss=iss)
+            raise HTTPException(status_code=403, detail="Access denied")
 
         token_aud = claims.get("aud", "")
         if token_aud not in settings.authorized_audience:
-            raise HTTPException(status_code=403, detail=f"Audience not allowed: {token_aud}")
+            logger.warning("audience_not_allowed", aud=token_aud)
+            raise HTTPException(status_code=403, detail="Access denied")
 
         aud = token_aud
         email = claims.get("email")
@@ -97,7 +99,8 @@ async def exchange_token(
 
     domain = email.partition("@")[2]
     if domain not in settings.authorized_domains:
-        raise HTTPException(status_code=403, detail=f"Domain not allowed: {domain}")
+        logger.warning("domain_not_allowed", domain=domain, email=email)
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # --- Step 6: Copy profile claims ---
     profile_claims = {k: claims[k] for k in PROFILE_CLAIM_KEYS if k in claims}

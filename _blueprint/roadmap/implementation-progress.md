@@ -18,28 +18,27 @@
 - [x] Auth boundary analysis
 - [x] Gap analysis (14 findings: S-001 through S-014)
 
-### Pass 2 (fix implementation) — IN PROGRESS
+### Pass 2 (fix implementation) — COMPLETE
 - [x] S-001: OpenAPI docs disabled by default (`ENABLE_DOCS` setting, default `False`)
 - [x] S-014: Root endpoint no longer exposes docs URL when disabled (fixed alongside S-001)
 - [x] Settings refactor: removed `Depends(get_settings)` anti-pattern, settings via `app.state.settings`
 - [x] Test infra: `create_app(settings)`, `test_app_factory`, `auth_client` in domain conftest
 - [x] Reorganized `.env.example` into logical groups with Dev/Debug section
-- [ ] S-002: JWT decode errors leak internals  <- next
-- [ ] S-003: 503 detail leaks infrastructure
-- [ ] S-004: No security response headers
-- [ ] S-005: OAuth state has no TTL
-- [ ] S-006: Unbounded token expiry on `/auth/exchange`
-- [ ] S-007: `get_current_user` doesn't validate audience
-- [ ] S-008: `/auth/refresh` requires no dockmaster auth (document decision)
-- [ ] S-009: `/auth/refresh` returns Google tokens
-- [ ] S-010: `/auth/refresh` uses Type B (SA-signed) JWT
-- [ ] S-011: CLI token in URL query param (document decision)
-- [ ] S-012: Two session cookie mechanisms (document decision)
-- [ ] S-013: 403 responses reveal config details
+- [x] S-002: JWT decode errors — generic 401 message, structured warning log with token fingerprint (SHA-256 truncated)
+- [x] S-003: 503 detail simplified to "Write operations are not available" + warning log
+- [x] S-004: Security headers middleware (`SecurityHeadersMiddleware`) — X-Content-Type-Options, X-Frame-Options, CSP, Referrer-Policy. `SECURITY_HEADERS` kill-switch setting.
+- [x] S-005: OAuth CSRF state moved from module-level dict to `TTLStore[dict]` (10min TTL). `AuthCodeStore` refactored onto new `TTLStore` base class in `auth/ttl_store.py`.
+- [x] S-006: `MAX_TOKEN_TTL` setting (default 3600s) caps `/auth/exchange` expiry. Over-cap requests silently clamped with server-side warning log.
+- [x] S-007: Documented by design in `get_current_user` docstring — audience validation is receiver responsibility, dockmaster endpoints accept any valid dockmaster-issued JWT.
+- [x] S-008: `/auth/refresh` removed entirely — CLI uses short-lived JWTs (15min) + re-login on expiry. Google refresh tokens are a larger liability than the problem they solve.
+- [x] S-009: Resolved by S-008 removal — endpoint that returned Google tokens is gone.
+- [x] S-010: Resolved by S-008 removal — last Type B (SA-signed) JWT issuer removed.
+- [x] S-011: CLI callback page now calls `history.replaceState(null, '', '/done')` to scrub token from browser history. Documented in `_CallbackHandler` docstring.
+- [x] S-012: Documented in `main.py` comment. Added middleware consolidation + SessionMiddleware investigation to feature backlog.
+- [x] S-013: 403 messages genericized to "Access denied". Issuer/audience/domain details logged server-side only.
 
 ## Test status
-- 425 tests GREEN, lint clean, format clean
-- Test count: 423 → 425 (2 new docs enable/disable tests)
+- 412 tests GREEN (removed 14 refresh tests, added 1 exchange clamping test), lint clean, format clean
 
 ## Decisions log (Phase 8a fixes)
 - 2026-03-17: S-001 fix: `ENABLE_DOCS` bool setting (default `False`), not a `DEV_MODE` meta-setting. DEV_MODE deferred until 8+ settings warrant it.
@@ -47,7 +46,7 @@
 - 2026-03-17: Test infra: `test_app_factory` fixture returns `TestClient`, `auth_client` moved to domain conftest (auth, routes).
 
 ## Next session: pick up at
-"S-002: JWT decode errors leak internals — sanitize error messages in auth dependencies"
+"Phase 8a complete. Move to Phase 9 (Deployment) or address remaining backlog items."
 
 ## Previous Phase: Phase 8d — Test Audit + Implementation
 **Approach**: Audit (pass 1) + implementation of findings (pass 2)

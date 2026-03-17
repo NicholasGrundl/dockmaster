@@ -108,7 +108,8 @@ async def callback(request: Request):
 
     domain = email.partition("@")[2]
     if domain not in settings.authorized_domains:
-        raise HTTPException(status_code=403, detail=f"Domain not allowed: {domain}")
+        logger.warning("domain_not_allowed", domain=domain, email=email)
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Redirect flow: allowlisted URI → auth code, localhost (CLI) → direct JWT
     redirect_target = state_meta.get("redirect_uri")

@@ -120,9 +120,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
                 b'<body class="bg-gray-50 flex items-center justify-center min-h-screen">\n'
                 b'    <div class="text-center">\n'
                 b'        <h2 class="text-xl font-semibold text-red-600">Login failed</h2>\n'
-                b'        <p class="mt-2 text-gray-600">'
-                + error.encode()
-                + b"</p>\n"
+                b'        <p class="mt-2 text-gray-600">' + error.encode() + b"</p>\n"
                 b"    </div>\n"
                 b"</body>\n"
                 b"</html>"

@@ -154,6 +154,11 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **Effort**: Small-Medium — ephemeral keys have JWK data natively, SA keys need PEM→JWK conversion. Consider adding `get_all_jwks()` to base `KeyCache` at that time.
 - **Prerequisite**: Decide scope (ephemeral-only vs all keys) and whether to add JWK conversion to `KeyCache` base class.
 
+### Middleware Consolidation
+- **Context**: Middleware is currently spread across multiple locations: `SecurityHeadersMiddleware` in `middleware.py`, `CORSMiddleware` and `SessionMiddleware` configured inline in `main.py:create_app()`. Should consolidate all middleware into a single `middleware.py` module with consistent patterns. Additionally, Starlette's `SessionMiddleware` (which creates a separate `session` cookie) may no longer be needed — it was added for Authlib's OAuth state management, but OAuth CSRF state is now handled by `TTLStore` (S-005). Investigate whether Authlib still uses the Starlette session during token exchange; if not, remove `SessionMiddleware` and eliminate the dual-cookie architecture (S-012).
+- **When**: Next code quality pass or before deployment.
+- **Effort**: Small-Medium — move CORS/Session config into middleware module, test Authlib without SessionMiddleware.
+
 ### Vocab Unification: ServiceUser.get_token() vs JWTTokenIssuer.sign()
 - **Context**: Two JWT signing classes exist with different method names: `ServiceUser.get_token(subject, service_name, expiry, payload)` and `JWTTokenIssuer.sign(subject, audience, ttl, extra_claims)`. Both do the same thing (sign a JWT), but the naming divergence adds cognitive load. Parameters also differ (`service_name` vs `audience`, `expiry` vs `ttl`, `payload` vs `extra_claims`).
 - **When**: Phase 8a (Audit — Endpoint Inventory). Fits naturally into the naming consistency pass.

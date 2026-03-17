@@ -143,7 +143,7 @@ class TestCallback:
         )
 
         assert response.status_code == 403
-        assert "Domain not allowed" in response.json()["detail"]
+        assert response.json()["detail"] == "Access denied"
 
 
 class TestLogout:

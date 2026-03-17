@@ -67,14 +67,10 @@ async def get_current_user(
     try:
         return realm.verify(credentials.credentials)
     except ValueError as exc:
-        token_fingerprint = hashlib.sha256(
-            credentials.credentials.encode()
-        ).hexdigest()[:8]
+        token_fingerprint = hashlib.sha256(credentials.credentials.encode()).hexdigest()[:8]
         logger.warning(
             "jwt_verification_failed",
             error=str(exc),
             token_fingerprint=token_fingerprint,
         )
-        raise HTTPException(
-            status_code=401, detail="Invalid or expired token"
-        ) from exc
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc

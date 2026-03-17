@@ -30,6 +30,7 @@ Phase 8a: Security Audit ............................ PLANNED
 Phase 8b: Code Quality Review ....................... PLANNED
 Phase 8c: Deployment Readiness ...................... PLANNED
 Phase 8d: Test Audit ................................ PLANNED
+Phase 8e: Auth Dependency Conventions ............... PLANNED
 Phase 9: Deployment + GCP Cleanup .................... PLANNED
 Phase 10: UI Tests ................................... PLANNED
 ```
@@ -265,6 +266,23 @@ Phase 10: UI Tests ................................... PLANNED
 - Findings with impact ratings and effort estimates
 
 **Dependencies:** Phase 8a–8c complete
+
+---
+
+## Phase 8e: Auth Dependency Conventions — PLANNED
+
+> Standardise how routes declare auth requirements. Router-level `allow_*` gates,
+> `require_permission(service, permission)` RBAC factory, and `require_*` infra checks.
+> Makes the auth zone of any route self-documenting.
+
+**Spec**: [`features/implementation-phase8e-auth-conventions.md`](../features/implementation-phase8e-auth-conventions.md)
+
+**Deliverables:**
+- `allow_authenticated`, `allow_admin`, `allow_admin_ui` in `auth/dependencies.py`
+- `require_permission(service, permission)` factory in `auth/dependencies.py`
+- All admin/authenticated routers use router-level `dependencies=[...]`
+- All routers tagged with auth zone (`"public"`, `"authenticated"`, `"admin-api"`, etc.)
+- `auth/admin.py` consolidated into `auth/dependencies.py`
 
 ---
 
