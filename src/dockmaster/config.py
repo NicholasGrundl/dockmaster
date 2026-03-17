@@ -1,6 +1,5 @@
 """Dockmaster service configuration via pydantic-settings."""
 
-from functools import lru_cache
 from typing import Any
 
 from pydantic import SecretStr, model_validator
@@ -33,6 +32,7 @@ class Settings(BaseSettings):
     sa_key_file: str | None = None
     secrets_project: str | None = None
     log_level: str = "INFO"
+    enable_docs: bool = False
 
     # --- Authorization ---
     # Typed as str to prevent pydantic-settings from attempting JSON decode on env vars.
@@ -95,7 +95,6 @@ class Settings(BaseSettings):
         return self
 
 
-@lru_cache
 def get_settings() -> Settings:
-    """Return cached Settings instance. Override in tests via dependency_overrides."""
+    """Create a Settings instance from environment variables / .env file."""
     return Settings()

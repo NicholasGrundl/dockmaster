@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from dockmaster.auth.admin import _is_admin
 from dockmaster.auth.dependencies import get_session_data
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 from dockmaster.ui.config import UIConfig
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -32,17 +32,18 @@ public_router = APIRouter(tags=["ui"])
 protected_router = APIRouter(tags=["ui"])
 
 
-async def _get_session_user(request: Request, settings: Settings) -> dict | None:
+async def _get_session_user(request: Request) -> dict | None:
     """Extract user data from session cookie. Returns None if not authenticated."""
+    settings: Settings = request.app.state.settings
     return await get_session_data(request, settings)
 
 
-async def require_ui_session(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+async def require_ui_session(request: Request) -> dict:
     """Dependency that ensures the user has an active session.
 
     Redirects to /ui/login if not authenticated.
     """
-    user = await _get_session_user(request, settings)
+    user = await _get_session_user(request)
     if not user:
         raise _redirect_to_login()
     return user
@@ -63,10 +64,10 @@ def _ui_config(request: Request) -> UIConfig:
 
 
 @public_router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request, settings: Settings = Depends(get_settings)):
+async def login_page(request: Request):
     """Branded login page with Google SSO button."""
     # If already logged in, redirect to dashboard
-    user = await _get_session_user(request, settings)
+    user = await _get_session_user(request)
     if user:
         return RedirectResponse(url="/ui/", status_code=302)
 
@@ -103,7 +104,7 @@ async def dashboard(
     }
 
     # Check admin status for nav links
-    settings = get_settings()
+    settings: Settings = request.app.state.settings
     authority = getattr(request.app.state, "authority", None)
     admin = await _is_admin(user.get("email", ""), authority, settings.dockmaster_admin_emails)
 

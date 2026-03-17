@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +107,7 @@ def refresh_client(
     mock_token_issuer,
 ) -> TestClient:
     """TestClient wired for refresh tests with all dependencies mocked."""
-    app.dependency_overrides[get_settings] = lambda: refresh_settings
+    app.state.settings = refresh_settings
     with TestClient(app) as c:
         app.state.secrets_storage = mock_secrets_storage
         app.state.realm = mock_realm
@@ -236,7 +236,7 @@ class TestRefreshClientIdResolution:
             authorized_audience={"test-client.apps.googleusercontent.com"},
             session_secret_key="test-session-secret",
         )
-        refresh_client.app.dependency_overrides[get_settings] = lambda: refresh_settings_no_default
+        refresh_client.app.state.settings = refresh_settings_no_default
 
         response = refresh_client.post(
             "/auth/refresh",

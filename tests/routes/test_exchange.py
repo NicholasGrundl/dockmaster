@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def exchange_settings(fake_sa_key_data) -> Settings:
 @pytest.fixture
 def exchange_app(app: FastAPI, exchange_settings: Settings) -> FastAPI:
     """App with exchange-specific settings override."""
-    app.dependency_overrides[get_settings] = lambda: exchange_settings
+    app.state.settings = exchange_settings
     return app
 
 
@@ -53,7 +53,7 @@ class _ExchangeTestClient:
         self._app = app
         self._token_issuer = token_issuer or EphemeralKeypairSigner(ttl=900)
         self._realm = realm
-        app.dependency_overrides[get_settings] = lambda: settings
+        app.state.settings = settings
 
     def __enter__(self):
         self._client = TestClient(self._app)
@@ -317,7 +317,7 @@ class TestExchangeErrors:
 
     def test_503_when_token_issuer_not_configured(self, app, fake_realm, exchange_settings):
         """Returns 503 when token_issuer is not available."""
-        app.dependency_overrides[get_settings] = lambda: exchange_settings
+        app.state.settings = exchange_settings
         with TestClient(app) as client:
             app.state.token_issuer = None
             app.state.realm = fake_realm

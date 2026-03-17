@@ -6,10 +6,10 @@ import asyncio
 
 import httpx
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 
 logger = structlog.get_logger(__name__)
 
@@ -43,7 +43,6 @@ class RefreshResponse(BaseModel):
 async def refresh(
     body: RefreshTokenRequest,
     request: Request,
-    settings: Settings = Depends(get_settings),
 ) -> RefreshResponse:
     """Exchange a Google refresh token for a dockmaster JWT.
 
@@ -57,6 +56,8 @@ async def refresh(
     7. Resolve service audience
     8. Sign dockmaster JWT
     """
+    settings: Settings = request.app.state.settings
+
     # --- Step 1: Resolve client_id ---
     client_id = body.client_id or settings.default_client_id
     if not client_id:

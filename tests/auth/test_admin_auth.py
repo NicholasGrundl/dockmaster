@@ -6,7 +6,7 @@ import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 
 
 # ---------------------------------------------------------------------------
@@ -85,11 +85,10 @@ def _admin_app(
 
     app = FastAPI()
 
-    test_settings = Settings(
+    app.state.settings = Settings(
         _env_file=None,
         dockmaster_admin_emails=admin_emails or set(),
     )
-    app.dependency_overrides[get_settings] = lambda: test_settings
     app.state.authority = authority
     app.state.admin_storage = mocker.MagicMock() if admin_storage is _SENTINEL else admin_storage
 

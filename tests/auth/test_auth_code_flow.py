@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException, FastAPI
 from fastapi.testclient import TestClient
 
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 from dockmaster.main import create_app
 from dockmaster.routes.login import _pending_states, _validate_redirect_uri
 
@@ -66,9 +66,7 @@ def code_exchange_settings() -> Settings:
 
 @pytest.fixture
 def code_exchange_app(code_exchange_settings: Settings) -> FastAPI:
-    application = create_app()
-    application.dependency_overrides[get_settings] = lambda: code_exchange_settings
-    return application
+    return create_app(code_exchange_settings)
 
 
 @pytest.fixture

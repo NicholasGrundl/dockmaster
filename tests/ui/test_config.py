@@ -174,7 +174,7 @@ class TestPhase7Settings:
         assert settings.dockmaster_token_ttl == 1800
 
     def test_allowed_redirect_uris_default_empty(self):
-        settings = Settings(_env_file=None)
+        settings = Settings(allowed_redirect_uris="", _env_file=None)
         assert settings.allowed_redirect_uris == set()
 
     def test_allowed_redirect_uris_comma_separated(self):
@@ -193,7 +193,7 @@ class TestPhase7Settings:
         assert settings.allowed_redirect_uris == {"https://a.com/cb", "https://b.com/cb"}
 
     def test_allowed_origins_default_empty(self):
-        settings = Settings(_env_file=None)
+        settings = Settings(allowed_origins="", _env_file=None)
         assert settings.allowed_origins == set()
 
     def test_allowed_origins_comma_separated(self):
@@ -215,14 +215,14 @@ class TestPhase7Settings:
 
 
 class TestGetSettings:
-    """Test the get_settings() caching function."""
+    """Test the get_settings() factory function."""
 
     def test_get_settings_returns_settings(self):
         result = get_settings()
         assert isinstance(result, Settings)
 
-    def test_get_settings_caching(self):
-        get_settings.cache_clear()
+    def test_get_settings_returns_fresh_instance(self):
         first = get_settings()
         second = get_settings()
-        assert first is second
+        assert first is not second
+        assert first.log_level == second.log_level

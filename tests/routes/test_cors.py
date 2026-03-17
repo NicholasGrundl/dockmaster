@@ -18,12 +18,9 @@ def cors_settings() -> Settings:
 
 
 @pytest.fixture
-def cors_app(mocker, cors_settings: Settings):
+def cors_app(cors_settings: Settings):
     """App created with CORS middleware active."""
-    mocker.patch("dockmaster.main.get_settings", return_value=cors_settings)
-    application = create_app()
-    application.dependency_overrides[lambda: None] = None  # no-op, just ensure clean
-    return application
+    return create_app(cors_settings)
 
 
 @pytest.fixture
@@ -33,11 +30,10 @@ def cors_client(cors_app) -> TestClient:
 
 
 @pytest.fixture
-def no_cors_client(mocker) -> TestClient:
+def no_cors_client() -> TestClient:
     """App with no allowed_origins — CORS middleware should not be added."""
     settings = Settings(allowed_origins=set(), session_secret_key="test-secret", _env_file=None)
-    mocker.patch("dockmaster.main.get_settings", return_value=settings)
-    application = create_app()
+    application = create_app(settings)
     with TestClient(application) as c:
         yield c
 

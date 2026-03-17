@@ -17,7 +17,7 @@ from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
 from dockmaster.auth.auth_code import AuthCodeStore
 from dockmaster.auth.oauth import create_oauth
-from dockmaster.config import get_settings
+from dockmaster.config import Settings, get_settings
 from dockmaster.logging import setup_logging
 from dockmaster.routes.claims import router as claims_router
 from dockmaster.routes.exchange import router as exchange_router
@@ -72,7 +72,7 @@ def _build_gcp_credentials(sa_key_data: dict | None, log: structlog.stdlib.Bound
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
-    settings = get_settings()
+    settings = app.state.settings
     setup_logging(settings.log_level)
     log = structlog.get_logger(__name__)
     log.info("starting up", log_level=settings.log_level)
@@ -186,15 +186,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("shutting down")
 
 
-def create_app() -> FastAPI:
+def create_app(settings: Settings | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
-    settings = get_settings()
+    if settings is None:
+        settings = get_settings()
     application = FastAPI(
         title="Dockmaster",
         version="0.1.0",
         description="Auth microservice for fine-grained RBAC via Google services",
         lifespan=lifespan,
+        docs_url="/docs" if settings.enable_docs else None,
+        redoc_url="/redoc" if settings.enable_docs else None,
+        openapi_url="/openapi.json" if settings.enable_docs else None,
     )
+    application.state.settings = settings
     # CORS — allow configured origins for SPA cross-origin access
     if settings.allowed_origins:
         application.add_middleware(

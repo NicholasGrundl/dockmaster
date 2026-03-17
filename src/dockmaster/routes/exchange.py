@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from dockmaster.auth.token_validator import validate_access_token
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 
 logger = structlog.get_logger(__name__)
 
@@ -29,9 +29,10 @@ class ExchangeResponse(BaseModel):
 @router.post("/exchange", response_model=ExchangeResponse)
 async def exchange_token(
     request: Request,
-    settings: Settings = Depends(get_settings),
 ) -> ExchangeResponse:
     """Exchange a Google JWT or access token for a dockmaster JWT."""
+
+    settings: Settings = request.app.state.settings
 
     # --- Step 0: Ensure auth singletons are available ---
     token_issuer = getattr(request.app.state, "token_issuer", None)

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from itsdangerous import URLSafeSerializer
 
 from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 from dockmaster.sessions.memory import InMemorySessionStore
 
 
@@ -39,7 +39,7 @@ def token_client(
     app: FastAPI, token_settings: Settings, token_issuer: EphemeralKeypairSigner, session_store: InMemorySessionStore
 ) -> TestClient:
     """TestClient with token_issuer and session_store wired."""
-    app.dependency_overrides[get_settings] = lambda: token_settings
+    app.state.settings = token_settings
     with TestClient(app) as client:
         app.state.token_issuer = token_issuer
         app.state.session_store = session_store
@@ -161,9 +161,8 @@ class TestTokenEndpointErrors:
         response = token_client.post("/auth/token?service=billing")
         assert response.status_code == 401
 
-    def test_503_when_issuer_not_configured(self, app, test_settings):
+    def test_503_when_issuer_not_configured(self, app):
         """Returns 503 when token_issuer is not available."""
-        app.dependency_overrides[get_settings] = lambda: test_settings
         with TestClient(app) as client:
             app.state.token_issuer = None
             response = client.post("/auth/token?service=billing")

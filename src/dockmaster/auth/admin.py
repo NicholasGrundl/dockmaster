@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request
 
 from dockmaster.auth.dependencies import get_current_user
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 
 
 async def _is_admin(
@@ -29,12 +29,12 @@ async def _is_admin(
 async def require_admin_api(
     request: Request,
     user: dict = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Admin gate for API endpoints (JWT Bearer auth).
 
     Returns the user dict if admin, raises 403 otherwise.
     """
+    settings: Settings = request.app.state.settings
     email = user.get("email", "")
     authority = getattr(request.app.state, "authority", None)
 
@@ -46,16 +46,16 @@ async def require_admin_api(
 
 async def require_admin_ui(
     request: Request,
-    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Admin gate for UI pages (session cookie auth).
 
     Returns the user dict if admin, redirects to /ui/login if no session,
     raises 403 if authenticated but not admin.
     """
+    settings: Settings = request.app.state.settings
     from dockmaster.routes.ui import require_ui_session
 
-    user = await require_ui_session(request, settings)
+    user = await require_ui_session(request)
     email = user.get("email", "")
     authority = getattr(request.app.state, "authority", None)
 

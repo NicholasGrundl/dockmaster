@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from google.api_core.exceptions import NotFound
 
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
 
 
@@ -38,7 +38,7 @@ def _admin_app(
         _env_file=None,
         dockmaster_admin_emails={"admin@co.com"},
     )
-    app.dependency_overrides[get_settings] = lambda: test_settings
+    app.state.settings = test_settings
 
     # Mock authority
     authority = mocker.AsyncMock()
@@ -266,7 +266,7 @@ class TestAdminAuth:
         app.include_router(router, prefix="/admin")
 
         test_settings = Settings(_env_file=None, dockmaster_admin_emails={"admin@co.com"})
-        app.dependency_overrides[get_settings] = lambda: test_settings
+        app.state.settings = test_settings
         app.state.authority = mocker.AsyncMock()
         app.state.authority.has_permission.return_value = True
         app.state.admin_storage = None

@@ -2,6 +2,7 @@
 
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,7 @@ from fastapi.testclient import TestClient
 from dockmaster.auth.jwt_signers import ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import KeyCache
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 from dockmaster.main import create_app
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -160,34 +161,62 @@ def valid_token(signer) -> str:
     return signer.sign(subject="test@example.com", audience="test-service")
 
 
-@pytest.fixture
-def auth_client(app: FastAPI, fake_realm: ServiceRealm) -> TestClient:
-    """TestClient with app.state.realm wired to the fake realm."""
-    with TestClient(app) as client:
-        app.state.realm = fake_realm
-        yield client
+# ---------------------------------------------------------------------------
+# Default test settings
+# ---------------------------------------------------------------------------
+
+TEST_SETTINGS = Settings(
+    log_level="DEBUG",
+    authorized_issuers={"https://accounts.google.com"},
+    authorized_domains={"example.com"},
+    authorized_audience={"test-audience"},
+    client_id="test-client-id",
+    client_secret="test-client-secret",
+    session_secret_key="test-secret-key",
+)
 
 
 @pytest.fixture
 def test_settings() -> Settings:
-    """Settings with safe test defaults - no real GCP credentials."""
-    return Settings(
-        log_level="DEBUG",
-        authorized_issuers={"https://accounts.google.com"},
-        authorized_domains={"example.com"},
-        authorized_audience={"test-audience"},
-        client_id="test-client-id",
-        client_secret="test-client-secret",
-        session_secret_key="test-secret-key",
-    )
+    """Settings with safe test defaults — no real GCP credentials."""
+    return TEST_SETTINGS
+
+
+# ---------------------------------------------------------------------------
+# App factory + default app/client
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def app(test_settings: Settings) -> FastAPI:
-    """FastAPI app wired with test settings."""
-    application = create_app()
-    application.dependency_overrides[get_settings] = lambda: test_settings
-    return application
+def test_app_factory() -> Callable[..., TestClient]:
+    """Factory fixture: call with optional Settings to get a TestClient.
+
+    Usage in domain conftest:
+        @pytest.fixture
+        def client(test_app_factory):
+            return test_app_factory(Settings(enable_docs=True, ...))
+
+    Or with defaults:
+        @pytest.fixture
+        def client(test_app_factory):
+            return test_app_factory()
+
+    Access the underlying app via client.app if needed.
+    """
+
+    def _factory(settings: Settings | None = None) -> TestClient:
+        if settings is None:
+            settings = TEST_SETTINGS
+        application = create_app(settings)
+        return TestClient(application)
+
+    return _factory
+
+
+@pytest.fixture
+def app() -> FastAPI:
+    """FastAPI app wired with default test settings."""
+    return create_app(TEST_SETTINGS)
 
 
 @pytest.fixture

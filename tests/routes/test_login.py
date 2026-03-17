@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from itsdangerous import URLSafeSerializer
 
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 from dockmaster.routes.login import _pending_states
 from dockmaster.sessions.memory import InMemorySessionStore
 
@@ -43,7 +43,7 @@ def mock_oauth(mocker):
 @pytest.fixture
 def login_client(app: FastAPI, login_settings, session_store, mock_oauth) -> TestClient:
     """TestClient wired for login tests."""
-    app.dependency_overrides[get_settings] = lambda: login_settings
+    app.state.settings = login_settings
     with TestClient(app) as c:
         app.state.session_store = session_store
         app.state.oauth = mock_oauth

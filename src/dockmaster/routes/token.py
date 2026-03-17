@@ -6,12 +6,12 @@ Dual auth: session cookie (browser) or Bearer JWT (CLI).
 from __future__ import annotations
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from dockmaster.auth.dependencies import get_session_data
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings
 
 logger = structlog.get_logger(__name__)
 
@@ -54,13 +54,13 @@ async def _email_from_bearer(request: Request) -> str | None:
 @router.post("/token", response_model=TokenResponse)
 async def issue_token(
     request: Request,
-    settings: Settings = Depends(get_settings),
 ) -> TokenResponse:
     """Issue a Type C JWT for a target service.
 
     Auth: session cookie (browser) or Bearer JWT (CLI).
     Query params: service (required) — the target service audience.
     """
+    settings: Settings = request.app.state.settings
     token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Token issuer not configured")
