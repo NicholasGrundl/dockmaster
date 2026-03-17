@@ -2,9 +2,115 @@
 
 *Last updated: 2026-03-16*
 
-## Current Phase: Phase 7 — Ephemeral Keypair + Redirect URI + Token Issuance
+## Current Phase: Phase 8d — Test Audit + Implementation
+**Approach**: Audit (pass 1) + implementation of findings (pass 2)
+**Status**: COMPLETE
+
+**Spec**: `_blueprint/features/implementation-phase8d-test-audit.md`
+**Output**: `_blueprint/features/audit-8d-test-findings.md`
+
+## Phase 8d sub-tasks
+### Pass 1 (audit)
+- [x] 1. Run coverage report and analyze gaps (86% overall, 411 tests in 42s)
+- [x] 2. Review test file organization and conftest structure
+- [x] 3. Read representative test files from each phase, catalog patterns
+- [x] 4. Audit marker usage and test categorization
+- [x] 5. Write findings doc with categorized recommendations (8 findings)
+- [x] 6. Review findings with user
+
+### Pass 2 (implementation)
+- [x] T-001: Stray fixture file — already removed, confirmed not present
+- [x] T-002: Migrated all 18 files from `unittest.mock` to `pytest-mock` (`mocker` fixture)
+- [x] T-003: Added `@pytest.mark.parametrize` in new `test_ui_config.py`; existing tests are clear enough as-is
+- [x] T-004: Documented mini-app pattern; kept where architecturally appropriate (admin auth tests)
+- [x] T-005: Removed unused `unit` marker from pyproject.toml
+- [x] T-006: Added `addopts = "-m 'not integration'"` to pyproject.toml; added `test-core`, `test-integration`, `test` targets to justfile
+- [x] T-007: Left `pytest-playwright` for future Phase 10 UI tests
+- [x] T-008: Skipped speed markers — no slow tests exist
+- [x] Restructured tests into domain directories: `tests/auth/`, `tests/cli/`, `tests/rbac/`, `tests/routes/`, `tests/ui/`
+- [x] Created domain conftest files with inventory headers
+- [x] Added `fixtures_dir` session-scoped fixture (replaces relative path patterns)
+- [x] Added UI config coverage tests (11 new tests, including parametrize example)
+- [x] Reorganized justfile: `check-*` (read-only) and `fix-*` (auto-fix) namespaces
+- [x] Updated CLAUDE.md with new test structure and run commands
+- [x] Full suite: 423 tests GREEN, lint clean, format clean
+
+## Findings summary (Phase 8d)
+- 8 findings: T-001 through T-008
+- All implemented or documented (see pass 2 above)
+- Test count: 411 → 423 (12 new UI config tests)
+- Test structure: flat → domain-grouped (auth, cli, rbac, routes, ui)
+- Mocking: standardized on `pytest-mock` (`mocker` fixture) across all 34 test files
+- Justfile: namespaced as `check-*`, `fix-*`, `test-*`
+
+## Next session: pick up at
+"Phase 9: Deployment — implement 8a/8b/8c blocker fixes, create Dockerfile, deploy to production"
+
+## Previous Phase: Phase 8c — Deployment Readiness
+**Approach**: Document only — interview + audit (no code changes)
+**Status**: COMPLETE
+
+**Spec**: `_blueprint/features/implementation-phase8c-deployment-readiness.md`
+**Output**: `_blueprint/features/audit-8c-deployment-readiness-findings.md`
+
+## Findings summary (Phase 8c)
+- 7 findings: D-010 through D-016
+- 2 blockers: proxy headers (D-010), session secret default (D-011)
+- 2 warnings: OpenAPI docs exposed (D-012), JWKS registry persistence (D-014)
+- 2 nice-to-haves: health endpoint depth (D-015), host/port config (D-016)
+- Key decisions:
+  - Domain: `auth.insilicostrategy.com` (subdomain-based routing)
+  - Caddy stays as OS system service (not containerized)
+  - Build: local build + transfer now, GCP Artifact Registry via GitHub Actions later
+  - D-010 fix: uvicorn `--proxy-headers` + new `REQUIRE_PROXY_HEADERS` middleware (default `True`)
+  - D-011 fix: remove default, make `SESSION_SECRET_KEY` required (no default)
+  - GCP creds: SCP key files to droplet, mount as Docker volumes
+- 15-item pre-deployment checklist for Phase 9
+
+## Previous Phase: Phase 8b — Code Quality Review
+**Approach**: Document only — no code changes (Pass 1)
+**Status**: COMPLETE
+
+**Spec**: `_blueprint/features/implementation-phase8b-code-quality.md`
+**Output**: `_blueprint/features/audit-8b-code-quality-findings.md`
+
+## Phase 8b sub-tasks
+### Pass 1 (catalog)
+- [x] 1. Read all route modules, catalog FastAPI patterns (DI, middleware, error handling, response models)
+- [x] 2. Read all auth modules, catalog naming and vocab
+- [x] 3. Read all models, storage, and service modules
+- [x] 4. Audit docstrings across public interfaces
+- [x] 5. Review API surface from consumer perspective
+- [x] 6. Write findings doc with categorized recommendations (20 findings: 7 Medium, 13 Low)
+- [x] 7. Review Pass 1 findings with user
+
+### Pass 2 (interactive decisions)
+- [x] 8. Walk through all 20 findings with user
+- [x] 9. Produce action plan: 12 "do now" tasks, 8 "document/backlog" items, 2 "no action"
+- [x] 10. Append action plan to findings doc
+
+## Findings summary (Phase 8b)
+- 20 code quality findings: Q-001 through Q-020
+- 12 implementation tasks approved (see action plan in findings doc)
+- 8 documentation/backlog items
+- 2 no-action items
+- Key decisions: rename ServiceUser→ServiceAccountSigner, migrate refresh to Type C, rename middleware.py→dependencies.py, extract session helper, standardize logger names to __name__, add response_model everywhere
+
+## Previous Phase: Phase 8a — Security Audit
+**Approach**: Document only — no code changes
+**Status**: COMPLETE
+
+**Spec**: `_blueprint/features/implementation-phase8a-security-audit.md`
+**Output**: `_blueprint/features/audit-8a-security-findings.md`
+
+## Phase 8a findings summary
+- 46 endpoints cataloged (6 public, 5 semi-public, 35 protected)
+- 14 security findings: S-001 through S-014
+- Top 5 pre-deployment priorities: disable OpenAPI docs, security headers, cap token expiry, audience validation, sanitize JWT errors
+
+## Previous Phase: Phase 7 — Ephemeral Keypair + Redirect URI + Token Issuance
 **Approach**: TDD for foundation modules, unit tests for endpoints
-**Status**: COMPLETE (pending manual E2E verification)
+**Status**: COMPLETE
 
 **Spec**: `_blueprint/features/implementation-phase7-ephemeral-keypair-redirect.md`
 **Reference**: `_blueprint/features/planning/phase7-auth-flows-analysis.md`
@@ -124,7 +230,14 @@
 - Full suite: 411 tests GREEN (28 new, 0 regressions)
 
 ## Next session: pick up at
-"Phase 7 COMPLETE — manual E2E verification via docs/GUIDE-auth-code-flow-e2e.md, then Phase 8a planning"
+"Phase 8a: Security Audit — read route modules, build endpoint inventory, construct auth DAG"
+
+## Phase 8 structure (planned 2026-03-16)
+- 8a: Security Audit — endpoint inventory, auth DAG, info leakage, boundary analysis, gap analysis
+- 8b: Code Quality Review — FastAPI patterns, naming/vocab, docstrings, API consistency (two-pass: catalog then optional interactive refactoring planning)
+- 8c: Deployment Readiness — interview user on existing DO/Docker/Caddy stack, app readiness audit, integration plans, blockers
+- 8d: Test Audit — coverage, organization, patterns, markers
+- All sub-phases: document only, no code changes. Findings in `_blueprint/features/audit-8{a,b,c,d}-*-findings.md`
 
 ## Previous Phase: Phase 6c — CLI + OAuth Login
 **Approach**: Build first, test after
@@ -456,14 +569,15 @@
 - [x] 6. Lint + full suite green — 254 tests GREEN, ruff clean
 - [x] 7. Update progress file
 
-## Phase ordering (revised 2026-03-13)
+## Phase ordering (revised 2026-03-16)
 - Phase 6: RBAC Management ✅
 - Phase 6b: Session Revocation ✅
 - Phase 6c: CLI + OAuth Login ✅
-- Phase 7: Redirect URI + Ephemeral Keypair (next)
-- Phase 8a: Audit — Endpoint Inventory + Mermaid DAG
-- Phase 8b: Audit — Auth Boundary Testing
-- Phase 8c: Audit — API Completeness + Caddy Readiness
+- Phase 7: Redirect URI + Ephemeral Keypair ✅
+- Phase 8a: Security Audit (next)
+- Phase 8b: Code Quality Review
+- Phase 8c: Deployment Readiness
+- Phase 8d: Test Audit
 - Phase 9: Deployment + GCP Cleanup
 - Phase 10: UI Tests (deferred until UI is stable)
 

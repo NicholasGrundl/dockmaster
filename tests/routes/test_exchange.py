@@ -1,7 +1,5 @@
 """Tests for POST /auth/exchange endpoint."""
 
-from unittest.mock import AsyncMock, patch
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -70,7 +68,7 @@ class TestExchangeJWTPath:
     """Tests for the JWT verification path."""
 
     def test_valid_jwt_returns_dockmaster_token(self, exchange_client, signer):
-        """Valid JWT with matching settings → 200 with dockmaster JWT."""
+        """Valid JWT with matching settings -> 200 with dockmaster JWT."""
         token = signer.get_token(
             subject="user@example.com",
             service_name="test-service",
@@ -92,7 +90,7 @@ class TestExchangeJWTPath:
         assert data["claims"]["picture"] == "https://example.com/photo.jpg"
 
     def test_issuer_not_allowed(self, app, signer, fake_realm):
-        """JWT with untrusted issuer → 403."""
+        """JWT with untrusted issuer -> 403."""
         settings = Settings(
             authorized_issuers={"https://accounts.google.com"},
             authorized_domains={"example.com"},
@@ -110,7 +108,7 @@ class TestExchangeJWTPath:
         assert "Issuer not allowed" in response.json()["detail"]
 
     def test_audience_not_allowed(self, app, signer, fake_realm, fake_sa_key_data):
-        """JWT with wrong audience → 403."""
+        """JWT with wrong audience -> 403."""
         settings = Settings(
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
@@ -128,7 +126,7 @@ class TestExchangeJWTPath:
         assert "Audience not allowed" in response.json()["detail"]
 
     def test_domain_not_allowed(self, app, signer, fake_realm, fake_sa_key_data):
-        """JWT with unauthorized email domain → 403."""
+        """JWT with unauthorized email domain -> 403."""
         settings = Settings(
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"shipyard.com"},
@@ -183,7 +181,7 @@ class TestExchangeJWTPath:
         assert claims["locale"] == "en"
 
     def test_profile_claims_absent_when_not_in_jwt(self, exchange_client, signer):
-        """JWT without profile claims → empty claims dict."""
+        """JWT without profile claims -> empty claims dict."""
         token = signer.get_token(subject="user@example.com", service_name="test-service")
 
         response = exchange_client.post(
@@ -221,8 +219,8 @@ class TestExchangeJWTPath:
 class TestExchangeAccessTokenPath:
     """Tests for the access token (tokeninfo) fallback path."""
 
-    def test_valid_access_token(self, app, fake_realm, fake_sa_key_data):
-        """Valid access token with mocked tokeninfo → 200."""
+    def test_valid_access_token(self, mocker, app, fake_realm, fake_sa_key_data):
+        """Valid access token with mocked tokeninfo -> 200."""
         settings = Settings(
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
@@ -235,16 +233,16 @@ class TestExchangeAccessTokenPath:
             "expires_in": "3600",
         }
 
-        with patch(
+        mocker.patch(
             "dockmaster.routes.exchange.validate_access_token",
-            new_callable=AsyncMock,
+            new_callable=mocker.AsyncMock,
             return_value=tokeninfo_response,
-        ):
-            with _ExchangeTestClient(app, settings, fake_realm) as client:
-                response = client.post(
-                    "/auth/exchange?service=my-service",
-                    headers={"Authorization": "Bearer opaque-access-token"},
-                )
+        )
+        with _ExchangeTestClient(app, settings, fake_realm) as client:
+            response = client.post(
+                "/auth/exchange?service=my-service",
+                headers={"Authorization": "Bearer opaque-access-token"},
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -252,8 +250,8 @@ class TestExchangeAccessTokenPath:
         assert data["service"] == "my-service"
         assert data["claims"] == {}
 
-    def test_access_token_without_service_param(self, app, fake_realm, fake_sa_key_data):
-        """Access token without ?service= → 400."""
+    def test_access_token_without_service_param(self, mocker, app, fake_realm, fake_sa_key_data):
+        """Access token without ?service= -> 400."""
         settings = Settings(
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
@@ -265,21 +263,21 @@ class TestExchangeAccessTokenPath:
             "scope": "openid email",
         }
 
-        with patch(
+        mocker.patch(
             "dockmaster.routes.exchange.validate_access_token",
-            new_callable=AsyncMock,
+            new_callable=mocker.AsyncMock,
             return_value=tokeninfo_response,
-        ):
-            with _ExchangeTestClient(app, settings, fake_realm) as client:
-                response = client.post(
-                    "/auth/exchange",
-                    headers={"Authorization": "Bearer opaque-access-token"},
-                )
+        )
+        with _ExchangeTestClient(app, settings, fake_realm) as client:
+            response = client.post(
+                "/auth/exchange",
+                headers={"Authorization": "Bearer opaque-access-token"},
+            )
 
         assert response.status_code == 400
         assert "service argument is required" in response.json()["detail"]
 
-    def test_access_token_no_profile_claims(self, app, fake_realm, fake_sa_key_data):
+    def test_access_token_no_profile_claims(self, mocker, app, fake_realm, fake_sa_key_data):
         """Access token path has no profile claims in response."""
         settings = Settings(
             authorized_issuers={fake_sa_key_data["client_email"]},
@@ -292,16 +290,16 @@ class TestExchangeAccessTokenPath:
             "scope": "openid email",
         }
 
-        with patch(
+        mocker.patch(
             "dockmaster.routes.exchange.validate_access_token",
-            new_callable=AsyncMock,
+            new_callable=mocker.AsyncMock,
             return_value=tokeninfo_response,
-        ):
-            with _ExchangeTestClient(app, settings, fake_realm) as client:
-                response = client.post(
-                    "/auth/exchange?service=my-service",
-                    headers={"Authorization": "Bearer opaque-access-token"},
-                )
+        )
+        with _ExchangeTestClient(app, settings, fake_realm) as client:
+            response = client.post(
+                "/auth/exchange?service=my-service",
+                headers={"Authorization": "Bearer opaque-access-token"},
+            )
 
         assert response.status_code == 200
         assert response.json()["claims"] == {}
@@ -311,7 +309,7 @@ class TestExchangeErrors:
     """Error cases for /auth/exchange."""
 
     def test_missing_bearer_token(self, exchange_client):
-        """No Authorization header → 401."""
+        """No Authorization header -> 401."""
         response = exchange_client.post("/auth/exchange")
         assert response.status_code == 401
 
@@ -328,24 +326,24 @@ class TestExchangeErrors:
         assert response.status_code == 503
         assert "not configured" in response.json()["detail"]
 
-    def test_invalid_token_both_paths_fail(self, app, fake_realm):
-        """Token that fails both JWT and tokeninfo → 401."""
+    def test_invalid_token_both_paths_fail(self, mocker, app, fake_realm):
+        """Token that fails both JWT and tokeninfo -> 401."""
         settings = Settings(
             authorized_issuers=set(),
             authorized_domains={"example.com"},
             authorized_audience={"test"},
         )
 
-        with patch(
+        mocker.patch(
             "dockmaster.routes.exchange.validate_access_token",
-            new_callable=AsyncMock,
+            new_callable=mocker.AsyncMock,
             side_effect=ValueError("Invalid access token"),
-        ):
-            with _ExchangeTestClient(app, settings, fake_realm) as client:
-                response = client.post(
-                    "/auth/exchange",
-                    headers={"Authorization": "Bearer garbage-token"},
-                )
+        )
+        with _ExchangeTestClient(app, settings, fake_realm) as client:
+            response = client.post(
+                "/auth/exchange",
+                headers={"Authorization": "Bearer garbage-token"},
+            )
 
         assert response.status_code == 401
         assert response.json()["detail"] == "Not authenticated"

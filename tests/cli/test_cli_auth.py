@@ -1,19 +1,23 @@
 """Tests for CLI auth — token storage, loading, and expiry."""
 
 import time
-from unittest.mock import patch
 
 import pytest
 
 from dockmaster.cli.auth import _save_token, load_token, require_token
 
+# Keep a reference to the real load_token before autouse mock replaces it
+_real_load_token = load_token
+
 
 @pytest.fixture
-def token_dir(tmp_path):
-    """Patch get_token_path to use a temp directory."""
+def token_dir(tmp_path, mocker):
+    """Patch get_token_path to use a temp directory and restore real load_token."""
+    # Undo the autouse mock_cli_auth so we test real load_token behavior
+    mocker.patch("dockmaster.cli.auth.load_token", side_effect=_real_load_token)
     token_path = tmp_path / "credentials.json"
-    with patch("dockmaster.cli.auth.get_token_path", return_value=token_path):
-        yield token_path
+    mocker.patch("dockmaster.cli.auth.get_token_path", return_value=token_path)
+    return token_path
 
 
 class TestSaveAndLoadToken:
@@ -42,10 +46,10 @@ class TestSaveAndLoadToken:
         token_dir.write_text("not json")
         assert load_token() is None
 
-    def test_save_creates_parent_dirs(self, tmp_path):
+    def test_save_creates_parent_dirs(self, tmp_path, mocker):
         nested = tmp_path / "a" / "b" / "credentials.json"
-        with patch("dockmaster.cli.auth.get_token_path", return_value=nested):
-            _save_token("my-jwt", time.time() + 900)
+        mocker.patch("dockmaster.cli.auth.get_token_path", return_value=nested)
+        _save_token("my-jwt", time.time() + 900)
         assert nested.exists()
 
 

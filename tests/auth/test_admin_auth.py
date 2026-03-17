@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
@@ -24,8 +22,8 @@ class TestIsAdmin:
         self._is_admin = _is_admin
 
     @pytest.mark.anyio
-    async def test_rbac_admin_grants_access(self):
-        authority = AsyncMock()
+    async def test_rbac_admin_grants_access(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = True
 
         result = await self._is_admin("admin@co.com", authority, set())
@@ -33,24 +31,24 @@ class TestIsAdmin:
         authority.has_permission.assert_called_once_with("admin@co.com", "dockmaster", "admin")
 
     @pytest.mark.anyio
-    async def test_email_whitelist_fallback(self):
-        authority = AsyncMock()
+    async def test_email_whitelist_fallback(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
         result = await self._is_admin("admin@co.com", authority, {"admin@co.com"})
         assert result is True
 
     @pytest.mark.anyio
-    async def test_denied_when_no_rbac_no_whitelist(self):
-        authority = AsyncMock()
+    async def test_denied_when_no_rbac_no_whitelist(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
         result = await self._is_admin("nobody@co.com", authority, set())
         assert result is False
 
     @pytest.mark.anyio
-    async def test_denied_when_no_rbac_wrong_email(self):
-        authority = AsyncMock()
+    async def test_denied_when_no_rbac_wrong_email(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
         result = await self._is_admin("nobody@co.com", authority, {"admin@co.com"})
@@ -72,11 +70,15 @@ class TestIsAdmin:
 # ---------------------------------------------------------------------------
 
 
+_SENTINEL = object()
+
+
 def _admin_app(
+    mocker,
     *,
-    authority: AsyncMock | None = None,
+    authority=None,
     admin_emails: set[str] | None = None,
-    admin_storage: object | None = MagicMock(),
+    admin_storage: object | None = _SENTINEL,
 ) -> FastAPI:
     """Build a minimal app with admin-protected routes for testing."""
     from dockmaster.auth.admin import require_admin_api, require_admin_writes
@@ -89,7 +91,7 @@ def _admin_app(
     )
     app.dependency_overrides[get_settings] = lambda: test_settings
     app.state.authority = authority
-    app.state.admin_storage = admin_storage
+    app.state.admin_storage = mocker.MagicMock() if admin_storage is _SENTINEL else admin_storage
 
     @app.get("/admin/test-read")
     async def admin_read(admin: dict = Depends(require_admin_api)):
@@ -118,49 +120,49 @@ def _override_jwt_user(app: FastAPI, email: str) -> None:
 
 
 class TestRequireAdminApi:
-    def test_no_auth_returns_401(self):
-        app = _admin_app()
+    def test_no_auth_returns_401(self, mocker):
+        app = _admin_app(mocker)
         client = TestClient(app)
         resp = client.get("/admin/test-read")
         assert resp.status_code == 401
 
-    def test_rbac_admin_passes(self):
-        authority = AsyncMock()
+    def test_rbac_admin_passes(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = True
-        app = _admin_app(authority=authority)
+        app = _admin_app(mocker, authority=authority)
         _override_jwt_user(app, "admin@co.com")
 
         resp = TestClient(app).get("/admin/test-read")
         assert resp.status_code == 200
         assert resp.json()["email"] == "admin@co.com"
 
-    def test_whitelist_fallback_passes(self):
-        authority = AsyncMock()
+    def test_whitelist_fallback_passes(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
-        app = _admin_app(authority=authority, admin_emails={"admin@co.com"})
+        app = _admin_app(mocker, authority=authority, admin_emails={"admin@co.com"})
         _override_jwt_user(app, "admin@co.com")
 
         resp = TestClient(app).get("/admin/test-read")
         assert resp.status_code == 200
 
-    def test_non_admin_returns_403(self):
-        authority = AsyncMock()
+    def test_non_admin_returns_403(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
-        app = _admin_app(authority=authority)
+        app = _admin_app(mocker, authority=authority)
         _override_jwt_user(app, "nobody@co.com")
 
         resp = TestClient(app).get("/admin/test-read")
         assert resp.status_code == 403
 
-    def test_no_authority_whitelist_works(self):
-        app = _admin_app(authority=None, admin_emails={"admin@co.com"})
+    def test_no_authority_whitelist_works(self, mocker):
+        app = _admin_app(mocker, authority=None, admin_emails={"admin@co.com"})
         _override_jwt_user(app, "admin@co.com")
 
         resp = TestClient(app).get("/admin/test-read")
         assert resp.status_code == 200
 
-    def test_no_authority_no_whitelist_returns_403(self):
-        app = _admin_app(authority=None)
+    def test_no_authority_no_whitelist_returns_403(self, mocker):
+        app = _admin_app(mocker, authority=None)
         _override_jwt_user(app, "admin@co.com")
 
         resp = TestClient(app).get("/admin/test-read")
@@ -173,19 +175,19 @@ class TestRequireAdminApi:
 
 
 class TestRequireAdminWrites:
-    def test_write_with_admin_client_passes(self):
-        authority = AsyncMock()
+    def test_write_with_admin_client_passes(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = True
-        app = _admin_app(authority=authority, admin_storage=MagicMock())
+        app = _admin_app(mocker, authority=authority, admin_storage=mocker.MagicMock())
         _override_jwt_user(app, "admin@co.com")
 
         resp = TestClient(app).get("/admin/test-write")
         assert resp.status_code == 200
 
-    def test_write_without_admin_client_returns_503(self):
-        authority = AsyncMock()
+    def test_write_without_admin_client_returns_503(self, mocker):
+        authority = mocker.AsyncMock()
         authority.has_permission.return_value = True
-        app = _admin_app(authority=authority, admin_storage=None)
+        app = _admin_app(mocker, authority=authority, admin_storage=None)
         _override_jwt_user(app, "admin@co.com")
 
         resp = TestClient(app).get("/admin/test-write")

@@ -26,9 +26,10 @@ Phase 6: RBAC Management (endpoints + admin UI) ...... ✅ COMPLETE
 Phase 6b: Session Revocation ......................... ✅ COMPLETE
 Phase 6c: CLI + OAuth Login Flow ..................... ✅ COMPLETE
 Phase 7: Redirect URI + Ephemeral Keypair ............ PLANNED (next)
-Phase 8a: Audit — Endpoint Inventory + Mermaid DAG ... PLANNED
-Phase 8b: Audit — Auth Boundary Testing .............. PLANNED
-Phase 8c: Audit — API Completeness + Caddy Readiness . PLANNED
+Phase 8a: Security Audit ............................ PLANNED
+Phase 8b: Code Quality Review ....................... PLANNED
+Phase 8c: Deployment Readiness ...................... PLANNED
+Phase 8d: Test Audit ................................ PLANNED
 Phase 9: Deployment + GCP Cleanup .................... PLANNED
 Phase 10: UI Tests ................................... PLANNED
 ```
@@ -198,48 +199,72 @@ Phase 10: UI Tests ................................... PLANNED
 
 ---
 
-## Phase 8a: Audit — Endpoint Inventory + Mermaid DAG — PLANNED
+## Phase 8a: Security Audit — PLANNED
 
-> Map every HTTP endpoint and produce a unified Mermaid DAG of all auth decision paths.
+> Comprehensive security audit: endpoint inventory, auth DAG, information leakage, boundary analysis.
 
-**Spec**: [`features/implementation-phase8a-auth-audit.md`](../features/implementation-phase8a-auth-audit.md)
+**Spec**: [`features/implementation-phase8a-security-audit.md`](../features/implementation-phase8a-security-audit.md)
 
 **Deliverables:**
-- Endpoint inventory table (every route, method, auth mechanism, public/protected)
-- Unified Mermaid DAG of all auth decision paths (entry → auth check → outcome)
-- Audit + document only — no code changes
+- Complete endpoint inventory table (all routes from Phases 1–7)
+- Unified Mermaid DAG of all auth decision paths
+- Information leakage audit (OpenAPI docs, error responses, headers, cookies)
+- Auth boundary analysis (JWT, session, admin, auth code flow)
+- Gap analysis with risk ratings — audit + document only, no code changes
 
-**Dependencies:** Phase 7 complete (audit the full surface area including redirect + keypair)
+**Dependencies:** Phase 7 complete
 
 ---
 
-## Phase 8b: Audit — Auth Boundary Testing — PLANNED
+## Phase 8b: Code Quality Review — PLANNED
 
-> Systematic testing of auth boundaries — verify every endpoint enforces expected auth.
+> Naming, vocab, FastAPI patterns, docstrings, and API surface consistency audit.
 
-**Spec**: To be created during Phase 8b planning
-
-**Deliverables:**
-- Manual or scripted auth boundary tests (unauthenticated access, wrong role, expired token)
-- Gap analysis with risk ratings for each finding
-- Fix recommendations (code changes go into a hardening pass or Phase 9)
-
-**Dependencies:** Phase 8a complete (need the inventory to test against)
-
----
-
-## Phase 8c: Audit — API Completeness + Caddy Readiness — PLANNED
-
-> API surface audit and reverse proxy readiness check before deployment.
-
-**Spec**: To be created during Phase 8c planning
+**Spec**: [`features/implementation-phase8b-code-quality.md`](../features/implementation-phase8b-code-quality.md)
 
 **Deliverables:**
-- API completeness audit — consistency, missing operations, CLI coverage gaps
-- Caddy reverse proxy readiness doc (headers, cookies, redirects, TLS, WebSocket if needed)
-- Deployment-blocking issues flagged for Phase 9
+- FastAPI pattern catalog (DI, middleware, error handling, response models) with best-practice comparison
+- Naming/vocab audit across auth modules, routes, and models
+- Docstring coverage and quality review
+- API surface consistency review (response formats, status codes, parameter conventions)
+- Optional Pass 2: interactive refactoring planning with user
 
 **Dependencies:** Phase 8a complete
+
+---
+
+## Phase 8c: Deployment Readiness — PLANNED
+
+> Audit app for deployment blockers. Plan Caddy + Docker Compose integration for existing DO stack.
+
+**Spec**: [`features/implementation-phase8c-deployment-readiness.md`](../features/implementation-phase8c-deployment-readiness.md)
+
+**Deliverables:**
+- Deployment context interview (existing DO/Docker Compose/Caddy stack)
+- Application readiness audit (env vars, hardcoded values, proxy headers, OAuth redirect URIs)
+- Caddy integration plan (routing, headers, TLS, rate limiting)
+- Docker Compose integration plan (service definition, networking, secrets)
+- GCP credential strategy for production
+- Deployment blockers list with severity ratings
+
+**Dependencies:** Phase 8a, 8b complete
+
+---
+
+## Phase 8d: Test Audit — PLANNED
+
+> Audit test suite coverage, organization, patterns, and markers against pytest best practices.
+
+**Spec**: [`features/implementation-phase8d-test-audit.md`](../features/implementation-phase8d-test-audit.md)
+
+**Deliverables:**
+- Coverage report with per-module breakdown and gap analysis
+- Organization review (flat vs nested, conftest structure, fixture management)
+- Pattern review (functions vs classes, fixtures, mocking, parameterization)
+- Marker strategy review (integration, slow, smoke, custom markers)
+- Findings with impact ratings and effort estimates
+
+**Dependencies:** Phase 8a–8c complete
 
 ---
 

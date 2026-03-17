@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-
 
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
-
-FIXTURES = Path(__file__).parent / "fixtures" / "rbac"
 
 
 class TestRole:
@@ -27,8 +23,8 @@ class TestRole:
         role = Role(name="noop", permissions=[])
         assert role.permissions == []
 
-    def test_from_fixture(self):
-        data = json.loads((FIXTURES / "role_viewer.json").read_text())
+    def test_from_fixture(self, fixtures_dir):
+        data = json.loads((fixtures_dir / "rbac" / "role_viewer.json").read_text())
         role = Role.model_validate(data)
         assert role.name == "viewer"
         assert "read" in role.permissions
@@ -62,8 +58,8 @@ class TestServiceGrants:
         assert sg.service == "data-pipeline"
         assert len(sg.grants) == 1
 
-    def test_from_fixture(self):
-        data = json.loads((FIXTURES / "service_grants_example.json").read_text())
+    def test_from_fixture(self, fixtures_dir):
+        data = json.loads((fixtures_dir / "rbac" / "service_grants_example.json").read_text())
         sg = ServiceGrants.model_validate(data)
         assert sg.service == "data-pipeline"
         assert len(sg.grants) == 3

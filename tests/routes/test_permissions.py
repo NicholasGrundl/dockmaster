@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -17,15 +15,15 @@ from dockmaster.rbac.authority import Authority
 
 
 @pytest.fixture
-def mock_authority() -> MagicMock:
+def mock_authority(mocker):
     """Authority mock with async has_permission."""
-    auth = MagicMock(spec=Authority)
-    auth.has_permission = AsyncMock(return_value=True)
+    auth = mocker.MagicMock(spec=Authority)
+    auth.has_permission = mocker.AsyncMock(return_value=True)
     return auth
 
 
 @pytest.fixture
-def perm_client(app: FastAPI, fake_realm, mock_authority: MagicMock) -> TestClient:
+def perm_client(app: FastAPI, fake_realm, mock_authority) -> TestClient:
     """TestClient with realm + authority wired."""
     with TestClient(app) as c:
         app.state.realm = fake_realm
@@ -62,7 +60,7 @@ class TestPathEndpoint:
         assert "data-pipeline" in body["message"]
 
     def test_requires_auth(self, perm_client):
-        """No Bearer token → 401."""
+        """No Bearer token -> 401."""
         resp = perm_client.get("/auth/has/alice@example.com/data-pipeline/read")
         assert resp.status_code == 401
 
@@ -110,7 +108,7 @@ class TestQueryEndpoint:
         assert resp.status_code == 401
 
     def test_missing_params_returns_422(self, perm_client, valid_token):
-        """Missing required query params → 422 (FastAPI validation)."""
+        """Missing required query params -> 422 (FastAPI validation)."""
         resp = perm_client.get(
             "/auth/has",
             params={"subject": "a@b.com"},
@@ -134,7 +132,7 @@ class TestErrorHandling:
         assert resp.status_code == 500
 
     def test_no_authority_returns_503(self, app, fake_realm, valid_token):
-        """Authority not configured → 503."""
+        """Authority not configured -> 503."""
         with TestClient(app) as c:
             app.state.realm = fake_realm
             app.state.authority = None
@@ -151,9 +149,9 @@ class TestErrorHandling:
 
 
 class TestGrantsEndpoint:
-    def test_returns_resolved_grants(self, perm_client, valid_token, mock_authority):
+    def test_returns_resolved_grants(self, mocker, perm_client, valid_token, mock_authority):
         """Grants endpoint returns resolved permissions as target:perm strings."""
-        mock_authority.get_permissions = AsyncMock(return_value={"read", "write"})
+        mock_authority.get_permissions = mocker.AsyncMock(return_value={"read", "write"})
         resp = perm_client.get(
             "/auth/grants",
             params={"subject": "alice@example.com", "target": "billing"},
@@ -166,9 +164,9 @@ class TestGrantsEndpoint:
         assert data["target"] == "billing"
         assert sorted(data["grants"]) == ["billing:read", "billing:write"]
 
-    def test_empty_grants_for_unknown_subject(self, perm_client, valid_token, mock_authority):
+    def test_empty_grants_for_unknown_subject(self, mocker, perm_client, valid_token, mock_authority):
         """Unknown subject returns empty grants list."""
-        mock_authority.get_permissions = AsyncMock(return_value=set())
+        mock_authority.get_permissions = mocker.AsyncMock(return_value=set())
         resp = perm_client.get(
             "/auth/grants",
             params={"subject": "nobody@example.com", "target": "billing"},
@@ -179,7 +177,7 @@ class TestGrantsEndpoint:
         assert resp.json()["grants"] == []
 
     def test_requires_auth(self, perm_client):
-        """No Bearer token → 401."""
+        """No Bearer token -> 401."""
         resp = perm_client.get(
             "/auth/grants",
             params={"subject": "alice@example.com", "target": "billing"},
@@ -187,7 +185,7 @@ class TestGrantsEndpoint:
         assert resp.status_code == 401
 
     def test_missing_params_returns_422(self, perm_client, valid_token):
-        """Missing required query params → 422."""
+        """Missing required query params -> 422."""
         resp = perm_client.get(
             "/auth/grants",
             params={"subject": "alice@example.com"},
@@ -195,8 +193,8 @@ class TestGrantsEndpoint:
         )
         assert resp.status_code == 422
 
-    def test_authority_error_returns_500(self, perm_client, valid_token, mock_authority):
-        mock_authority.get_permissions = AsyncMock(side_effect=RuntimeError("SM down"))
+    def test_authority_error_returns_500(self, mocker, perm_client, valid_token, mock_authority):
+        mock_authority.get_permissions = mocker.AsyncMock(side_effect=RuntimeError("SM down"))
         resp = perm_client.get(
             "/auth/grants",
             params={"subject": "alice@example.com", "target": "billing"},
@@ -205,7 +203,7 @@ class TestGrantsEndpoint:
         assert resp.status_code == 500
 
     def test_no_authority_returns_503(self, app, fake_realm, valid_token):
-        """Authority not configured → 503."""
+        """Authority not configured -> 503."""
         with TestClient(app) as c:
             app.state.realm = fake_realm
             app.state.authority = None

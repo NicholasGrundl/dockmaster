@@ -44,9 +44,9 @@ log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+addopts = "-m 'not integration'"
 markers = [
     "integration: requires real GCP credentials (deselect with '-m not integration')",
-    "unit: pure unit tests, no external deps",
 ]
 
 [tool.ruff]
@@ -111,6 +111,7 @@ convention = "pep257"
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "pytest-cov>=7.0.0",
     "pytest-mock>=3.14",
     "pytest-playwright>=0.7.2",
     "ruff>=0.9.0",

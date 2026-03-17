@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
+from pytest_mock import MockerFixture
 
 from dockmaster.rbac.authority import Authority
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
@@ -17,13 +17,13 @@ from dockmaster.rbac.storage import SecretsStorage
 # ---------------------------------------------------------------------------
 
 
-def _mock_storage() -> MagicMock:
+def _mock_storage(mocker: MockerFixture):
     """Return a mock SecretsStorage."""
-    return MagicMock(spec=SecretsStorage)
+    return mocker.MagicMock(spec=SecretsStorage)
 
 
-def _make_authority(storage: MagicMock | None = None, cache_ttl: int = 300) -> Authority:
-    return Authority(storage=storage or _mock_storage(), cache_ttl=cache_ttl)
+def _make_authority(storage=None, cache_ttl: int = 300, mocker: MockerFixture | None = None) -> Authority:
+    return Authority(storage=storage or _mock_storage(mocker), cache_ttl=cache_ttl)
 
 
 VIEWER_ROLE = Role(name="viewer", permissions=["read", "list"])
@@ -39,7 +39,7 @@ GRANTS = ServiceGrants(
 )
 
 
-def _setup_storage(storage: MagicMock) -> None:
+def _setup_storage(storage) -> None:
     """Configure mock storage to return test data."""
 
     def get_service_grants(service: str) -> ServiceGrants:
@@ -68,8 +68,8 @@ def _setup_storage(storage: MagicMock) -> None:
 
 class TestHasPermission:
     @pytest.fixture
-    def authority(self) -> Authority:
-        storage = _mock_storage()
+    def authority(self, mocker: MockerFixture) -> Authority:
+        storage = _mock_storage(mocker)
         _setup_storage(storage)
         return _make_authority(storage)
 
@@ -95,9 +95,9 @@ class TestHasPermission:
         result = await authority.has_permission("alice@example.com", "nonexistent", "read")
         assert result is False
 
-    async def test_permission_with_colon(self, authority: Authority):
+    async def test_permission_with_colon(self, mocker: MockerFixture):
         """Permissions like 'experiment:approve' use exact string matching."""
-        storage = _mock_storage()
+        storage = _mock_storage(mocker)
         storage.get_service_grants.return_value = ServiceGrants(
             service="experiments",
             grants=[Grant(subject="alice@example.com", roles=["admin"])],
@@ -115,8 +115,8 @@ class TestHasPermission:
 
 
 class TestCache:
-    async def test_cache_hit_no_second_sm_call(self):
-        storage = _mock_storage()
+    async def test_cache_hit_no_second_sm_call(self, mocker: MockerFixture):
+        storage = _mock_storage(mocker)
         _setup_storage(storage)
         auth = _make_authority(storage, cache_ttl=300)
 
@@ -126,8 +126,8 @@ class TestCache:
         # Service grants loaded once (cached), roles loaded once each
         assert storage.get_service_grants.call_count == 1
 
-    async def test_cache_expiry_triggers_reload(self):
-        storage = _mock_storage()
+    async def test_cache_expiry_triggers_reload(self, mocker: MockerFixture):
+        storage = _mock_storage(mocker)
         _setup_storage(storage)
         auth = _make_authority(storage, cache_ttl=1)
 
@@ -135,15 +135,15 @@ class TestCache:
         assert storage.get_service_grants.call_count == 1
 
         # Wait for cache to expire
-        with patch("dockmaster.rbac.authority.time") as mock_time:
-            # First call used real time; simulate expiry
-            mock_time.time.return_value = time.time() + 2
-            await auth.has_permission("alice@example.com", "data-pipeline", "read")
+        mock_time = mocker.patch("dockmaster.rbac.authority.time")
+        # First call used real time; simulate expiry
+        mock_time.time.return_value = time.time() + 2
+        await auth.has_permission("alice@example.com", "data-pipeline", "read")
 
         assert storage.get_service_grants.call_count == 2
 
-    async def test_clear_cache_forces_reload(self):
-        storage = _mock_storage()
+    async def test_clear_cache_forces_reload(self, mocker: MockerFixture):
+        storage = _mock_storage(mocker)
         _setup_storage(storage)
         auth = _make_authority(storage, cache_ttl=300)
 
@@ -155,8 +155,8 @@ class TestCache:
         await auth.has_permission("alice@example.com", "data-pipeline", "read")
         assert storage.get_service_grants.call_count == 2
 
-    async def test_different_targets_cached_separately(self):
-        storage = _mock_storage()
+    async def test_different_targets_cached_separately(self, mocker: MockerFixture):
+        storage = _mock_storage(mocker)
         sg1 = ServiceGrants(
             service="svc-a",
             grants=[Grant(subject="alice@example.com", roles=["viewer"])],
@@ -182,18 +182,18 @@ class TestCache:
 
 class TestGetPermissions:
     @pytest.fixture
-    def authority(self) -> Authority:
-        storage = _mock_storage()
+    def authority(self, mocker: MockerFixture) -> Authority:
+        storage = _mock_storage(mocker)
         _setup_storage(storage)
         return _make_authority(storage)
 
     async def test_returns_all_permissions(self, authority: Authority):
-        """Alice has viewer + editor → {read, list, write}."""
+        """Alice has viewer + editor -> {read, list, write}."""
         result = await authority.get_permissions("alice@example.com", "data-pipeline")
         assert result == {"read", "list", "write"}
 
     async def test_single_role_permissions(self, authority: Authority):
-        """Bob has viewer only → {read, list}."""
+        """Bob has viewer only -> {read, list}."""
         result = await authority.get_permissions("bob@example.com", "data-pipeline")
         assert result == {"read", "list"}
 

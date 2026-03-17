@@ -1,0 +1,8 @@
+# Domain configuration - update manually if needed
+# Current: insilicostrategy.com, www.insilicostrategy.com
+# Reverse proxy port: 127.0.0.1:4321 (matches docker-compose)
+
+insilicostrategy.com, www.insilicostrategy.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:4321
+}

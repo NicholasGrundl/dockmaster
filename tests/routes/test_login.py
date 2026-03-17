@@ -2,8 +2,6 @@
 
 import time
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -35,10 +33,10 @@ def session_store() -> InMemorySessionStore:
 
 
 @pytest.fixture
-def mock_oauth():
+def mock_oauth(mocker):
     """Mock Authlib OAuth client."""
-    oauth = MagicMock()
-    oauth.google = MagicMock()
+    oauth = mocker.MagicMock()
+    oauth.google = mocker.MagicMock()
     return oauth
 
 
@@ -60,11 +58,11 @@ def _seed_session(store: InMemorySessionStore, session_id: str, data: dict, ttl:
 class TestLogin:
     """GET /auth/login."""
 
-    def test_login_redirects_to_google(self, login_client, mock_oauth):
+    def test_login_redirects_to_google(self, mocker, login_client, mock_oauth):
         """Login should call oauth.google.authorize_redirect."""
         from starlette.responses import RedirectResponse
 
-        mock_oauth.google.authorize_redirect = AsyncMock(
+        mock_oauth.google.authorize_redirect = mocker.AsyncMock(
             return_value=RedirectResponse(url="https://accounts.google.com/o/oauth2/auth?state=abc")
         )
 
@@ -75,11 +73,11 @@ class TestLogin:
         call_kwargs = mock_oauth.google.authorize_redirect.call_args
         assert call_kwargs.kwargs.get("prompt") == "select_account"
 
-    def test_login_stores_csrf_state(self, login_client, mock_oauth):
+    def test_login_stores_csrf_state(self, mocker, login_client, mock_oauth):
         """Login should store a CSRF state value."""
         from starlette.responses import RedirectResponse
 
-        mock_oauth.google.authorize_redirect = AsyncMock(
+        mock_oauth.google.authorize_redirect = mocker.AsyncMock(
             return_value=RedirectResponse(url="https://accounts.google.com/o/oauth2/auth")
         )
 
@@ -92,11 +90,11 @@ class TestLogin:
 class TestCallback:
     """GET /auth/callback."""
 
-    def test_callback_creates_session_and_redirects(self, login_client, mock_oauth, session_store):
-        """Valid callback → session created, cookie set, redirect to /ui/."""
+    def test_callback_creates_session_and_redirects(self, mocker, login_client, mock_oauth, session_store):
+        """Valid callback -> session created, cookie set, redirect to /ui/."""
         _pending_states["valid-state"] = {"redirect_uri": None}
 
-        mock_oauth.google.authorize_access_token = AsyncMock(
+        mock_oauth.google.authorize_access_token = mocker.AsyncMock(
             return_value={
                 "userinfo": {
                     "email": "user@example.com",
@@ -119,7 +117,7 @@ class TestCallback:
         assert "session_id" in response.cookies
 
     def test_callback_invalid_state_returns_401(self, login_client):
-        """Callback with wrong state → 401."""
+        """Callback with wrong state -> 401."""
         _pending_states.clear()
 
         response = login_client.get(
@@ -129,11 +127,11 @@ class TestCallback:
 
         assert response.status_code == 401
 
-    def test_callback_domain_not_allowed_returns_403(self, login_client, mock_oauth):
-        """Callback with unauthorized email domain → 403."""
+    def test_callback_domain_not_allowed_returns_403(self, mocker, login_client, mock_oauth):
+        """Callback with unauthorized email domain -> 403."""
         _pending_states["valid-state"] = {"redirect_uri": None}
 
-        mock_oauth.google.authorize_access_token = AsyncMock(
+        mock_oauth.google.authorize_access_token = mocker.AsyncMock(
             return_value={
                 "userinfo": {"email": "user@unauthorized.com"},
             }

@@ -20,6 +20,17 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 # ---------------------------------------------------------------------------
+# Fixture directory (available to all test subdirectories)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def fixtures_dir() -> Path:
+    """Root fixtures directory — use this instead of relative paths."""
+    return FIXTURES_DIR
+
+
+# ---------------------------------------------------------------------------
 # RSA key pair fixtures (session-scoped — generated once per test run)
 # ---------------------------------------------------------------------------
 
@@ -82,40 +93,38 @@ def fake_sa_key_path(tmp_path_factory, fake_sa_key_data) -> Path:
 # GCP fixture loading helpers
 # ---------------------------------------------------------------------------
 
-GCP_FIXTURES_DIR = FIXTURES_DIR / "gcp"
-
 
 @pytest.fixture
-def iam_list_service_accounts():
+def iam_list_service_accounts(fixtures_dir):
     """Load captured IAM list service accounts fixture."""
-    path = GCP_FIXTURES_DIR / "iam" / "list_service_accounts.json"
+    path = fixtures_dir / "gcp" / "iam" / "list_service_accounts.json"
     if path.exists():
         return json.loads(path.read_text())
     pytest.skip("Fixture not captured yet: iam/list_service_accounts.json")
 
 
 @pytest.fixture
-def google_oidc_certs():
+def google_oidc_certs(fixtures_dir):
     """Load captured Google OIDC certs fixture."""
-    path = GCP_FIXTURES_DIR / "google_oidc" / "v1_certs.json"
+    path = fixtures_dir / "gcp" / "google_oidc" / "v1_certs.json"
     if path.exists():
         return json.loads(path.read_text())
     pytest.skip("Fixture not captured yet: google_oidc/v1_certs.json")
 
 
 @pytest.fixture
-def iam_list_keys_sa0():
+def iam_list_keys_sa0(fixtures_dir):
     """Load captured IAM list keys fixture for sa0."""
-    path = GCP_FIXTURES_DIR / "iam" / "list_keys__sa0.json"
+    path = fixtures_dir / "gcp" / "iam" / "list_keys__sa0.json"
     if path.exists():
         return json.loads(path.read_text())
     pytest.skip("Fixture not captured yet: iam/list_keys__sa0.json")
 
 
 @pytest.fixture
-def iam_get_public_key_sa0_key0():
+def iam_get_public_key_sa0_key0(fixtures_dir):
     """Load captured IAM get public key fixture for sa0/key0."""
-    path = GCP_FIXTURES_DIR / "iam" / "get_public_key__sa0_key0.json"
+    path = fixtures_dir / "gcp" / "iam" / "get_public_key__sa0_key0.json"
     if path.exists():
         return json.loads(path.read_text())
     pytest.skip("Fixture not captured yet: iam/get_public_key__sa0_key0.json")

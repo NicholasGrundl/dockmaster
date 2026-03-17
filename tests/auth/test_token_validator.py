@@ -1,7 +1,5 @@
 """Tests for access token validation via Google tokeninfo API."""
 
-from unittest.mock import AsyncMock
-
 import httpx
 import pytest
 
@@ -9,10 +7,9 @@ from dockmaster.auth.token_validator import validate_access_token
 
 
 @pytest.fixture
-def mock_httpx_client(monkeypatch):
+def mock_httpx_client(mocker):
     """Return a mock httpx.AsyncClient whose .get() can be configured per test."""
-    client = AsyncMock(spec=httpx.AsyncClient)
-    return client
+    return mocker.AsyncMock(spec=httpx.AsyncClient)
 
 
 @pytest.fixture

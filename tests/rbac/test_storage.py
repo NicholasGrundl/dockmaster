@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock
 
 import pytest
 from google.api_core.exceptions import NotFound
+from pytest_mock import MockerFixture
 
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
 from dockmaster.rbac.storage import AdminSecretsStorage, SecretsStorage
@@ -17,24 +17,24 @@ from dockmaster.rbac.storage import AdminSecretsStorage, SecretsStorage
 # ---------------------------------------------------------------------------
 
 
-def _mock_sm_client() -> MagicMock:
+def _mock_sm_client(mocker: MockerFixture):
     """Return a mock SecretManagerServiceClient."""
-    return MagicMock()
+    return mocker.MagicMock()
 
 
-def _access_response(payload_bytes: bytes) -> MagicMock:
+def _access_response(mocker: MockerFixture, payload_bytes: bytes):
     """Build a mock AccessSecretVersionResponse."""
-    resp = MagicMock()
+    resp = mocker.MagicMock()
     resp.payload.data = payload_bytes
     return resp
 
 
-def _storage(client: MagicMock | None = None) -> SecretsStorage:
-    return SecretsStorage(client=client or _mock_sm_client(), project="test-project")
+def _storage(client=None, mocker: MockerFixture | None = None) -> SecretsStorage:
+    return SecretsStorage(client=client or _mock_sm_client(mocker), project="test-project")
 
 
-def _admin_storage(client: MagicMock | None = None) -> AdminSecretsStorage:
-    return AdminSecretsStorage(client=client or _mock_sm_client(), project="test-project")
+def _admin_storage(client=None, mocker: MockerFixture | None = None) -> AdminSecretsStorage:
+    return AdminSecretsStorage(client=client or _mock_sm_client(mocker), project="test-project")
 
 
 # ---------------------------------------------------------------------------
@@ -43,10 +43,10 @@ def _admin_storage(client: MagicMock | None = None) -> AdminSecretsStorage:
 
 
 class TestGetRole:
-    def test_loads_and_parses_role(self):
-        client = _mock_sm_client()
+    def test_loads_and_parses_role(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         role_data = {"name": "viewer", "permissions": ["read", "list"]}
-        client.access_secret_version.return_value = _access_response(json.dumps(role_data).encode())
+        client.access_secret_version.return_value = _access_response(mocker, json.dumps(role_data).encode())
         storage = _storage(client)
 
         role = storage.get_role("viewer")
@@ -58,18 +58,18 @@ class TestGetRole:
             request={"name": "projects/test-project/secrets/role-viewer/versions/latest"}
         )
 
-    def test_legacy_kind_field_ignored(self):
-        client = _mock_sm_client()
+    def test_legacy_kind_field_ignored(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         role_data = {"kind": "Role", "name": "editor", "permissions": ["read", "write"]}
-        client.access_secret_version.return_value = _access_response(json.dumps(role_data).encode())
+        client.access_secret_version.return_value = _access_response(mocker, json.dumps(role_data).encode())
         storage = _storage(client)
 
         role = storage.get_role("editor")
         assert role.name == "editor"
         assert not hasattr(role, "kind")
 
-    def test_not_found_raises(self):
-        client = _mock_sm_client()
+    def test_not_found_raises(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         client.access_secret_version.side_effect = NotFound("not found")
         storage = _storage(client)
 
@@ -83,8 +83,8 @@ class TestGetRole:
 
 
 class TestPutRole:
-    def test_creates_secret_and_adds_version(self):
-        client = _mock_sm_client()
+    def test_creates_secret_and_adds_version(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         storage = _admin_storage(client)
         role = Role(name="viewer", permissions=["read", "list"])
 
@@ -105,10 +105,10 @@ class TestPutRole:
         assert stored["name"] == "viewer"
         assert stored["permissions"] == ["read", "list"]
 
-    def test_create_already_exists_is_idempotent(self):
+    def test_create_already_exists_is_idempotent(self, mocker: MockerFixture):
         from google.api_core.exceptions import AlreadyExists
 
-        client = _mock_sm_client()
+        client = _mock_sm_client(mocker)
         client.create_secret.side_effect = AlreadyExists("exists")
         storage = _admin_storage(client)
         role = Role(name="viewer", permissions=["read"])
@@ -124,16 +124,16 @@ class TestPutRole:
 
 
 class TestDeleteRole:
-    def test_deletes_secret(self):
-        client = _mock_sm_client()
+    def test_deletes_secret(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         storage = _admin_storage(client)
 
         storage.delete_role("viewer")
 
         client.delete_secret.assert_called_once_with(request={"name": "projects/test-project/secrets/role-viewer"})
 
-    def test_not_found_raises(self):
-        client = _mock_sm_client()
+    def test_not_found_raises(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         client.delete_secret.side_effect = NotFound("not found")
         storage = _admin_storage(client)
 
@@ -147,8 +147,8 @@ class TestDeleteRole:
 
 
 class TestGetServiceGrants:
-    def test_loads_and_parses(self):
-        client = _mock_sm_client()
+    def test_loads_and_parses(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         data = {
             "service": "data-pipeline",
             "grants": [
@@ -156,7 +156,7 @@ class TestGetServiceGrants:
                 {"subject": "bob@example.com", "roles": ["viewer"]},
             ],
         }
-        client.access_secret_version.return_value = _access_response(json.dumps(data).encode())
+        client.access_secret_version.return_value = _access_response(mocker, json.dumps(data).encode())
         storage = _storage(client)
 
         sg = storage.get_service_grants("data-pipeline")
@@ -169,8 +169,8 @@ class TestGetServiceGrants:
             request={"name": "projects/test-project/secrets/service-grants-data-pipeline/versions/latest"}
         )
 
-    def test_not_found_raises(self):
-        client = _mock_sm_client()
+    def test_not_found_raises(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         client.access_secret_version.side_effect = NotFound("not found")
         storage = _storage(client)
 
@@ -184,8 +184,8 @@ class TestGetServiceGrants:
 
 
 class TestPutServiceGrants:
-    def test_creates_and_stores(self):
-        client = _mock_sm_client()
+    def test_creates_and_stores(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         storage = _admin_storage(client)
         sg = ServiceGrants(
             service="data-pipeline",
@@ -204,8 +204,8 @@ class TestPutServiceGrants:
 
 
 class TestDeleteServiceGrants:
-    def test_deletes_secret(self):
-        client = _mock_sm_client()
+    def test_deletes_secret(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         storage = _admin_storage(client)
 
         storage.delete_service_grants("data-pipeline")
@@ -220,20 +220,20 @@ class TestDeleteServiceGrants:
 # ---------------------------------------------------------------------------
 
 
-def _mock_secret(name: str) -> MagicMock:
+def _mock_secret(mocker: MockerFixture, name: str):
     """Build a mock Secret with a .name attribute (full resource path)."""
-    secret = MagicMock()
+    secret = mocker.MagicMock()
     secret.name = f"projects/test-project/secrets/{name}"
     return secret
 
 
 class TestListRoles:
-    def test_returns_role_names(self):
-        client = _mock_sm_client()
+    def test_returns_role_names(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         client.list_secrets.return_value = [
-            _mock_secret("role-viewer"),
-            _mock_secret("role-editor"),
-            _mock_secret("role-admin"),
+            _mock_secret(mocker, "role-viewer"),
+            _mock_secret(mocker, "role-editor"),
+            _mock_secret(mocker, "role-admin"),
         ]
         storage = _storage(client)
 
@@ -242,16 +242,16 @@ class TestListRoles:
         assert result == ["viewer", "editor", "admin"]
         client.list_secrets.assert_called_once_with(request={"parent": "projects/test-project", "filter": "name:role-"})
 
-    def test_returns_empty_list(self):
-        client = _mock_sm_client()
+    def test_returns_empty_list(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         client.list_secrets.return_value = []
         storage = _storage(client)
 
         assert storage.list_roles() == []
 
-    def test_strips_prefix(self):
-        client = _mock_sm_client()
-        client.list_secrets.return_value = [_mock_secret("role-finance-admin")]
+    def test_strips_prefix(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
+        client.list_secrets.return_value = [_mock_secret(mocker, "role-finance-admin")]
         storage = _storage(client)
 
         result = storage.list_roles()
@@ -264,11 +264,11 @@ class TestListRoles:
 
 
 class TestListServiceGrants:
-    def test_returns_service_names(self):
-        client = _mock_sm_client()
+    def test_returns_service_names(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         client.list_secrets.return_value = [
-            _mock_secret("service-grants-lims"),
-            _mock_secret("service-grants-dockmaster"),
+            _mock_secret(mocker, "service-grants-lims"),
+            _mock_secret(mocker, "service-grants-dockmaster"),
         ]
         storage = _storage(client)
 
@@ -279,16 +279,16 @@ class TestListServiceGrants:
             request={"parent": "projects/test-project", "filter": "name:service-grants-"}
         )
 
-    def test_returns_empty_list(self):
-        client = _mock_sm_client()
+    def test_returns_empty_list(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
         client.list_secrets.return_value = []
         storage = _storage(client)
 
         assert storage.list_service_grants() == []
 
-    def test_strips_prefix(self):
-        client = _mock_sm_client()
-        client.list_secrets.return_value = [_mock_secret("service-grants-data-pipeline")]
+    def test_strips_prefix(self, mocker: MockerFixture):
+        client = _mock_sm_client(mocker)
+        client.list_secrets.return_value = [_mock_secret(mocker, "service-grants-data-pipeline")]
         storage = _storage(client)
 
         result = storage.list_service_grants()

@@ -186,14 +186,14 @@ class TestCodeExchangeEndpoint:
 class TestCallbackExternalRedirect:
     """When callback has an external redirect_uri, it generates an auth code."""
 
-    def test_external_redirect_generates_code(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
+    def test_external_redirect_generates_code(
+        self, mocker, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
         """Callback with an external redirect_uri redirects with code param."""
-        from unittest.mock import AsyncMock, MagicMock
-
         # Set up a fake OAuth that returns a valid token response
-        mock_oauth = MagicMock()
-        mock_google = MagicMock()
-        mock_google.authorize_access_token = AsyncMock(
+        mock_oauth = mocker.MagicMock()
+        mock_google = mocker.MagicMock()
+        mock_google.authorize_access_token = mocker.AsyncMock(
             return_value={
                 "userinfo": {"email": "user@example.com", "name": "Test User"},
             }
@@ -216,13 +216,13 @@ class TestCallbackExternalRedirect:
         assert "code=" in location
         assert "state=" in location
 
-    def test_localhost_redirect_still_returns_jwt(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
+    def test_localhost_redirect_still_returns_jwt(
+        self, mocker, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
         """Callback with a localhost redirect_uri still returns JWT directly."""
-        from unittest.mock import AsyncMock, MagicMock
-
-        mock_oauth = MagicMock()
-        mock_google = MagicMock()
-        mock_google.authorize_access_token = AsyncMock(
+        mock_oauth = mocker.MagicMock()
+        mock_google = mocker.MagicMock()
+        mock_google.authorize_access_token = mocker.AsyncMock(
             return_value={
                 "userinfo": {"email": "user@example.com", "name": "Test User"},
             }

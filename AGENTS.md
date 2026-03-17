@@ -106,23 +106,29 @@ Includes:
 - Registered in `create_app()` with a prefix: `app.include_router(router, prefix="/auth")`.
 - Two auth patterns: JWT/Bearer for API routes, session/cookie for UI routes.
 
-### Test fixtures (`tests/conftest.py`)
+### Test fixtures
 
-Three base fixtures exist — extend, don't replace:
+Tests are organized by domain: `tests/auth/`, `tests/cli/`, `tests/rbac/`, `tests/routes/`, `tests/ui/`.
 
+Root `tests/conftest.py` provides shared fixtures — extend, don't replace:
+
+- `fixtures_dir` — `Path` to `tests/fixtures/` (use instead of relative paths)
 - `test_settings` — `Settings` with safe defaults, no real GCP credentials
 - `app` — `FastAPI` wired with `test_settings` via `dependency_overrides`
 - `client` — `TestClient` wrapping `app`
 
-Phase-specific fixtures go in `tests/conftest.py` if shared, or a phase-local `conftest.py` if isolated.
+Domain-specific fixtures go in `tests/<domain>/conftest.py`. Each domain conftest has a header documenting what it provides and what it inherits.
+
+Always use `pytest-mock` (`mocker` fixture) for mocking — not `unittest.mock` directly.
 
 ### Run commands
 
 ```bash
-uv run pytest                     # all unit tests (fast, no GCP)
-uv run pytest -m integration      # integration tests (requires GCP)
-just lint                         # ruff check + ty
-just format                       # ruff format
+just test-core                    # unit tests (fast, no GCP)
+just test-integration             # integration tests (requires GCP)
+just test                         # all tests
+just check                        # lint + format + types + core tests
+just fix                          # auto-fix lint + format
 ```
 
 ## Tech Stack
