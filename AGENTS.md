@@ -93,11 +93,15 @@ Includes:
 
 - All config lives in `Settings(BaseSettings)` — env vars or `.env` file.
 - Comma-separated fields are typed `str | set[str]` and parsed to `set[str]` in `model_validator(mode="after")` via `_parse_comma_separated()`.
-- Tests override settings via `app.dependency_overrides[get_settings] = lambda: test_settings`. Never patch `get_settings` directly.
+- Settings are stored on `app.state.settings` at app creation time. Route handlers read `request.app.state.settings`.
+- `create_app(settings=None)` accepts an optional `Settings` parameter (falls back to `get_settings()` if not provided).
+- Never use `Depends(get_settings)` in route handlers — always read from `app.state.settings`.
+- In tests, pass settings to `create_app(settings)` or set `app.state.settings = Settings(...)` directly.
 
 ### Lifespan singletons (`src/dockmaster/main.py`)
 
 - Expensive objects (GCP clients, key caches, `ServiceUser`, `Authority`) are created once in the `lifespan()` context manager and attached to `app.state`.
+- Settings are also on `app.state.settings` — lifespan reads from there (not `get_settings()`).
 - In tests, if a singleton needs overriding, set `app.state.X = FakeX()` before the `with TestClient(app)` block.
 
 ### Routes
@@ -114,7 +118,8 @@ Root `tests/conftest.py` provides shared fixtures — extend, don't replace:
 
 - `fixtures_dir` — `Path` to `tests/fixtures/` (use instead of relative paths)
 - `test_settings` — `Settings` with safe defaults, no real GCP credentials
-- `app` — `FastAPI` wired with `test_settings` via `dependency_overrides`
+- `test_app_factory` — callable that accepts optional `Settings`, returns `TestClient`
+- `app` — `FastAPI` created via `create_app(TEST_SETTINGS)`
 - `client` — `TestClient` wrapping `app`
 
 Domain-specific fixtures go in `tests/<domain>/conftest.py`. Each domain conftest has a header documenting what it provides and what it inherits.

@@ -7,24 +7,18 @@
 - Rule of thumb: starting fresh or stuck → Opus. Continuing known work → Sonnet.
 
 ## Current implementation status
-- Phase 1: COMPLETE (scaffold, config, health endpoint, conftest)
-- Phase 2: COMPLETE (JWT infrastructure — ServiceUser, ServiceRealm, KeyCache, middleware, routes — 67 tests)
-- Phase 3: COMPLETE (Token exchange — token_validator, exchange endpoint — 83 total tests)
-- Phase 4a: COMPLETE (OAuth login + sessions — 103 total tests)
-- Phase 4b: COMPLETE (Refresh + SecretsStorage + test UI — 117 total tests)
-- Phase 4c: COMPLETE (Admin dashboard + UI polish — 134 total tests)
-- Phase 5: COMPLETE (RBAC — models, storage, authority, permission endpoints — 177 total tests)
-- Phase 6: COMPLETE (RBAC Management — admin endpoints + admin UI, 234 tests)
-- Phase 6b: COMPLETE (Session Revocation — admin API + UI + admin_ops — 257 tests)
-- Phase 6c: COMPLETE (CLI + OAuth login — Typer CLI, browser OAuth, role/grant/check commands — 301 tests)
-  - Deferred: `token` command (awaiting ephemeral keypair — Phase 7), external service redirect URIs (Phase 7), server-side grant merge endpoint
-- Phase 7: SPEC COMPLETE — Ephemeral Keypair + Redirect URI + Token Issuance (ready for implementation)
-- Phase 8a/b/c: PLANNED — Audit subphases (inventory, auth testing, API+Caddy)
-- Phase 9: PLANNED — Deployment + GCP Cleanup
+- Phases 1–7: COMPLETE (scaffold through ephemeral keypair + CLI — 411 tests)
+- Phase 8a: IN PROGRESS — Security audit findings (14 items), implementing fixes one by one
+  - Done: S-001/S-014 (OpenAPI docs), settings refactor (app.state.settings)
+  - Next: S-002 (JWT error sanitization)
+- Phase 8b: COMPLETE (code quality — 20 findings, 12 implemented)
+- Phase 8c: COMPLETE (deployment readiness audit — findings doc has open blockers for Phase 9)
+- Phase 8d: COMPLETE (test audit — 8 findings, all implemented, 423 tests)
+- Phase 9: PLANNED — Deployment (Dockerfile, Caddy, 8c blocker fixes)
 - Phase 10: PLANNED — UI Tests
-- Next: Phase 7 implementation (spec + reference docs ready)
 
 ## Key files to read at session start
-- `_blueprint/roadmap/implementation-progress.md` — session state (created at start of Phase 2)
-- `_blueprint/features/implementation-phase{N}-*.md` — current phase spec
-- `_blueprint/features/research-phase7-rsa256-keypair.md` — research doc for Phase 7 keypair design
+- `_blueprint/roadmap/implementation-progress.md` — session state
+- `_blueprint/features/implementation-phase8a-security-audit.md` — current phase spec
+- `_blueprint/features/audit-8a-security-findings.md` — security findings being fixed
+- `_blueprint/features/audit-8c-deployment-readiness-findings.md` — deployment blockers (active, feeds Phase 9)

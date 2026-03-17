@@ -1,50 +1,57 @@
 # Implementation Progress
 
-*Last updated: 2026-03-16*
+*Last updated: 2026-03-17*
 
-## Current Phase: Phase 8d — Test Audit + Implementation
-**Approach**: Audit (pass 1) + implementation of findings (pass 2)
-**Status**: COMPLETE
+## Current Phase: Phase 8a — Security Audit Fix Implementation
+**Approach**: Walking through each finding with user (context → education → options → fix)
+**Status**: IN PROGRESS
 
-**Spec**: `_blueprint/features/implementation-phase8d-test-audit.md`
-**Output**: `_blueprint/features/audit-8d-test-findings.md`
+**Spec**: `_blueprint/features/implementation-phase8a-security-audit.md`
+**Findings**: `_blueprint/features/audit-8a-security-findings.md`
 
-## Phase 8d sub-tasks
-### Pass 1 (audit)
-- [x] 1. Run coverage report and analyze gaps (86% overall, 411 tests in 42s)
-- [x] 2. Review test file organization and conftest structure
-- [x] 3. Read representative test files from each phase, catalog patterns
-- [x] 4. Audit marker usage and test categorization
-- [x] 5. Write findings doc with categorized recommendations (8 findings)
-- [x] 6. Review findings with user
+## Phase 8a sub-tasks
 
-### Pass 2 (implementation)
-- [x] T-001: Stray fixture file — already removed, confirmed not present
-- [x] T-002: Migrated all 18 files from `unittest.mock` to `pytest-mock` (`mocker` fixture)
-- [x] T-003: Added `@pytest.mark.parametrize` in new `test_ui_config.py`; existing tests are clear enough as-is
-- [x] T-004: Documented mini-app pattern; kept where architecturally appropriate (admin auth tests)
-- [x] T-005: Removed unused `unit` marker from pyproject.toml
-- [x] T-006: Added `addopts = "-m 'not integration'"` to pyproject.toml; added `test-core`, `test-integration`, `test` targets to justfile
-- [x] T-007: Left `pytest-playwright` for future Phase 10 UI tests
-- [x] T-008: Skipped speed markers — no slow tests exist
-- [x] Restructured tests into domain directories: `tests/auth/`, `tests/cli/`, `tests/rbac/`, `tests/routes/`, `tests/ui/`
-- [x] Created domain conftest files with inventory headers
-- [x] Added `fixtures_dir` session-scoped fixture (replaces relative path patterns)
-- [x] Added UI config coverage tests (11 new tests, including parametrize example)
-- [x] Reorganized justfile: `check-*` (read-only) and `fix-*` (auto-fix) namespaces
-- [x] Updated CLAUDE.md with new test structure and run commands
-- [x] Full suite: 423 tests GREEN, lint clean, format clean
+### Pass 1 (audit) — COMPLETE
+- [x] Endpoint inventory (46 endpoints cataloged)
+- [x] Auth decision DAG (Mermaid)
+- [x] Information leakage audit
+- [x] Auth boundary analysis
+- [x] Gap analysis (14 findings: S-001 through S-014)
 
-## Findings summary (Phase 8d)
-- 8 findings: T-001 through T-008
-- All implemented or documented (see pass 2 above)
-- Test count: 411 → 423 (12 new UI config tests)
-- Test structure: flat → domain-grouped (auth, cli, rbac, routes, ui)
-- Mocking: standardized on `pytest-mock` (`mocker` fixture) across all 34 test files
-- Justfile: namespaced as `check-*`, `fix-*`, `test-*`
+### Pass 2 (fix implementation) — IN PROGRESS
+- [x] S-001: OpenAPI docs disabled by default (`ENABLE_DOCS` setting, default `False`)
+- [x] S-014: Root endpoint no longer exposes docs URL when disabled (fixed alongside S-001)
+- [x] Settings refactor: removed `Depends(get_settings)` anti-pattern, settings via `app.state.settings`
+- [x] Test infra: `create_app(settings)`, `test_app_factory`, `auth_client` in domain conftest
+- [x] Reorganized `.env.example` into logical groups with Dev/Debug section
+- [ ] S-002: JWT decode errors leak internals  <- next
+- [ ] S-003: 503 detail leaks infrastructure
+- [ ] S-004: No security response headers
+- [ ] S-005: OAuth state has no TTL
+- [ ] S-006: Unbounded token expiry on `/auth/exchange`
+- [ ] S-007: `get_current_user` doesn't validate audience
+- [ ] S-008: `/auth/refresh` requires no dockmaster auth (document decision)
+- [ ] S-009: `/auth/refresh` returns Google tokens
+- [ ] S-010: `/auth/refresh` uses Type B (SA-signed) JWT
+- [ ] S-011: CLI token in URL query param (document decision)
+- [ ] S-012: Two session cookie mechanisms (document decision)
+- [ ] S-013: 403 responses reveal config details
+
+## Test status
+- 425 tests GREEN, lint clean, format clean
+- Test count: 423 → 425 (2 new docs enable/disable tests)
+
+## Decisions log (Phase 8a fixes)
+- 2026-03-17: S-001 fix: `ENABLE_DOCS` bool setting (default `False`), not a `DEV_MODE` meta-setting. DEV_MODE deferred until 8+ settings warrant it.
+- 2026-03-17: Settings refactor: replaced `Depends(get_settings)` + `lru_cache` with `app.state.settings`. Routes read `request.app.state.settings`. `create_app()` accepts optional `Settings` param. All `dependency_overrides[get_settings]` removed from tests.
+- 2026-03-17: Test infra: `test_app_factory` fixture returns `TestClient`, `auth_client` moved to domain conftest (auth, routes).
 
 ## Next session: pick up at
-"Phase 9: Deployment — implement 8a/8b/8c blocker fixes, create Dockerfile, deploy to production"
+"S-002: JWT decode errors leak internals — sanitize error messages in auth dependencies"
+
+## Previous Phase: Phase 8d — Test Audit + Implementation
+**Approach**: Audit (pass 1) + implementation of findings (pass 2)
+**Status**: COMPLETE
 
 ## Previous Phase: Phase 8c — Deployment Readiness
 **Approach**: Document only — interview + audit (no code changes)

@@ -1,18 +1,19 @@
 ---
 state: Draft
 changelog:
+  "2026-03-17": "Pass 2 started — implementing security fixes (S-001/S-014 done, settings refactor complete)"
   "2026-03-16": "Created — restructured from original 8a spec, expanded scope for Phase 7 completeness"
 ---
 
-# Phase 8a: Security Audit
+# Phase 8a: Security Audit + Fix Implementation
 
 > Comprehensive security audit of all HTTP endpoints, auth boundaries, and information leakage.
-> Produces findings doc only — no code changes.
+> Pass 1 (audit) complete. Pass 2 (fix implementation) in progress.
 
-**Status**: Planned
+**Status**: In Progress (Pass 2)
 **Priority**: P0
 **Phase**: 8a
-**Last updated**: 2026-03-16
+**Last updated**: 2026-03-17
 **Depends on**: Phase 7 complete
 **Output**: `_blueprint/features/audit-8a-security-findings.md`
 
