@@ -1,10 +1,82 @@
 # Implementation Progress
 
-*Last updated: 2026-03-17*
+*Last updated: 2026-03-18*
 
-## Current Phase: Phase 8a — Security Audit Fix Implementation
+## Current Phase: Phase 8e — App Architecture Conventions
+**Approach**: Three pillars — settings DI bridge, auth conventions, middleware consolidation
+**Status**: COMPLETE
+
+**Spec**: `_blueprint/features/implementation-phase8e-auth-conventions.md`
+
+## Phase 8e sub-tasks
+
+### Pillar 3 — Settings DI Bridge — COMPLETE
+- [x] 1. Add `get_settings(request)` bridge to `config.py`, migrate all route files from `request.app.state.settings` to `Annotated[Settings, Depends(get_settings)]`
+  - `get_settings(request)` reads from `app.state.settings` (Depends bridge)
+  - `create_settings()` is the standalone factory (used by `create_app`)
+  - Routes use `Annotated[Settings, Depends(get_settings)]`
+  - 412 tests GREEN after this step
+
+### Pillar 1 — Auth Conventions — COMPLETE
+- [x] 2a. Build utilities in `auth/dependencies.py`: `verify_jwt`, `resolve_session`, `check_permission`, `verify_google_credential`
+- [x] 2b. Build gates in `auth/dependencies.py`: `allow_jwt`, `allow_session`, `allow_jwt_or_session`, `allow_google_credential`, `allow_jwt_admin`, `allow_session_admin`, `needs_admin_storage`
+- [x] 2c. Build info dependencies: `get_jwt_claims`, `get_session_user`, `get_google_claims`, `get_session_or_jwt_email`
+- [x] 2d. Migrate routers to gate pattern: `admin.py`, `admin_ui.py`, `claims.py`, `permissions.py`, `exchange.py`, `token.py`
+- [x] 2e. Update test imports (`test_admin_auth.py`, `test_admin_endpoints.py`, `test_middleware.py`, `test_exchange.py`)
+- [x] 2f. Fix 503 test failures — tests now provide valid auth so gates pass, then hit route-level 503 check
+- [x] 2g. Removed `auth/admin.py` — zero references in src/ or tests/
+- [x] 2h. Typed credential models — `GoogleJWTCredential` and `GoogleAccessTokenCredential` replace raw dicts for `verify_google_credential` return type. Eliminates brittle `iss`-sniffing for JWT vs access token `aud` semantics.
+- [x] 2i. Removed unused `user` param from 8 admin_ui POST routes (form handlers that don't render templates). Eliminates the `session_cookie` / `{session_id}` path param collision in `revoke_session_form`.
+- [x] 2j. Security review of exchange error messages — collapsed `"service argument is required for access tokens"` to `"service query parameter is required"` to avoid leaking credential type info.
+
+### Pillar 2 — Middleware Consolidation — COMPLETE
+- [x] 3. Extracted `setup_middleware(app, settings)` in `main.py` — all `add_middleware` calls consolidated into one function
+
+### Close
+- [x] 4. Full test suite (412 GREEN) + lint + format — all clean
+
+## Test status (Phase 8e)
+- 412 passed, 0 failed
+
+## Files changed (Phase 8e so far)
+**config.py**: `get_settings(request)` bridge + `create_settings()` factory, `Request` import
+**auth/dependencies.py**: Full rewrite — utilities (`verify_jwt`, `resolve_session`, `check_permission`, `verify_google_credential`) + gates (`allow_jwt`, `allow_session`, `allow_jwt_or_session`, `allow_google_credential`, `allow_jwt_admin`, `allow_session_admin`) + info deps (`get_jwt_claims`, `get_session_user`, `get_google_claims`, `get_session_or_jwt_email`) + system check (`needs_admin_storage`)
+**routes/admin.py**: Router-level `dependencies=[Depends(allow_jwt_admin)]`, removed per-route auth deps
+**routes/admin_ui.py**: Router-level `dependencies=[Depends(allow_session_admin)]`, per-route `Annotated[dict, Depends(get_session_user)]` for user data
+**routes/claims.py**: Router-level `dependencies=[Depends(allow_jwt)]`, per-route `Annotated[dict, Depends(get_jwt_claims)]`
+**routes/permissions.py**: Router-level `dependencies=[Depends(allow_jwt)]`, removed per-route auth deps
+**routes/exchange.py**: Router-level `dependencies=[Depends(allow_google_credential)]`, per-route `Annotated[dict, Depends(get_google_claims)]`
+**routes/token.py**: Router-level `dependencies=[Depends(allow_jwt_or_session)]`, per-route `Annotated[str, Depends(get_session_or_jwt_email)]`
+**routes/login.py**: Migrated to `resolve_session` utility, `Annotated[Settings, Depends(get_settings)]`
+**routes/ui.py**: Migrated to `resolve_session` + `check_permission` from dependencies.py
+**main.py**: `create_settings()` instead of `get_settings()`
+**tests/**: Updated imports and mock targets across test_admin_auth, test_admin_endpoints, test_middleware, test_exchange
+
+## Architecture decisions (Phase 8e)
+
+### Planning session (2026-03-17)
+- Two-layer design — pure utility functions (typed args, no Depends, no app.state) + FastAPI dependency wrappers (use Depends, inject via Cookie/HTTPBearer/get_settings, call utilities)
+- Utilities: `verify_jwt(token, realm)`, `resolve_session(cookie, store, secret_key)`, `check_permission(email, service, permission, authority, admin_emails)`, `verify_google_credential(token, realm, issuers, audiences, url)` — all pure, no HTTPException
+- `allow_google_credential` is a full gate with underlying `verify_google_credential` utility. All credential failures return 401 (per S-013 genericization).
+- No module-level `_bearer` instance — use `HTTPBearer(auto_error=False)` inline in `Annotated` types
+- Dependencies use `Annotated[Settings, Depends(get_settings)]` for settings injection, then extract individual typed args for utility calls
+- `Cookie(alias="session_id")` for session cookie extraction — renamed param to `session_cookie` to avoid collision with `{session_id}` path params in admin_ui routes
+
+### Implementation session (2026-03-18)
+- **Gate vs info pattern**: Router-level `dependencies=[Depends(allow_*)]` for auth gates. Separate info dependencies (`get_jwt_claims`, `get_session_user`, `get_google_claims`, `get_session_or_jwt_email`) for route data injection. Gates and info deps are NEVER the same dependency — even if they call the same utility. This keeps auth enforcement and data retrieval as separate concerns.
+- **Pillar 3 bridge**: `get_settings(request)` is the Depends bridge, `create_settings()` is the standalone factory. `get_settings` lives in `config.py` (not `main.py`) to avoid circular imports — `main.py` imports routes, routes can't import from `main.py`.
+- **Exchange aud handling**: Replaced brittle `iss`-sniffing with typed models (`GoogleJWTCredential`, `GoogleAccessTokenCredential`). JWT `aud` = target service, access token `aud` = OAuth client ID — now unambiguous via `isinstance` check.
+- **Exchange tests**: Issuer/audience rejection tests changed from 403 to 401 — credential verification now happens in the gate, which returns 401 for all failures per S-013.
+- **email: str | None on credential models**: Utility verifies credential authenticity; route decides if email is required (business logic stays in route). Matches original pattern.
+- **Error message security**: Collapsed credential-type-revealing error messages. Server logs full detail, client gets generic messages.
+- **Unused user params**: Removed `get_session_user` from 8 admin_ui POST routes that never used the data — legacy from pre-gate auth pattern.
+
+## Next session: pick up at
+"Phase 8e is COMPLETE. Move spec to archive. Pick next phase from ROADMAP.md."
+
+## Previous Phase: Phase 8a — Security Audit Fix Implementation
 **Approach**: Walking through each finding with user (context → education → options → fix)
-**Status**: IN PROGRESS
+**Status**: COMPLETE
 
 **Spec**: `_blueprint/features/implementation-phase8a-security-audit.md`
 **Findings**: `_blueprint/features/audit-8a-security-findings.md`

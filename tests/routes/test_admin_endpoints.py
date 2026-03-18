@@ -72,10 +72,10 @@ def _admin_app(
 
     app.state.admin_storage = admin_storage
 
-    # Override JWT auth to return admin user
-    from dockmaster.auth.dependencies import get_current_user
+    # Override JWT admin auth to return admin user
+    from dockmaster.auth.dependencies import allow_jwt_admin
 
-    app.dependency_overrides[get_current_user] = lambda: {"email": "admin@co.com"}
+    app.dependency_overrides[allow_jwt_admin] = lambda: {"email": "admin@co.com"}
 
     return app
 
@@ -271,9 +271,9 @@ class TestAdminAuth:
         app.state.authority.has_permission.return_value = True
         app.state.admin_storage = None
 
-        from dockmaster.auth.dependencies import get_current_user
+        from dockmaster.auth.dependencies import allow_jwt_admin
 
-        app.dependency_overrides[get_current_user] = lambda: {"email": "admin@co.com"}
+        app.dependency_overrides[allow_jwt_admin] = lambda: {"email": "admin@co.com"}
 
         resp = TestClient(app).post(
             "/admin/roles",

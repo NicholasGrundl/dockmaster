@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 
-from dockmaster.auth.dependencies import get_current_user
+from dockmaster.auth.dependencies import allow_jwt, get_jwt_claims
 
-router = APIRouter(tags=["jwt"])
+router = APIRouter(
+    tags=["authenticated"],
+    dependencies=[Depends(allow_jwt)],
+)
 
 
 @router.get("/claims")
-async def get_claims(claims: dict = Depends(get_current_user)) -> dict:
+async def get_claims(claims: Annotated[dict, Depends(get_jwt_claims)]) -> dict:
     """Return the decoded claims from the Bearer token."""
     return claims

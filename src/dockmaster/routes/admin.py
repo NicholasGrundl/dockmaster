@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from google.api_core.exceptions import NotFound
 from pydantic import BaseModel
 
-from dockmaster.auth.admin import require_admin_api, require_admin_writes
+from dockmaster.auth.dependencies import allow_jwt_admin, needs_admin_storage
 from dockmaster.rbac import admin_ops
 from dockmaster.rbac.admin_ops import RoleConflictError
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(
+    tags=["admin-api"],
+    dependencies=[Depends(allow_jwt_admin)],
+)
 
 
 # ------------------------------------------------------------------
@@ -68,21 +73,14 @@ def _get_session_store(request: Request):
 
 
 @router.get("/roles", response_model=list[str])
-async def list_roles(
-    request: Request,
-    _admin: dict = Depends(require_admin_api),
-):
+async def list_roles(request: Request):
     """List all role names."""
     storage = _get_admin_storage(request)
     return await admin_ops.list_roles(storage)
 
 
 @router.get("/roles/{name}", response_model=Role)
-async def get_role(
-    request: Request,
-    name: str,
-    _admin: dict = Depends(require_admin_api),
-):
+async def get_role(request: Request, name: str):
     """Get a single role by name."""
     storage = _get_admin_storage(request)
     try:
@@ -96,8 +94,7 @@ async def get_role(
 async def create_role(
     request: Request,
     body: CreateRoleRequest,
-    _admin: dict = Depends(require_admin_api),
-    _writes: None = Depends(require_admin_writes),
+    _writes: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Create a new role."""
     storage = _get_admin_storage(request)
@@ -114,8 +111,7 @@ async def update_role(
     request: Request,
     name: str,
     body: UpdateRoleRequest,
-    _admin: dict = Depends(require_admin_api),
-    _writes: None = Depends(require_admin_writes),
+    _writes: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Update a role's permissions."""
     storage = _get_admin_storage(request)
@@ -128,8 +124,7 @@ async def update_role(
 async def delete_role(
     request: Request,
     name: str,
-    _admin: dict = Depends(require_admin_api),
-    _writes: None = Depends(require_admin_writes),
+    _writes: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Delete a role."""
     storage = _get_admin_storage(request)
@@ -147,21 +142,14 @@ async def delete_role(
 
 
 @router.get("/grants", response_model=list[str])
-async def list_grants(
-    request: Request,
-    _admin: dict = Depends(require_admin_api),
-):
+async def list_grants(request: Request):
     """List all service names that have grants."""
     storage = _get_admin_storage(request)
     return await admin_ops.list_service_grants(storage)
 
 
 @router.get("/grants/{service}", response_model=ServiceGrants)
-async def get_grants(
-    request: Request,
-    service: str,
-    _admin: dict = Depends(require_admin_api),
-):
+async def get_grants(request: Request, service: str):
     """Get grants for a service."""
     storage = _get_admin_storage(request)
     try:
@@ -176,8 +164,7 @@ async def put_grants(
     request: Request,
     service: str,
     body: PutGrantsRequest,
-    _admin: dict = Depends(require_admin_api),
-    _writes: None = Depends(require_admin_writes),
+    _writes: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Create or replace grants for a service."""
     storage = _get_admin_storage(request)
@@ -190,8 +177,7 @@ async def put_grants(
 async def delete_grants(
     request: Request,
     service: str,
-    _admin: dict = Depends(require_admin_api),
-    _writes: None = Depends(require_admin_writes),
+    _writes: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Delete all grants for a service."""
     storage = _get_admin_storage(request)
@@ -209,32 +195,21 @@ async def delete_grants(
 
 
 @router.get("/sessions")
-async def list_sessions(
-    request: Request,
-    _admin: dict = Depends(require_admin_api),
-):
+async def list_sessions(request: Request):
     """List all active sessions."""
     store = _get_session_store(request)
     return await admin_ops.list_sessions(store)
 
 
 @router.get("/sessions/email/{email}")
-async def list_sessions_by_email(
-    request: Request,
-    email: str,
-    _admin: dict = Depends(require_admin_api),
-):
+async def list_sessions_by_email(request: Request, email: str):
     """List sessions for a specific user email."""
     store = _get_session_store(request)
     return await admin_ops.list_sessions_by_email(store, email)
 
 
 @router.delete("/sessions/id/{session_id}", response_model=RevokeSessionResponse)
-async def revoke_session(
-    request: Request,
-    session_id: str,
-    _admin: dict = Depends(require_admin_api),
-):
+async def revoke_session(request: Request, session_id: str):
     """Revoke a single session by ID."""
     store = _get_session_store(request)
     revoked = await admin_ops.revoke_session(store, session_id)
@@ -244,11 +219,7 @@ async def revoke_session(
 
 
 @router.delete("/sessions/email/{email}", response_model=RevokeByEmailResponse)
-async def revoke_sessions_by_email(
-    request: Request,
-    email: str,
-    _admin: dict = Depends(require_admin_api),
-):
+async def revoke_sessions_by_email(request: Request, email: str):
     """Revoke all sessions for a user email."""
     store = _get_session_store(request)
     count = await admin_ops.revoke_sessions_by_email(store, email)

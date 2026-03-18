@@ -7,11 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from dockmaster.auth.dependencies import get_current_user
+from dockmaster.auth.dependencies import allow_jwt
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter(tags=["permissions"])
+router = APIRouter(
+    tags=["authenticated"],
+    dependencies=[Depends(allow_jwt)],
+)
 
 
 async def _check_permission(request: Request, subject: str, target: str, permission: str) -> Response:
@@ -41,7 +44,6 @@ async def has_permission_path(
     subject: str,
     target: str,
     permission: str,
-    _user: dict = Depends(get_current_user),
 ) -> Response:
     """Check permission via path parameters."""
     return await _check_permission(request, subject, target, permission)
@@ -53,7 +55,6 @@ async def has_permission_query(
     subject: str,
     target: str,
     permission: str,
-    _user: dict = Depends(get_current_user),
 ) -> Response:
     """Check permission via query parameters."""
     return await _check_permission(request, subject, target, permission)
@@ -70,7 +71,6 @@ async def get_grants(
     request: Request,
     subject: str,
     target: str,
-    _user: dict = Depends(get_current_user),
 ) -> GrantsResponse:
     """Return all resolved permissions for a subject on a target service.
 

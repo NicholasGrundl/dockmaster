@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from dockmaster.auth.admin import _is_admin
-from dockmaster.auth.dependencies import get_session_data
-from dockmaster.config import Settings
+from dockmaster.auth.dependencies import check_permission, resolve_session
+from dockmaster.config import Settings, get_settings
 from dockmaster.ui.config import UIConfig
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -34,8 +34,10 @@ protected_router = APIRouter(tags=["ui"])
 
 async def _get_session_user(request: Request) -> dict | None:
     """Extract user data from session cookie. Returns None if not authenticated."""
-    settings: Settings = request.app.state.settings
-    return await get_session_data(request, settings)
+    settings = request.app.state.settings
+    store = getattr(request.app.state, "session_store", None)
+    cookie = request.cookies.get("session_id")
+    return await resolve_session(cookie, store, settings.session_secret_key)
 
 
 async def require_ui_session(request: Request) -> dict:
@@ -84,6 +86,7 @@ async def login_page(request: Request):
 @protected_router.get("/", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
     user: dict = Depends(require_ui_session),
 ):
     """Admin dashboard — user's sessions, service status."""
@@ -104,9 +107,10 @@ async def dashboard(
     }
 
     # Check admin status for nav links
-    settings: Settings = request.app.state.settings
     authority = getattr(request.app.state, "authority", None)
-    admin = await _is_admin(user.get("email", ""), authority, settings.dockmaster_admin_emails)
+    admin = await check_permission(
+        user.get("email", ""), "dockmaster", "admin", authority, settings.dockmaster_admin_emails
+    )
 
     return templates.TemplateResponse(
         request,

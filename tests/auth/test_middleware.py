@@ -1,7 +1,7 @@
-"""Tests for get_current_user auth dependency."""
+"""Tests for allow_jwt auth dependency (via /auth/claims endpoint)."""
 
 
-class TestGetCurrentUser:
+class TestAllowJwt:
     def test_valid_token_returns_claims(self, auth_client, valid_token):
         response = auth_client.get("/auth/claims", headers={"Authorization": f"Bearer {valid_token}"})
         assert response.status_code == 200

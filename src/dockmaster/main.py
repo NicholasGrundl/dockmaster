@@ -20,7 +20,7 @@ from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
 from dockmaster.auth.auth_code import AuthCodeStore
 from dockmaster.auth.ttl_store import TTLStore
 from dockmaster.auth.oauth import create_oauth
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings, create_settings
 from dockmaster.logging import setup_logging
 from dockmaster.routes.claims import router as claims_router
 from dockmaster.routes.exchange import router as exchange_router
@@ -194,26 +194,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("shutting down")
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """Create and configure the FastAPI application."""
-    if settings is None:
-        settings = get_settings()
-    application = FastAPI(
-        title="Dockmaster",
-        version="0.1.0",
-        description="Auth microservice for fine-grained RBAC via Google services",
-        lifespan=lifespan,
-        docs_url="/docs" if settings.enable_docs else None,
-        redoc_url="/redoc" if settings.enable_docs else None,
-        openapi_url="/openapi.json" if settings.enable_docs else None,
-    )
-    application.state.settings = settings
+def setup_middleware(app: FastAPI, settings: Settings) -> None:
+    """Configure all application middleware.
+
+    Order matters — Starlette executes middleware in reverse-add order
+    (last added runs first on the request path).
+    """
     # Security headers — safe defaults regardless of reverse proxy config
     if settings.security_headers:
-        application.add_middleware(SecurityHeadersMiddleware)
+        app.add_middleware(SecurityHeadersMiddleware)
     # CORS — allow configured origins for SPA cross-origin access
     if settings.allowed_origins:
-        application.add_middleware(
+        app.add_middleware(
             CORSMiddleware,
             allow_origins=sorted(settings.allowed_origins),
             allow_methods=["GET", "POST"],
@@ -226,7 +218,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Both cookies are signed with session_secret_key. The Starlette session cookie may
     # be removable now that OAuth CSRF state is managed by TTLStore (see S-005/S-012),
     # but requires verifying Authlib doesn't use it during token exchange.
-    application.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
+    app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Create and configure the FastAPI application."""
+    if settings is None:
+        settings = create_settings()
+    application = FastAPI(
+        title="Dockmaster",
+        version="0.1.0",
+        description="Auth microservice for fine-grained RBAC via Google services",
+        lifespan=lifespan,
+        docs_url="/docs" if settings.enable_docs else None,
+        redoc_url="/redoc" if settings.enable_docs else None,
+        openapi_url="/openapi.json" if settings.enable_docs else None,
+    )
+    application.state.settings = settings
+    setup_middleware(application, settings)
     application.include_router(health_router, prefix="/auth")
     application.include_router(keys_router, prefix="/auth")
     application.include_router(claims_router, prefix="/auth")

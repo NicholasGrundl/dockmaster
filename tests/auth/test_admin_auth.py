@@ -17,16 +17,16 @@ from dockmaster.config import Settings
 class TestIsAdmin:
     @pytest.fixture(autouse=True)
     def _import(self):
-        from dockmaster.auth.admin import _is_admin
+        from dockmaster.auth.dependencies import check_permission
 
-        self._is_admin = _is_admin
+        self._is_admin = check_permission
 
     @pytest.mark.anyio
     async def test_rbac_admin_grants_access(self, mocker):
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = True
 
-        result = await self._is_admin("admin@co.com", authority, set())
+        result = await self._is_admin("admin@co.com", "dockmaster", "admin", authority, set())
         assert result is True
         authority.has_permission.assert_called_once_with("admin@co.com", "dockmaster", "admin")
 
@@ -35,7 +35,7 @@ class TestIsAdmin:
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
-        result = await self._is_admin("admin@co.com", authority, {"admin@co.com"})
+        result = await self._is_admin("admin@co.com", "dockmaster", "admin", authority, {"admin@co.com"})
         assert result is True
 
     @pytest.mark.anyio
@@ -43,7 +43,7 @@ class TestIsAdmin:
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
-        result = await self._is_admin("nobody@co.com", authority, set())
+        result = await self._is_admin("nobody@co.com", "dockmaster", "admin", authority, set())
         assert result is False
 
     @pytest.mark.anyio
@@ -51,17 +51,17 @@ class TestIsAdmin:
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
-        result = await self._is_admin("nobody@co.com", authority, {"admin@co.com"})
+        result = await self._is_admin("nobody@co.com", "dockmaster", "admin", authority, {"admin@co.com"})
         assert result is False
 
     @pytest.mark.anyio
     async def test_no_authority_uses_whitelist_only(self):
-        result = await self._is_admin("admin@co.com", None, {"admin@co.com"})
+        result = await self._is_admin("admin@co.com", "dockmaster", "admin", None, {"admin@co.com"})
         assert result is True
 
     @pytest.mark.anyio
     async def test_no_authority_no_whitelist_denied(self):
-        result = await self._is_admin("admin@co.com", None, set())
+        result = await self._is_admin("admin@co.com", "dockmaster", "admin", None, set())
         assert result is False
 
 
@@ -81,7 +81,7 @@ def _admin_app(
     admin_storage: object | None = _SENTINEL,
 ) -> FastAPI:
     """Build a minimal app with admin-protected routes for testing."""
-    from dockmaster.auth.admin import require_admin_api, require_admin_writes
+    from dockmaster.auth.dependencies import allow_jwt_admin, needs_admin_storage
 
     app = FastAPI()
 
@@ -93,13 +93,13 @@ def _admin_app(
     app.state.admin_storage = mocker.MagicMock() if admin_storage is _SENTINEL else admin_storage
 
     @app.get("/admin/test-read")
-    async def admin_read(admin: dict = Depends(require_admin_api)):
+    async def admin_read(admin: dict = Depends(allow_jwt_admin)):
         return {"status": "ok", "email": admin["email"]}
 
     @app.get("/admin/test-write")
     async def admin_write(
-        admin: dict = Depends(require_admin_api),
-        _: None = Depends(require_admin_writes),
+        admin: dict = Depends(allow_jwt_admin),
+        _: None = Depends(needs_admin_storage),
     ):
         return {"status": "ok"}
 
@@ -107,14 +107,14 @@ def _admin_app(
 
 
 def _override_jwt_user(app: FastAPI, email: str) -> None:
-    """Override get_current_user to return a user dict with the given email."""
-    from dockmaster.auth.dependencies import get_current_user
+    """Override allow_jwt to return a user dict with the given email."""
+    from dockmaster.auth.dependencies import allow_jwt
 
-    app.dependency_overrides[get_current_user] = lambda: {"email": email, "sub": email}
+    app.dependency_overrides[allow_jwt] = lambda: {"email": email, "sub": email}
 
 
 # ---------------------------------------------------------------------------
-# require_admin_api — JWT auth + admin check
+# allow_jwt_admin — JWT auth + admin check
 # ---------------------------------------------------------------------------
 
 
@@ -169,7 +169,7 @@ class TestRequireAdminApi:
 
 
 # ---------------------------------------------------------------------------
-# require_admin_writes — capability gate
+# needs_admin_storage — capability gate
 # ---------------------------------------------------------------------------
 
 

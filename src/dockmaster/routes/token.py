@@ -5,18 +5,20 @@ Dual auth: session cookie (browser) or Bearer JWT (CLI).
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import structlog
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from dockmaster.auth.dependencies import get_session_data
-from dockmaster.config import Settings
+from dockmaster.auth.dependencies import allow_jwt_or_session, get_session_or_jwt_email
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter(tags=["jwt"])
-_bearer = HTTPBearer(auto_error=False)
+router = APIRouter(
+    tags=["authenticated"],
+    dependencies=[Depends(allow_jwt_or_session)],
+)
 
 
 class TokenResponse(BaseModel):
@@ -26,51 +28,19 @@ class TokenResponse(BaseModel):
     refresh_token: None = None
 
 
-async def _email_from_session(request: Request, settings: Settings) -> str | None:
-    """Try to extract email from session cookie. Returns None if not authenticated."""
-    data = await get_session_data(request, settings)
-    if not data:
-        return None
-    return data.get("email")
-
-
-async def _email_from_bearer(request: Request) -> str | None:
-    """Try to extract email from Bearer JWT. Returns None if not authenticated."""
-    credentials: HTTPAuthorizationCredentials | None = await _bearer(request)
-    if credentials is None:
-        return None
-
-    realm = getattr(request.app.state, "realm", None)
-    if realm is None:
-        return None
-
-    try:
-        claims = realm.verify(credentials.credentials)
-        return claims.get("email")
-    except ValueError:
-        return None
-
-
 @router.post("/token", response_model=TokenResponse)
 async def issue_token(
     request: Request,
+    email: Annotated[str, Depends(get_session_or_jwt_email)],
 ) -> TokenResponse:
     """Issue a Type C JWT for a target service.
 
-    Auth: session cookie (browser) or Bearer JWT (CLI).
+    Auth: session cookie or Bearer JWT (verified by allow_jwt_or_session gate).
     Query params: service (required) — the target service audience.
     """
-    settings: Settings = request.app.state.settings
     token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Token issuer not configured")
-
-    # Dual auth: try session first, then Bearer
-    email = await _email_from_session(request, settings)
-    if email is None:
-        email = await _email_from_bearer(request)
-    if email is None:
-        raise HTTPException(status_code=401, detail="Not authenticated")
 
     # Require service param
     service = request.query_params.get("service")

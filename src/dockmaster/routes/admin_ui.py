@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from google.api_core.exceptions import NotFound
 
-from dockmaster.auth.admin import require_admin_ui, require_admin_writes
+from dockmaster.auth.dependencies import (
+    allow_session_admin,
+    get_session_user,
+    needs_admin_storage,
+)
 from dockmaster.rbac import admin_ops
 from dockmaster.rbac.admin_ops import RoleConflictError
 from dockmaster.rbac.models import Grant
 from dockmaster.routes.ui import _ui_config, templates
 
-router = APIRouter(tags=["admin-ui"])
+router = APIRouter(
+    tags=["admin-ui"],
+    dependencies=[Depends(allow_session_admin)],
+)
 
 
 def _can_write(request: Request) -> bool:
@@ -36,7 +45,7 @@ def _get_authority(request: Request):
 @router.get("/roles", response_class=HTMLResponse)
 async def roles_page(
     request: Request,
-    user: dict = Depends(require_admin_ui),
+    user: Annotated[dict, Depends(get_session_user)],
 ):
     """List all roles with inline create form."""
     storage = _get_admin_storage(request)
@@ -82,8 +91,7 @@ async def roles_page(
 @router.post("/roles", response_class=HTMLResponse)
 async def create_role_form(
     request: Request,
-    user: dict = Depends(require_admin_ui),
-    _: None = Depends(require_admin_writes),
+    _: Annotated[None, Depends(needs_admin_storage)],
     name: str = Form(...),
     permissions: str = Form(""),
 ):
@@ -105,8 +113,7 @@ async def create_role_form(
 async def update_role_form(
     request: Request,
     name: str,
-    user: dict = Depends(require_admin_ui),
-    _: None = Depends(require_admin_writes),
+    _: Annotated[None, Depends(needs_admin_storage)],
     permissions: str = Form(""),
 ):
     """Handle update role form submission."""
@@ -123,8 +130,7 @@ async def update_role_form(
 async def delete_role_form(
     request: Request,
     name: str,
-    user: dict = Depends(require_admin_ui),
-    _: None = Depends(require_admin_writes),
+    _: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Handle delete role form submission."""
     storage = _get_admin_storage(request)
@@ -146,7 +152,7 @@ async def delete_role_form(
 @router.get("/grants", response_class=HTMLResponse)
 async def grants_page(
     request: Request,
-    user: dict = Depends(require_admin_ui),
+    user: Annotated[dict, Depends(get_session_user)],
 ):
     """List all services with grants."""
     storage = _get_admin_storage(request)
@@ -176,8 +182,7 @@ async def grants_page(
 @router.post("/grants/new", response_class=HTMLResponse)
 async def create_service_grants_form(
     request: Request,
-    user: dict = Depends(require_admin_ui),
-    _: None = Depends(require_admin_writes),
+    _: Annotated[None, Depends(needs_admin_storage)],
     service: str = Form(...),
     subject: str = Form(...),
     roles: str = Form(""),
@@ -209,7 +214,7 @@ async def create_service_grants_form(
 async def grants_detail_page(
     request: Request,
     service: str,
-    user: dict = Depends(require_admin_ui),
+    user: Annotated[dict, Depends(get_session_user)],
 ):
     """View/edit grants for a specific service."""
     storage = _get_admin_storage(request)
@@ -243,8 +248,7 @@ async def grants_detail_page(
 async def update_grants_form(
     request: Request,
     service: str,
-    user: dict = Depends(require_admin_ui),
-    _: None = Depends(require_admin_writes),
+    _: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Handle grants form submission — parses subject/roles pairs from form data."""
     storage = _get_admin_storage(request)
@@ -279,8 +283,7 @@ async def update_grants_form(
 async def delete_grants_form(
     request: Request,
     service: str,
-    user: dict = Depends(require_admin_ui),
-    _: None = Depends(require_admin_writes),
+    _: Annotated[None, Depends(needs_admin_storage)],
 ):
     """Handle delete all grants for a service."""
     storage = _get_admin_storage(request)
@@ -306,7 +309,7 @@ def _get_session_store(request: Request):
 @router.get("/sessions", response_class=HTMLResponse)
 async def sessions_page(
     request: Request,
-    user: dict = Depends(require_admin_ui),
+    user: Annotated[dict, Depends(get_session_user)],
 ):
     """List all active sessions with revoke controls."""
     store = _get_session_store(request)
@@ -330,7 +333,6 @@ async def sessions_page(
 async def revoke_session_form(
     request: Request,
     session_id: str,
-    user: dict = Depends(require_admin_ui),
 ):
     """Handle revoke single session form submission."""
     store = _get_session_store(request)
@@ -347,7 +349,6 @@ async def revoke_session_form(
 @router.post("/sessions/revoke-by-email", response_class=HTMLResponse)
 async def revoke_sessions_by_email_form(
     request: Request,
-    user: dict = Depends(require_admin_ui),
     email: str = Form(...),
 ):
     """Handle revoke all sessions for an email form submission."""

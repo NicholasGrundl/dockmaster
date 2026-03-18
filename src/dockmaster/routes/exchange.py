@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import structlog
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from dockmaster.auth.token_validator import validate_access_token
-from dockmaster.config import Settings
+from dockmaster.auth.dependencies import (
+    GoogleAccessTokenCredential,
+    GoogleJWTCredential,
+    allow_google_credential,
+    get_google_claims,
+)
+from dockmaster.config import Settings, get_settings
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter(tags=["jwt"])
-_bearer = HTTPBearer(auto_error=False)
+router = APIRouter(
+    tags=["exchange"],
+    dependencies=[Depends(allow_google_credential)],
+)
 
 PROFILE_CLAIM_KEYS = ("name", "picture", "given_name", "family_name", "locale")
 
@@ -29,83 +37,43 @@ class ExchangeResponse(BaseModel):
 @router.post("/exchange", response_model=ExchangeResponse)
 async def exchange_token(
     request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    google_claims: Annotated[GoogleJWTCredential | GoogleAccessTokenCredential | None, Depends(get_google_claims)],
 ) -> ExchangeResponse:
-    """Exchange a Google JWT or access token for a dockmaster JWT."""
+    """Exchange a Google JWT or access token for a dockmaster JWT.
 
-    settings: Settings = request.app.state.settings
-
-    # --- Step 0: Ensure auth singletons are available ---
+    Auth: Google JWT or access token (verified by allow_google_credential gate).
+    The verified claims are injected via get_google_claims.
+    """
+    # --- Step 0: Ensure token issuer is available ---
     token_issuer = getattr(request.app.state, "token_issuer", None)
-    realm = getattr(request.app.state, "realm", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Auth service not configured")
 
-    # --- Step 1: Extract Bearer token ---
-    credentials: HTTPAuthorizationCredentials | None = await _bearer(request)
-    if credentials is None:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = credentials.credentials
-
-    # --- Step 2: Try JWT verification first ---
-    claims: dict | None = None
-    aud: str | None = None
-
-    if realm is not None:
-        try:
-            claims = realm.verify(token)
-            logger.debug("jwt_verification_success")
-        except ValueError as exc:
-            logger.debug("jwt_verification_failed", reason=str(exc))
-
-    if claims is not None:
-        # JWT path: check issuer and audience
-        iss = claims.get("iss", "")
-        if iss not in settings.authorized_issuers:
-            logger.warning("issuer_not_allowed", iss=iss)
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        token_aud = claims.get("aud", "")
-        if token_aud not in settings.authorized_audience:
-            logger.warning("audience_not_allowed", aud=token_aud)
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        aud = token_aud
-        email = claims.get("email")
-    else:
-        # --- Step 3: Fall back to access token validation ---
-        try:
-            claims = await validate_access_token(
-                token=token,
-                authorized_audiences=settings.authorized_audience,
-                tokeninfo_url=settings.access_token_endpoint,
-            )
-            logger.debug("access_token_validation_success")
-        except ValueError as exc:
-            raise HTTPException(status_code=401, detail="Not authenticated") from exc
-
-        email = claims.get("email")
-
-    # --- Step 4: Resolve service audience ---
-    service = request.query_params.get("service") or aud
-    if service is None:
-        raise HTTPException(
-            status_code=400,
-            detail="The service argument is required for access tokens",
-        )
-
-    # --- Step 5: Validate email and domain ---
+    email = google_claims.email
     if email is None:
         raise HTTPException(status_code=400, detail="The email claim is missing")
 
+    # --- Step 1: Resolve service audience ---
+    # JWT credentials carry the target service in aud; access tokens do not.
+    target_service = google_claims.target_service if isinstance(google_claims, GoogleJWTCredential) else None
+    service = request.query_params.get("service") or target_service
+    if service is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The service query parameter is required",
+        )
+
+    # --- Step 2: Validate email domain ---
     domain = email.partition("@")[2]
     if domain not in settings.authorized_domains:
         logger.warning("domain_not_allowed", domain=domain, email=email)
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # --- Step 6: Copy profile claims ---
-    profile_claims = {k: claims[k] for k in PROFILE_CLAIM_KEYS if k in claims}
+    # --- Step 3: Copy profile claims ---
+    profile_claims = {k: google_claims.raw_claims[k] for k in PROFILE_CLAIM_KEYS if k in google_claims.raw_claims}
 
-    # --- Step 7: Parse and cap expiry ---
+    # --- Step 4: Parse and cap expiry ---
     max_ttl = settings.max_token_ttl
     requested_expiry = int(request.query_params.get("expiry", "3600"))
     expiry = min(requested_expiry, max_ttl)
@@ -118,7 +86,7 @@ async def exchange_token(
             service=service,
         )
 
-    # --- Step 8: Sign Type C JWT (ephemeral-signed, iss="dockmaster") ---
+    # --- Step 5: Sign Type C JWT (ephemeral-signed, iss="dockmaster") ---
     dockmaster_token = token_issuer.sign(
         subject=email,
         audience=service,

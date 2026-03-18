@@ -1,6 +1,6 @@
 """Tests for dockmaster configuration."""
 
-from dockmaster.config import Settings, get_settings
+from dockmaster.config import Settings, create_settings
 
 
 class TestSettingsDefaults:
@@ -212,15 +212,15 @@ class TestPhase7Settings:
         assert settings.jwks_registry_path == "/tmp/jwks.json"
 
 
-class TestGetSettings:
-    """Test the get_settings() factory function."""
+class TestCreateSettings:
+    """Test the create_settings() factory function."""
 
-    def test_get_settings_returns_settings(self):
-        result = get_settings()
+    def test_create_settings_returns_settings(self):
+        result = create_settings()
         assert isinstance(result, Settings)
 
-    def test_get_settings_returns_fresh_instance(self):
-        first = get_settings()
-        second = get_settings()
+    def test_create_settings_returns_fresh_instance(self):
+        first = create_settings()
+        second = create_settings()
         assert first is not second
         assert first.log_level == second.log_level

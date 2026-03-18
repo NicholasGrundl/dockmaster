@@ -7,14 +7,15 @@ import uuid
 from urllib.parse import urlencode
 
 import structlog
-from fastapi import APIRouter, HTTPException, Request
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel
 
-from dockmaster.auth.dependencies import get_session_data
+from dockmaster.auth.dependencies import resolve_session
 from dockmaster.auth.ttl_store import TTLStore
-from dockmaster.config import Settings
+from dockmaster.config import Settings, get_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -56,6 +57,7 @@ def _validate_redirect_uri(uri: str | None, allowed_redirect_uris: set[str] | No
 @router.get("/login")
 async def login(
     request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
     redirect_uri: str | None = None,
 ):
     """Redirect to Google OAuth2 authorization endpoint.
@@ -66,8 +68,6 @@ async def login(
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
-
-    settings: Settings = request.app.state.settings
     validated_redirect = _validate_redirect_uri(redirect_uri, settings.allowed_redirect_uris)
 
     oauth_state_store: TTLStore[dict] = request.app.state.oauth_state_store
@@ -83,9 +83,11 @@ async def login(
 
 
 @router.get("/callback")
-async def callback(request: Request):
+async def callback(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+):
     """Handle Google OAuth2 callback — exchange code for tokens, create session."""
-    settings: Settings = request.app.state.settings
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
@@ -187,9 +189,11 @@ def _handle_cli_callback(request: Request, email: str, redirect_uri: str) -> Red
 
 
 @router.get("/logout")
-async def logout(request: Request):
+async def logout(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+):
     """Destroy session and clear cookie."""
-    settings: Settings = request.app.state.settings
     session_store = getattr(request.app.state, "session_store", None)
 
     # Try to read and delete the session
@@ -209,18 +213,26 @@ async def logout(request: Request):
 
 
 @router.get("/principal")
-async def get_principal(request: Request) -> dict:
+async def get_principal(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict:
     """Return current session profile, or {} if not authenticated."""
-    settings: Settings = request.app.state.settings
-    data = await get_session_data(request, settings)
+    store = getattr(request.app.state, "session_store", None)
+    cookie = request.cookies.get("session_id")
+    data = await resolve_session(cookie, store, settings.session_secret_key)
     return data or {}
 
 
 @router.get("/sessions")
-async def get_sessions(request: Request) -> dict:
+async def get_sessions(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict:
     """Return current user's active sessions, or {} if not authenticated."""
-    settings: Settings = request.app.state.settings
-    data = await get_session_data(request, settings)
+    store = getattr(request.app.state, "session_store", None)
+    cookie = request.cookies.get("session_id")
+    data = await resolve_session(cookie, store, settings.session_secret_key)
     if not data:
         return {}
 

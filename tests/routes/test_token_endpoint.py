@@ -161,9 +161,19 @@ class TestTokenEndpointErrors:
         response = token_client.post("/auth/token?service=billing")
         assert response.status_code == 401
 
-    def test_503_when_issuer_not_configured(self, app):
-        """Returns 503 when token_issuer is not available."""
+    def test_503_when_issuer_not_configured(self, app, token_settings):
+        """Returns 503 when token_issuer is not available.
+
+        Uses a valid session so the auth gate passes, but token_issuer=None
+        so the route's 503 check triggers.
+        """
+        app.state.settings = token_settings
+        session_store = InMemorySessionStore()
+        cookie = _create_session_cookie(session_store, token_settings)
         with TestClient(app) as client:
             app.state.token_issuer = None
+            app.state.session_store = session_store
+            client.cookies.set("session_id", cookie)
             response = client.post("/auth/token?service=billing")
         assert response.status_code == 503
+        assert "not configured" in response.json()["detail"]

@@ -106,11 +106,11 @@ class TestExchangeJWTPath:
                 headers={"Authorization": f"Bearer {token}"},
             )
 
-        assert response.status_code == 403
-        assert response.json()["detail"] == "Access denied"
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Not authenticated"
 
     def test_audience_not_allowed(self, app, signer, fake_realm, fake_sa_key_data):
-        """JWT with wrong audience -> 403."""
+        """JWT with wrong audience -> 401 (rejected by credential gate)."""
         settings = Settings(
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
@@ -124,8 +124,8 @@ class TestExchangeJWTPath:
                 headers={"Authorization": f"Bearer {token}"},
             )
 
-        assert response.status_code == 403
-        assert response.json()["detail"] == "Access denied"
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Not authenticated"
 
     def test_domain_not_allowed(self, app, signer, fake_realm, fake_sa_key_data):
         """JWT with unauthorized email domain -> 403."""
@@ -249,7 +249,7 @@ class TestExchangeAccessTokenPath:
         }
 
         mocker.patch(
-            "dockmaster.routes.exchange.validate_access_token",
+            "dockmaster.auth.dependencies.validate_access_token",
             new_callable=mocker.AsyncMock,
             return_value=tokeninfo_response,
         )
@@ -279,7 +279,7 @@ class TestExchangeAccessTokenPath:
         }
 
         mocker.patch(
-            "dockmaster.routes.exchange.validate_access_token",
+            "dockmaster.auth.dependencies.validate_access_token",
             new_callable=mocker.AsyncMock,
             return_value=tokeninfo_response,
         )
@@ -290,7 +290,7 @@ class TestExchangeAccessTokenPath:
             )
 
         assert response.status_code == 400
-        assert "service argument is required" in response.json()["detail"]
+        assert "service query parameter is required" in response.json()["detail"]
 
     def test_access_token_no_profile_claims(self, mocker, app, fake_realm, fake_sa_key_data):
         """Access token path has no profile claims in response."""
@@ -306,7 +306,7 @@ class TestExchangeAccessTokenPath:
         }
 
         mocker.patch(
-            "dockmaster.routes.exchange.validate_access_token",
+            "dockmaster.auth.dependencies.validate_access_token",
             new_callable=mocker.AsyncMock,
             return_value=tokeninfo_response,
         )
@@ -328,15 +328,20 @@ class TestExchangeErrors:
         response = exchange_client.post("/auth/exchange")
         assert response.status_code == 401
 
-    def test_503_when_token_issuer_not_configured(self, app, fake_realm, exchange_settings):
-        """Returns 503 when token_issuer is not available."""
+    def test_503_when_token_issuer_not_configured(self, app, signer, fake_realm, exchange_settings):
+        """Returns 503 when token_issuer is not available.
+
+        Uses a valid JWT so the auth gate passes, but token_issuer=None
+        so the route's 503 check triggers.
+        """
+        token = signer.sign(subject="user@example.com", audience="test-service")
         app.state.settings = exchange_settings
         with TestClient(app) as client:
             app.state.token_issuer = None
             app.state.realm = fake_realm
             response = client.post(
                 "/auth/exchange",
-                headers={"Authorization": "Bearer some-token"},
+                headers={"Authorization": f"Bearer {token}"},
             )
         assert response.status_code == 503
         assert "not configured" in response.json()["detail"]
@@ -350,7 +355,7 @@ class TestExchangeErrors:
         )
 
         mocker.patch(
-            "dockmaster.routes.exchange.validate_access_token",
+            "dockmaster.auth.dependencies.validate_access_token",
             new_callable=mocker.AsyncMock,
             side_effect=ValueError("Invalid access token"),
         )

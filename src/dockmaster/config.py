@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from starlette.requests import Request
+
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -95,6 +97,19 @@ class Settings(BaseSettings):
         return self
 
 
-def get_settings() -> Settings:
+def get_settings(request: Request) -> Settings:
+    """Read settings from app.state — FastAPI dependency bridge.
+
+    Used as ``Annotated[Settings, Depends(get_settings)]`` in route signatures.
+    The ``request`` parameter is injected by FastAPI automatically.
+
+    Source of truth is ``app.state.settings``, set once by ``create_app()``.
+    In tests, set ``app.state.settings = Settings(...)`` — no ``lru_cache``,
+    no ``dependency_overrides`` needed.
+    """
+    return request.app.state.settings
+
+
+def create_settings() -> Settings:
     """Create a Settings instance from environment variables / .env file."""
     return Settings()
