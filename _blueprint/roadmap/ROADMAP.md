@@ -10,7 +10,7 @@ is done, in progress, and planned.
 - Backlogged ideas and draft specs live in [`feature-backlog.md`](./feature-backlog.md)
 - Architecture decisions in [`decision-log.md`](./decision-log.md)
 
-*Last updated: 2026-03-13*
+*Last updated: 2026-03-18*
 
 ---
 
@@ -25,17 +25,17 @@ Phase 5: RBAC ........................................ ✅ COMPLETE
 Phase 6: RBAC Management (endpoints + admin UI) ...... ✅ COMPLETE
 Phase 6b: Session Revocation ......................... ✅ COMPLETE
 Phase 6c: CLI + OAuth Login Flow ..................... ✅ COMPLETE
-Phase 7: Redirect URI + Ephemeral Keypair ............ PLANNED (next)
-Phase 8a: Security Audit ............................ PLANNED
-Phase 8b: Code Quality Review ....................... PLANNED
-Phase 8c: Deployment Readiness ...................... PLANNED
-Phase 8d: Test Audit ................................ PLANNED
-Phase 8e: Auth Dependency Conventions ............... PLANNED
-Phase 9: Deployment + GCP Cleanup .................... PLANNED
+Phase 7: Redirect URI + Ephemeral Keypair ............ ✅ COMPLETE
+Phase 8a: Security Audit ............................. ✅ COMPLETE
+Phase 8b: Code Quality Review ........................ ✅ COMPLETE
+Phase 8c: Deployment Readiness ....................... ✅ COMPLETE
+Phase 8d: Test Audit ................................. ✅ COMPLETE
+Phase 8e: Auth Dependency Conventions ................ ✅ COMPLETE
+Phase 9: Deployment + GCP Cleanup .................... PLANNED (next)
 Phase 10: UI Tests ................................... PLANNED
 ```
 
-**Test count**: 301 tests (as of Phase 6c completion)
+**Test count**: 412 tests (as of Phase 8e completion)
 
 ---
 
@@ -175,111 +175,86 @@ Phase 10: UI Tests ................................... PLANNED
 
 ---
 
-## Phase 7: Redirect URI + Ephemeral Keypair — PLANNED (next)
+## Phase 7: Redirect URI + Ephemeral Keypair — ✅ COMPLETE
 
 > Two related enhancements: (1) full redirect URI system for external services to use dockmaster as identity broker, (2) ephemeral RS256 keypair for dockmaster-issued JWTs with JWKS endpoint.
 
-**Spec**: To be created during Phase 7 planning
+**Spec**: [`archive/features/[completed] implementation-phase7-ephemeral-keypair-redirect.md`](../archive/features/[completed]%20implementation-phase7-ephemeral-keypair-redirect.md)
 
-**Context:**
-- Phase 6c built localhost-only redirect URI support. Phase 7 extends this to allowlisted external service redirect URIs.
-- Currently dockmaster signs JWTs with a GCP SA key from disk. Ephemeral in-memory keypair + JWKS endpoint decouples signing identity from GCP infrastructure identity.
-- These two features are planned together because the keypair design affects how redirect callbacks deliver tokens, and both are prerequisites for dockmaster acting as a full identity provider.
-
-**Research doc**: [`features/research-phase7-rsa256-keypair.md`](../features/research-phase7-rsa256-keypair.md)
-
-**Deliverables (tentative — needs planning):**
-- Per-service redirect URI allowlist (Settings or SM-based)
-- External redirect callback with token delivery (query param, fragment, or POST)
-- Ephemeral RS256 key manager (in-memory private key, rotated on restart)
-- `/.well-known/jwks.json` endpoint serving public keys
-- Dockmaster-issued JWT signing with ephemeral key (replaces GCP SA key for user tokens)
-- `token` CLI command (deferred from Phase 6c)
+**Deliverables:**
+- Per-service redirect URI allowlist (`ALLOWED_REDIRECT_URIS` setting)
+- External redirect callback with auth code flow (code + state params)
+- `EphemeralKeypairSigner` — in-memory RS256 keypair, rotated on restart
+- `EphemeralKeyCache` with JWKS registry persistence
+- `GET /auth/keys` endpoint serving public keys
+- `POST /auth/token` — issue Type C JWT for a target service (session or Bearer auth)
+- `POST /auth/code/exchange` — exchange auth code for JWT
+- `token` CLI command
 
 **Dependencies:** Phase 6c complete
 
 ---
 
-## Phase 8a: Security Audit — PLANNED
+## Phase 8a: Security Audit — ✅ COMPLETE
 
-> Comprehensive security audit: endpoint inventory, auth DAG, information leakage, boundary analysis.
+> Security audit + implementation of all 14 findings.
 
-**Spec**: [`features/implementation-phase8a-security-audit.md`](../features/implementation-phase8a-security-audit.md)
+**Spec**: [`archive/features/[completed] implementation-phase8a-security-audit.md`](../archive/features/[completed]%20implementation-phase8a-security-audit.md)
 
 **Deliverables:**
-- Complete endpoint inventory table (all routes from Phases 1–7)
-- Unified Mermaid DAG of all auth decision paths
-- Information leakage audit (OpenAPI docs, error responses, headers, cookies)
-- Auth boundary analysis (JWT, session, admin, auth code flow)
-- Gap analysis with risk ratings — audit + document only, no code changes
+- 14 security findings identified and implemented (S-001 through S-014)
+- SecurityHeadersMiddleware (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
+- Generic error messages for auth failures (no internal leakage)
+- OAuth CSRF state management via TTLStore
+- Removed Google refresh token endpoint
+- Auth code flow with redirect URI validation
 
 **Dependencies:** Phase 7 complete
 
 ---
 
-## Phase 8b: Code Quality Review — PLANNED
+## Phase 8b: Code Quality Review — ✅ COMPLETE
 
 > Naming, vocab, FastAPI patterns, docstrings, and API surface consistency audit.
 
-**Spec**: [`features/implementation-phase8b-code-quality.md`](../features/implementation-phase8b-code-quality.md)
-
-**Deliverables:**
-- FastAPI pattern catalog (DI, middleware, error handling, response models) with best-practice comparison
-- Naming/vocab audit across auth modules, routes, and models
-- Docstring coverage and quality review
-- API surface consistency review (response formats, status codes, parameter conventions)
-- Optional Pass 2: interactive refactoring planning with user
+**Spec**: [`archive/features/[completed] implementation-phase8b-code-quality.md`](../archive/features/[completed]%20implementation-phase8b-code-quality.md)
 
 **Dependencies:** Phase 8a complete
 
 ---
 
-## Phase 8c: Deployment Readiness — PLANNED
+## Phase 8c: Deployment Readiness — ✅ COMPLETE
 
 > Audit app for deployment blockers. Plan Caddy + Docker Compose integration for existing DO stack.
 
-**Spec**: [`features/implementation-phase8c-deployment-readiness.md`](../features/implementation-phase8c-deployment-readiness.md)
-
-**Deliverables:**
-- Deployment context interview (existing DO/Docker Compose/Caddy stack)
-- Application readiness audit (env vars, hardcoded values, proxy headers, OAuth redirect URIs)
-- Caddy integration plan (routing, headers, TLS, rate limiting)
-- Docker Compose integration plan (service definition, networking, secrets)
-- GCP credential strategy for production
-- Deployment blockers list with severity ratings
+**Spec**: [`archive/features/[completed] implementation-phase8c-deployment-readiness.md`](../archive/features/[completed]%20implementation-phase8c-deployment-readiness.md)
 
 **Dependencies:** Phase 8a, 8b complete
 
 ---
 
-## Phase 8d: Test Audit — PLANNED
+## Phase 8d: Test Audit — ✅ COMPLETE
 
 > Audit test suite coverage, organization, patterns, and markers against pytest best practices.
 
-**Spec**: [`features/implementation-phase8d-test-audit.md`](../features/implementation-phase8d-test-audit.md)
-
-**Deliverables:**
-- Coverage report with per-module breakdown and gap analysis
-- Organization review (flat vs nested, conftest structure, fixture management)
-- Pattern review (functions vs classes, fixtures, mocking, parameterization)
-- Marker strategy review (integration, slow, smoke, custom markers)
-- Findings with impact ratings and effort estimates
+**Spec**: [`archive/features/[completed] implementation-phase8d-test-audit.md`](../archive/features/[completed]%20implementation-phase8d-test-audit.md)
 
 **Dependencies:** Phase 8a–8c complete
 
 ---
 
-## Phase 8e: App Architecture Conventions — PLANNED
+## Phase 8e: App Architecture Conventions — ✅ COMPLETE
 
 > Standardize three cross-cutting concerns: auth dependency conventions,
 > middleware organization, and settings injection.
 
-**Spec**: [`features/implementation-phase8e-auth-conventions.md`](../features/implementation-phase8e-auth-conventions.md)
+**Spec**: [`archive/features/[completed] implementation-phase8e-auth-conventions.md`](../archive/features/[completed]%20implementation-phase8e-auth-conventions.md)
 
 **Deliverables:**
-- **Pillar 1 — Auth conventions**: `allow_jwt`, `allow_session`, `allow_jwt_or_session`, `allow_google_credential`, `allow_jwt_admin`, `allow_session_admin` gates in `auth/dependencies.py`. `require_permission(service, permission)` RBAC factory. `needs_admin_storage` system capability check. Router-level `dependencies=[...]` on all non-public routers. `auth/admin.py` removed.
-- **Pillar 2 — Middleware consolidation**: `setup_middleware(app, settings)` helper in `main.py`. Middleware classes/constants in `middleware.py`.
+- **Pillar 1 — Auth conventions**: Two-layer design (pure utilities + FastAPI dependencies). 6 auth gates, 4 info deps, 2 system checks in `auth/dependencies.py`. Typed credential models (`GoogleJWTCredential`, `GoogleAccessTokenCredential`). Router-level `dependencies=[...]` on all non-public routers. `auth/admin.py` removed.
+- **Pillar 2 — Middleware consolidation**: `setup_middleware(app, settings)` helper in `main.py`.
 - **Pillar 3 — Settings DI bridge**: `get_settings(request)` bridge in `config.py`. All routes use `Annotated[Settings, Depends(get_settings)]`.
+- **App state bridges**: `state.py` module with `get_admin_storage`, `get_authority`, `get_session_store` bridge dependencies. Admin routes use `Annotated[X, Depends(...)]` instead of local helpers.
 
 ---
 

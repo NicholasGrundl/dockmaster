@@ -1,27 +1,35 @@
 # Implementation Alignment Report
 
 *Generated: 2026-03-16*
-*Last updated: 2026-03-17 (user notes)*
+*Last updated: 2026-03-18*
 *Purpose: Identify inconsistencies between blueprint docs and actual implementation state.*
 
 ---
 
-## ToDo Items
+## Resolved Items
 
-1. some routes still have helpers etc.
-- use our new <pattern> consistently
+1. ~~Routes had local `_get_*` helpers instead of using dependencies~~ — DONE (2026-03-18)
+   - Created `state.py` with bridge dependencies (`get_admin_storage`, `get_authority`, `get_session_store`)
+   - Migrated `admin.py` and `admin_ui.py` to `Annotated[X, Depends(...)]` params
+   - Only `_admin_writes_enabled` remains as a local helper (template rendering hint, not a dependency)
 
+## Established Pattern
 
-<pattern>
-allow gaets are at the router level
+```
+allow_* gates are at the router level via dependencies=[...]
 
-individual routes with permission or additional requirements use require gates
+individual routes with permission or additional requirements use needs_* gates
 
 routes that need information the allow or require gate returns should:
-- add an information only Dependency chain to dependencies
-- call it on the route specifically
-- this makes the Depends information tree easy to follow (even if it duplicates some code form allow gates)
+- add an information-only dependency to auth/dependencies.py (get_*)
+- call it on the route specifically via Annotated[X, Depends(get_*)]
+- this makes the Depends tree easy to follow (even if it duplicates some code from allow gates)
 
-route moduyles should ideally not make helpers if possible
-- use existing dependencies etc.
-</pattern>
+route modules should not make helpers for app.state access
+- use state.py bridges as Annotated[X, Depends(...)] dependencies
+- only use local helpers for route-specific logic (template rendering, form parsing, etc.)
+```
+
+## ToDo Items
+
+None currently — all alignment items resolved.
