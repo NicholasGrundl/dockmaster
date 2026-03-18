@@ -10,22 +10,34 @@ This guide explores the Symmetric Cryptographic Architecture of Dockmaster, plac
 
 ## 1. The Symmetric Cryptographic Architecture
 
-At the heart of the system are two classes that mirror each other: the `ServiceUser` (Producer) and the `ServiceRealm` (Consumer). 
-They communicate via an asymmetric key pair (RSA-256).
+At the heart of the system are two signer classes and a verifier, communicating via asymmetric key pairs (RS256).
+
+Dockmaster uses **two distinct signing strategies**:
+- **`ServiceAccountSigner`** — signs with a GCP service account private key (persistent, loaded from a JSON key file). Used for service-to-service auth (Type A tokens).
+- **`EphemeralKeypairSigner`** — signs with a self-generated RSA keypair that lives only in memory (Type C tokens). Used for user identity tokens issued after OAuth login, CLI login, or token exchange.
 
 ### Class Diagram: The Core Interface
 
 ```mermaid
 classDiagram
-    class ServiceUser {
-        <<Producer>>
+    class ServiceAccountSigner {
+        <<Producer - Type A>>
         -str _private_key
         +str private_key_id
         +str client_email
-        +get_token(subject, service_name, payload) str
+        +sign(subject, audience, expiry, payload) str
         +get_authorization(...) str
     }
-    
+
+    class EphemeralKeypairSigner {
+        <<Producer - Type C>>
+        -RSAPrivateKey _private_key
+        +str current_kid
+        +int default_ttl
+        +sign(subject, audience, ttl, extra_claims) str
+        +current_public_jwk dict
+    }
+
     class ServiceRealm {
         <<Consumer>>
         -KeyCacheLike key_cache
@@ -33,26 +45,30 @@ classDiagram
         -_verify_with_kid(token, kid)
         -_verify_without_kid(token)
     }
-    
+
     class KeyCacheLike {
         <<Protocol>>
         +get_key(kid) str
         +get_all_keys() dict
     }
-    
+
     ServiceRealm --> KeyCacheLike : Requests Public Keys
-    ServiceUser ..> ServiceRealm : Signs tokens verified by
+    ServiceAccountSigner ..> ServiceRealm : Type A tokens verified by
+    EphemeralKeypairSigner ..> ServiceRealm : Type C tokens verified by
 ```
 
-### Side-by-Side: Producer vs Consumer
+### Side-by-Side: Producers vs Consumer
 
-#### The Producer: `ServiceUser`
-The `ServiceUser` is instantiated at boot with a **GCP Service Account JSON file**. 
-During `__init__`, it parses this file exactly once, storing the `_private_key` string. Cryptographic parsing is CPU intensive, so doing it once at startup allows `get_token()` to be extremely fast.
+#### Producer 1: `ServiceAccountSigner` (Type A — Service-to-Service)
+The `ServiceAccountSigner` is instantiated at boot with a **GCP Service Account JSON file**.
+During `__init__`, it parses this file exactly once, storing the `_private_key` string. Cryptographic parsing is CPU intensive, so doing it once at startup allows `sign()` to be extremely fast.
+
+#### Producer 2: `EphemeralKeypairSigner` (Type C — User Identity)
+The `EphemeralKeypairSigner` generates a fresh 2048-bit RSA keypair at construction. The private key lives only in memory — never written to disk. Each instance gets a unique `kid` (e.g., `dk-2026-03-18-a1b2c3d4`), and the public key is served at `/auth/key/{kid}` for decentralized verification by consuming services.
 
 **The Semantic Claims:**
 When signing a token, Dockmaster injects specific claims:
-- `iss`: Issuer. The service account email.
+- `iss`: Issuer. For Type A: the service account email. For Type C: `"dockmaster"`.
 - `sub`: Subject. The identity of the caller.
 - `aud`: Audience. Who this token is meant for.
 - `iat` / `exp`: Issued At and Expiration. Time-bounds the token to prevent replay attacks.
@@ -164,15 +180,15 @@ If you are writing a Python service (like `Nanobot`) that needs to fetch data fr
 
 ```python
 import requests
-from dockmaster.auth.jwt_signer import ServiceUser
+from dockmaster.auth.jwt_signers import ServiceAccountSigner
 
 # 1. Initialize your local signer with your service account
-signer = ServiceUser("path/to/nanobot-sa.json")
+signer = ServiceAccountSigner("path/to/nanobot-sa.json")
 
 # 2. Generate a bearer token meant for Dockmaster
 auth_header = signer.get_authorization(
     subject="nanobot@project.iam.gserviceaccount.com",
-    service_name="dockmaster"
+    audience="dockmaster"
 )
 
 # 3. Make the API Call

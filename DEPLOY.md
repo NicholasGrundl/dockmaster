@@ -15,13 +15,15 @@ The Dockerfile uses a multi-stage build:
 ### Run Locally
 
 ```bash
-docker run --rm -p 8001:8001 --env-file .env dockmaster:latest
+docker run --rm -p 8001:8001 --env-file .env \
+  -v ./secrets:/secrets:ro \
+  dockmaster:latest
 ```
 
 ### Health Check
 
 ```
-GET /auth/health → {"service": "dockmaster", "status": "ok"}
+GET http://localhost:8001/auth/health → {"service": "dockmaster", "status": "ok"}
 ```
 
 ---
@@ -34,23 +36,42 @@ GET /auth/health → {"service": "dockmaster", "status": "ok"}
 |---|---|---|
 | `CLIENT_ID` | Google OAuth2 client ID | `109370...-p2e82hp5cv....apps.googleusercontent.com` |
 | `CLIENT_SECRET` | Google OAuth2 client secret | `GOCSPX-...` |
-| `ISSUER` | Path to GCP service account JSON key file (signs JWTs) | `/etc/secrets/identity.json` |
-| `SECRETS_PROJECT` | GCP project ID for Secret Manager (RBAC storage) | `shipyard-auth-2022` |
-| `AUTHORIZED_ISSUERS` | Comma-separated trusted JWT issuers | `https://accounts.google.com,dock-master@project.iam.gserviceaccount.com` |
-| `AUTHORIZED_DOMAINS` | Comma-separated allowed email domains | `shipyard.com` |
-| `AUTHORIZED_AUDIENCE` | Comma-separated allowed JWT audience values | `109370...-p2e82hp5cv....apps.googleusercontent.com` |
+| `SA_KEY_FILE` | Path to GCP service account JSON key file (JWT signing, SM reads) | `/etc/secrets/sa-key.json` |
+| `SECRETS_PROJECT` | GCP project ID for Secret Manager (RBAC storage) | `your-gcp-project` |
+| `AUTHORIZED_ISSUERS` | Comma-separated trusted JWT issuers | `https://accounts.google.com,dockmaster` |
+| `AUTHORIZED_DOMAINS` | Comma-separated allowed email domains | `example.com` |
+| `SESSION_SECRET_KEY` | Secret key for signing session cookies (no default — app won't start without it) | A random 64-character string |
 
 ### Optional (Service)
 
 | Variable | Default | Description |
 |---|---|---|
-| `DEFAULT_CLIENT_ID` | None | Default Google OAuth2 client ID for `/refresh` when not specified in request |
+| `AUTHORIZED_AUDIENCE` | `""` | Comma-separated allowed JWT audience values |
 | `CLIENT_ID_SUFFIX` | `.apps.googleusercontent.com` | Suffix appended to short-form client IDs |
 | `LOG_LEVEL` | `INFO` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `ENABLE_DOCS` | `false` | Enable FastAPI `/docs` and `/openapi.json` endpoints |
 | `REDIS_URL` | None | Redis connection URL for session storage (e.g., `redis://redis:6379`) |
-| `ACCESS_TOKEN_ENDPOINT` | `https://www.googleapis.com/oauth2/v1/tokeninfo` | Google token info endpoint |
-| `REFRESH_TOKEN_ENDPOINT` | `https://www.googleapis.com/oauth2/v4/token` | Google token refresh endpoint |
+| `SESSION_TTL` | `3600` | Session TTL in seconds |
+| `ACCESS_TOKEN_ENDPOINT` | `https://oauth2.googleapis.com/tokeninfo` | Google token info endpoint |
 | `USERINFO_ENDPOINT` | `https://www.googleapis.com/oauth2/v3/userinfo` | Google userinfo endpoint |
+
+### Admin Operations
+
+| Variable | Default | Description |
+|---|---|---|
+| `ADMIN_SA_KEY_FILE` | None | Path to admin SA key file (RBAC write operations) |
+| `DOCKMASTER_ADMIN_EMAILS` | `""` | Comma-separated admin email allowlist |
+
+### Dockmaster Token Issuance
+
+| Variable | Default | Description |
+|---|---|---|
+| `DOCKMASTER_TOKEN_TTL` | `900` | Token TTL in seconds |
+| `MAX_TOKEN_TTL` | `3600` | Maximum allowed token TTL |
+| `ALLOWED_REDIRECT_URIS` | `""` | Comma-separated allowed OAuth redirect URIs |
+| `ALLOWED_ORIGINS` | `""` | Comma-separated allowed CORS origins |
+| `JWKS_REGISTRY_PATH` | platformdirs path | Override to persistent Docker volume path |
+| `RBAC_CACHE_TTL` | `300` | RBAC cache TTL in seconds |
 
 ### GCP Authentication
 
@@ -99,19 +120,12 @@ services:
 
   auth:
     build: .
-    environment:
-      - ISSUER=/etc/secrets/identity.json
-      - SECRETS_PROJECT=shipyard-auth-2022
-      - AUTHORIZED_ISSUERS=https://accounts.google.com
-      - AUTHORIZED_DOMAINS=shipyard.com
-      - AUTHORIZED_AUDIENCE=${AUTHORIZED_AUDIENCE}
-      - DEFAULT_CLIENT_ID=${DEFAULT_CLIENT_ID}
-      - CLIENT_ID=${CLIENT_ID}
-      - CLIENT_SECRET=${CLIENT_SECRET}
-      - REDIS_URL=redis://redis:6379
-      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8001:8001"
     volumes:
-      - ./secrets/identity.json:/etc/secrets/identity.json:ro
+      - ./secrets:/secrets:ro
     depends_on:
       - redis
 
@@ -129,7 +143,7 @@ volumes:
 
 ```
 auth.your-domain.com {
-    reverse_proxy auth:8001
+    reverse_proxy 127.0.0.1:8001
 }
 ```
 

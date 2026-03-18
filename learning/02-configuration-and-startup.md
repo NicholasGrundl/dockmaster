@@ -82,43 +82,30 @@ def test_comma_separated_from_env(monkeypatch):
     assert settings.authorized_issuers == {"x", "y", "z"}
 ```
 
-### Strategy 2: Dependency Overrides (Testing Routes)
-When testing *routes* (like `/auth/login`), we don't want to parse `.env` files or touch the OS at all. We want to inject a perfectly mocked `Settings` object directly into FastAPI.
+### Strategy 2: `app.state.settings` (Testing Routes)
+When testing *routes* (like `/auth/login`), we don't want to parse `.env` files or touch the OS at all. We want to inject a perfectly controlled `Settings` object directly into the FastAPI app.
 
-To do this, we rely on FastAPI's `dependency_overrides`. But first, we must understand the caching mechanism.
-
-#### The LRU Cache
-In `config.py`, we instantiate settings via a cached function:
-```python
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-```
-**Performance Logic:** Parsing strings and files is slow. `@lru_cache` ensures `Settings()` is instantiated exactly once. Every route using `Depends(get_settings)` gets the exact same cached object in memory.
-
-#### Overriding the Cache in Tests
-In `conftest.py`, we bypass this cache completely for tests:
+Dockmaster uses the **`app.state.settings`** pattern rather than `Depends(get_settings)` in route handlers. Settings are attached to `app.state` once during `create_app()`, and route handlers read them via `request.app.state.settings`.
 
 ```mermaid
 graph TD
     Test[Pytest Client] -->|HTTP Request| Router[FastAPI Router]
-    Router -->|Depends(get_settings)| Override[app.dependency_overrides]
-    Override -->|Returns| MockSettings[Mock Test Settings]
-    MockSettings -->|Injected into| RouteLogic[Route Handler Logic]
-    
-    style Override stroke:#f66,stroke-width:2px
+    Router -->|request.app.state.settings| State[app.state.settings]
+    State -->|Returns| MockSettings[Test Settings]
+    MockSettings -->|Read by| RouteLogic[Route Handler Logic]
+
+    style State stroke:#f66,stroke-width:2px
 ```
 
 ```python
 # tests/conftest.py
 @pytest.fixture
 def app(test_settings: Settings) -> FastAPI:
-    application = create_app()
-    # Override the dependency globally for this test app instance
-    application.dependency_overrides[get_settings] = lambda: test_settings
+    application = create_app(settings=test_settings)
     return application
 ```
-This is the cleanest, most deterministic way to test an ASGI application.
+
+**Why `app.state` over `Depends`?** It's simpler — no `dependency_overrides`, no `lru_cache` to clear between tests. Just pass settings to `create_app()` or set `app.state.settings = Settings(...)` directly in your fixture. Route handlers use `request.app.state.settings` which naturally picks up whatever was set.
 
 ---
 

@@ -9,10 +9,10 @@ These fixtures document the real GCP response shape for the list operations adde
 - At least one role secret (`role-*`) and one service grants secret (`service-grants-*`) exist
 - Phase 6 E2E verification already passed (sub-task 14)
 
-**Scripts** (all read `.env` directly, no shell variable setup needed):
-- `scripts/capture_list_roles.py` — prints list_roles fixture JSON to stdout
-- `scripts/capture_list_service_grants.py` — prints list_service_grants fixture JSON to stdout
-- `scripts/verify_list_operations.py` — verifies list + get round-trip against real SM
+**Note**: The capture scripts (`scripts/capture_list_roles.py`, `scripts/capture_list_service_grants.py`,
+`scripts/verify_list_operations.py`) were removed after fixtures were captured. The commands below
+are preserved for reference if fixtures need to be re-captured — recreate the scripts or run the
+equivalent commands inline.
 
 ---
 
