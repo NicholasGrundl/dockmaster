@@ -295,7 +295,7 @@
 - `tests/test_auth_code.py` — 8 tests (create, consume, single-use, expiry, prune, uniqueness)
 - `tests/test_auth_code_flow.py` — 14 tests (redirect URI allowlist, code exchange endpoint, callback external redirect)
 - `tests/test_cors.py` — 6 tests (preflight, allowed/disallowed origins, credentials, disabled)
-- `docs/GUIDE-auth-code-flow-e2e.md` — manual E2E test guide for auth code flow
+- `docs/GUIDE-auth-code-flow-e2e.md` — manual E2E test guide for auth code flow (archived: subsumed by GUIDE-development.md)
 
 ## Modified files (Phase 7, Session 4)
 - `src/dockmaster/main.py` — added CORSMiddleware (conditional), AuthCodeStore in lifespan
@@ -361,7 +361,7 @@
 - `tests/test_cli_grants.py` — 12 tests (list, get, add, add-on-404, merge, remove, delete)
 - `tests/test_cli_check.py` — 4 tests (granted, denied, error, flag required)
 - `tests/test_cli_login_redirect.py` — 9 tests (redirect_uri validation, state storage)
-- `docs/GUIDE-cli-e2e-test.md` — manual E2E test guide
+- `docs/GUIDE-cli-e2e-test.md` — manual E2E test guide (archived: subsumed by GUIDE-development.md)
 
 ## Modified files (Phase 6c)
 - `src/dockmaster/routes/login.py` — `redirect_uri` param on `/auth/login`, CLI JWT minting on callback, `_pending_states` changed from `dict[str, bool]` to `dict[str, dict]`

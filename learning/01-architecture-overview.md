@@ -23,7 +23,8 @@ Dockmaster exists to solve a specific problem: unifying two fundamentally differ
 ### The Microservice Boundary
 Dockmaster sits at the perimeter of the infrastructure.
 - **For UIs**, it issues cryptographically signed session cookies (`itsdangerous`) backed by an in-memory or Redis session store.
-- **For Microservices**, it signs JWTs using a Google Service Account private key (`ServiceUser`) and verifies incoming JWTs using cached public keys (`ServiceRealm`).
+- **For user identity tokens (Type C)**, it signs JWTs using an ephemeral RSA keypair (`EphemeralKeypairSigner`) generated at startup — the private key lives only in memory and is never written to disk. Public keys are served at `/auth/key/{kid}` for decentralized verification.
+- **For service-to-service auth (Type A)**, external services sign JWTs with their own GCP service account private keys (`ServiceAccountSigner`). Dockmaster verifies these using cached public keys from GCP IAM (`ServiceRealm`).
 
 By centralizing both paradigms here, downstream services can trust the headers they receive and focus purely on business logic.
 
@@ -174,6 +175,7 @@ async def lifespan(app: FastAPI):
     # Initialize singletons
     app.state.session_store = InMemorySessionStore()
     app.state.realm = ServiceRealm(key_cache=ServiceAccountKeyCache(...))
+    app.state.ephemeral_signer = EphemeralKeypairSigner(ttl=settings.dockmaster_token_ttl)
     yield
 ```
 

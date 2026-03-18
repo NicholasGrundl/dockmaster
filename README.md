@@ -112,16 +112,16 @@ just publish now   # Tag and push
 | Web Framework | FastAPI + Uvicorn |
 | Data Validation | Pydantic v2 |
 | Configuration | pydantic-settings |
-| JWT | python-jose (RS256 via GCP SA keys) |
+| JWT | PyJWT + cryptography (RS256 via ephemeral keypair) |
 | OAuth2 | Authlib |
 | GCP Auth | google-auth, google-api-python-client |
 | RBAC Storage | google-cloud-secret-manager |
 | HTTP Client | httpx |
-| CLI | Click |
+| CLI | Typer |
 | Build | hatchling + uv |
 | Linting | ruff |
 | Type Checking | ty |
-| Testing | pytest + pytest-asyncio |
+| Testing | pytest + pytest-mock |
 
 ## License
 
