@@ -72,7 +72,7 @@ in SessionStore. Admin revocation, TTL, and listing work identically for both.
 
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
-| GET | `/auth/login` | Start OAuth (both flows) | None. `redirect_uri` param for Domain B. |
+| GET | `/auth/login` | Start OAuth (both flows) | None. `redirect_uri` for Domain B (auth code flow). `return_to` for cookie-mode post-login redirect (defaults to `/ui/`). |
 | GET | `/auth/callback` | Internal (Google redirects here) | None (OAuth state validated) |
 | POST | `/auth/login/code` | Exchange auth code for session | None (auth code validated). Returns `{refresh_token, profile}`. |
 | POST | `/auth/logout` | Destroy session | Cookie or refresh_token in body |
@@ -371,7 +371,7 @@ without service-only deps.
 
 | File | Changes |
 |---|---|
-| `src/dockmaster/routes/login.py` | Replace `code_exchange` with `login_code`. Update `_handle_external_callback` to pass profile claims. Change logout to POST. |
+| `src/dockmaster/routes/login.py` | Replace `code_exchange` with `login_code`. Update `_handle_external_callback` to pass profile claims. Change logout to POST. Add `return_to` param on `/auth/login` for cookie-mode post-login redirect (stored in OAuth state, used after cookie set instead of hardcoded `/ui/`). |
 | `src/dockmaster/routes/token.py` | Remove (logic moves to `session.py` and `cli_routes.py`) |
 | `src/dockmaster/routes/exchange.py` | Remove (logic moves to `service.py`) |
 | `src/dockmaster/auth/dependencies.py` | Add refresh_token resolution to session auth. Split `allow_jwt_or_session`. |

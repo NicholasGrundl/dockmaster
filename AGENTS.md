@@ -87,15 +87,23 @@ Includes:
 
 - Prefer idempotent tooling with clear error messages over silent failures.
 
+## Coding Preferences
+
+- **Imports**: Use plain imports. No `TYPE_CHECKING` guards, `from __future__ import annotations`, or string-quoted type hints.
+- **Union types**: Prefer explicit inline `A | B` over named aliases when there are only two types. Aliases are fine for 3+ types.
+- **Class naming**: Names should describe what the class does, not brand it. Prefer `JWTTokenIssuer` over `DockTokenIssuer`. Surface naming choices for approval before committing.
+- **Justfile namespaces**: Use `check-*`, `fix-*`, `test-*` prefixes. `check-*` = read-only, `fix-*` = modifies files, `test-*` = runs tests. Composite targets (`check`, `fix`, `test`) call sub-targets.
+- **Test config**: Construct explicit `Settings(field=value)` in tests. No `monkeypatch.delenv()` or env var manipulation. Direct and readable.
+
 ## Established Patterns
 
 ### Settings (`src/dockmaster/config.py`)
 
 - All config lives in `Settings(BaseSettings)` — env vars or `.env` file.
-- Comma-separated fields are typed `str | set[str]` and parsed to `set[str]` in `model_validator(mode="after")` via `_parse_comma_separated()`.
-- Settings are stored on `app.state.settings` at app creation time. Route handlers read `request.app.state.settings`.
+- Comma-separated fields use `CommaSeparatedSet` type via `Annotated[..., BeforeValidator(...)]`.
+- Settings stored on `app.state.settings` at app creation time.
+- DI bridge: `get_settings(request)` reads from `app.state.settings`. Routes use `Annotated[Settings, Depends(get_settings)]`.
 - `create_app(settings=None)` accepts an optional `Settings` parameter (falls back to `get_settings()` if not provided).
-- Never use `Depends(get_settings)` in route handlers — always read from `app.state.settings`.
 - In tests, pass settings to `create_app(settings)` or set `app.state.settings = Settings(...)` directly.
 
 ### Lifespan singletons (`src/dockmaster/main.py`)
