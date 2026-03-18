@@ -4,14 +4,18 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from google.api_core.exceptions import NotFound
 from pydantic import BaseModel
 
-from dockmaster.auth.dependencies import allow_jwt_admin, needs_admin_storage
+from dockmaster.auth.dependencies import allow_jwt_admin, needs_admin_storage, needs_session_store
 from dockmaster.rbac import admin_ops
 from dockmaster.rbac.admin_ops import RoleConflictError
+from dockmaster.rbac.authority import Authority
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
+from dockmaster.rbac.storage import AdminSecretsStorage
+from dockmaster.sessions.protocol import SessionStore
+from dockmaster.state import get_admin_storage, get_authority, get_session_store
 
 router = APIRouter(
     tags=["admin-api"],
@@ -48,41 +52,24 @@ class RevokeByEmailResponse(BaseModel):
 
 
 # ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-
-def _get_admin_storage(request: Request):
-    return getattr(request.app.state, "admin_storage", None)
-
-
-def _get_authority(request: Request):
-    return getattr(request.app.state, "authority", None)
-
-
-def _get_session_store(request: Request):
-    store = getattr(request.app.state, "session_store", None)
-    if store is None:
-        raise HTTPException(status_code=503, detail="Session store not configured")
-    return store
-
-
-# ------------------------------------------------------------------
 # Role endpoints
 # ------------------------------------------------------------------
 
 
 @router.get("/roles", response_model=list[str])
-async def list_roles(request: Request):
+async def list_roles(
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+):
     """List all role names."""
-    storage = _get_admin_storage(request)
     return await admin_ops.list_roles(storage)
 
 
 @router.get("/roles/{name}", response_model=Role)
-async def get_role(request: Request, name: str):
+async def get_role(
+    name: str,
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+):
     """Get a single role by name."""
-    storage = _get_admin_storage(request)
     try:
         role = await admin_ops.get_role(storage, name)
     except NotFound:
@@ -92,13 +79,12 @@ async def get_role(request: Request, name: str):
 
 @router.post("/roles", status_code=201, response_model=Role)
 async def create_role(
-    request: Request,
     body: CreateRoleRequest,
     _writes: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Create a new role."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
     try:
         role = await admin_ops.create_role(storage, authority, body.name, body.permissions)
     except RoleConflictError:
@@ -108,27 +94,25 @@ async def create_role(
 
 @router.put("/roles/{name}", response_model=Role)
 async def update_role(
-    request: Request,
     name: str,
     body: UpdateRoleRequest,
     _writes: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Update a role's permissions."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
     role = await admin_ops.update_role(storage, authority, name, body.permissions)
     return role.model_dump()
 
 
 @router.delete("/roles/{name}", status_code=204)
 async def delete_role(
-    request: Request,
     name: str,
     _writes: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Delete a role."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
     try:
         await admin_ops.delete_role(storage, authority, name)
     except NotFound:
@@ -142,16 +126,19 @@ async def delete_role(
 
 
 @router.get("/grants", response_model=list[str])
-async def list_grants(request: Request):
+async def list_grants(
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+):
     """List all service names that have grants."""
-    storage = _get_admin_storage(request)
     return await admin_ops.list_service_grants(storage)
 
 
 @router.get("/grants/{service}", response_model=ServiceGrants)
-async def get_grants(request: Request, service: str):
+async def get_grants(
+    service: str,
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+):
     """Get grants for a service."""
-    storage = _get_admin_storage(request)
     try:
         sg = await admin_ops.get_service_grants(storage, service)
     except NotFound:
@@ -161,27 +148,25 @@ async def get_grants(request: Request, service: str):
 
 @router.post("/grants/{service}", response_model=ServiceGrants)
 async def put_grants(
-    request: Request,
     service: str,
     body: PutGrantsRequest,
     _writes: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Create or replace grants for a service."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
     sg = await admin_ops.put_service_grants(storage, authority, service, body.grants)
     return sg.model_dump()
 
 
 @router.delete("/grants/{service}", status_code=204)
 async def delete_grants(
-    request: Request,
     service: str,
     _writes: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Delete all grants for a service."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
     try:
         await admin_ops.delete_service_grants(storage, authority, service)
     except NotFound:
@@ -194,33 +179,44 @@ async def delete_grants(
 # ------------------------------------------------------------------
 
 
-@router.get("/sessions")
-async def list_sessions(request: Request):
+@router.get("/sessions", dependencies=[Depends(needs_session_store)])
+async def list_sessions(
+    store: Annotated[SessionStore | None, Depends(get_session_store)],
+):
     """List all active sessions."""
-    store = _get_session_store(request)
     return await admin_ops.list_sessions(store)
 
 
-@router.get("/sessions/email/{email}")
-async def list_sessions_by_email(request: Request, email: str):
+@router.get("/sessions/email/{email}", dependencies=[Depends(needs_session_store)])
+async def list_sessions_by_email(
+    email: str,
+    store: Annotated[SessionStore | None, Depends(get_session_store)],
+):
     """List sessions for a specific user email."""
-    store = _get_session_store(request)
     return await admin_ops.list_sessions_by_email(store, email)
 
 
-@router.delete("/sessions/id/{session_id}", response_model=RevokeSessionResponse)
-async def revoke_session(request: Request, session_id: str):
+@router.delete(
+    "/sessions/id/{session_id}", response_model=RevokeSessionResponse, dependencies=[Depends(needs_session_store)]
+)
+async def revoke_session(
+    session_id: str,
+    store: Annotated[SessionStore | None, Depends(get_session_store)],
+):
     """Revoke a single session by ID."""
-    store = _get_session_store(request)
     revoked = await admin_ops.revoke_session(store, session_id)
     if not revoked:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
     return {"revoked": True, "session_id": session_id}
 
 
-@router.delete("/sessions/email/{email}", response_model=RevokeByEmailResponse)
-async def revoke_sessions_by_email(request: Request, email: str):
+@router.delete(
+    "/sessions/email/{email}", response_model=RevokeByEmailResponse, dependencies=[Depends(needs_session_store)]
+)
+async def revoke_sessions_by_email(
+    email: str,
+    store: Annotated[SessionStore | None, Depends(get_session_store)],
+):
     """Revoke all sessions for a user email."""
-    store = _get_session_store(request)
     count = await admin_ops.revoke_sessions_by_email(store, email)
     return {"revoked": count, "email": email}

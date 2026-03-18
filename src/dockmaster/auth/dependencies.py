@@ -437,3 +437,19 @@ async def needs_admin_storage(request: Request) -> None:
             status_code=503,
             detail="Write operations are not available",
         )
+
+
+async def needs_session_store(request: Request) -> None:
+    """System capability check: session store is configured.
+
+    Raises 503 if session_store is not on app.state.
+    """
+    if getattr(request.app.state, "session_store", None) is None:
+        logger.warning(
+            "session_store_unavailable",
+            error="session_store not configured on app.state",
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Session store not configured",
+        )

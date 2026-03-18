@@ -15,8 +15,12 @@ from dockmaster.auth.dependencies import (
 )
 from dockmaster.rbac import admin_ops
 from dockmaster.rbac.admin_ops import RoleConflictError
+from dockmaster.rbac.authority import Authority
 from dockmaster.rbac.models import Grant
+from dockmaster.rbac.storage import AdminSecretsStorage
 from dockmaster.routes.ui import _ui_config, templates
+from dockmaster.sessions.protocol import SessionStore
+from dockmaster.state import get_admin_storage, get_authority, get_session_store
 
 router = APIRouter(
     tags=["admin-ui"],
@@ -24,17 +28,9 @@ router = APIRouter(
 )
 
 
-def _can_write(request: Request) -> bool:
+def _admin_writes_enabled(request: Request) -> bool:
     """Check if admin write operations are available (for template rendering)."""
     return getattr(request.app.state, "admin_storage", None) is not None
-
-
-def _get_admin_storage(request: Request):
-    return getattr(request.app.state, "admin_storage", None)
-
-
-def _get_authority(request: Request):
-    return getattr(request.app.state, "authority", None)
 
 
 # ------------------------------------------------------------------
@@ -46,9 +42,9 @@ def _get_authority(request: Request):
 async def roles_page(
     request: Request,
     user: Annotated[dict, Depends(get_session_user)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
 ):
     """List all roles with inline create form."""
-    storage = _get_admin_storage(request)
     if storage:
         role_names = await admin_ops.list_roles(storage)
         roles = []
@@ -81,7 +77,7 @@ async def roles_page(
             "user": user,
             "roles": roles,
             "is_admin": True,
-            "can_write": _can_write(request),
+            "can_write": _admin_writes_enabled(request),
             "error": request.query_params.get("error"),
             "success": request.query_params.get("success"),
         },
@@ -92,13 +88,12 @@ async def roles_page(
 async def create_role_form(
     request: Request,
     _: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
     name: str = Form(...),
     permissions: str = Form(""),
 ):
     """Handle create role form submission."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
-
     perm_list = [p.strip() for p in permissions.split(",") if p.strip()]
 
     try:
@@ -114,12 +109,11 @@ async def update_role_form(
     request: Request,
     name: str,
     _: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
     permissions: str = Form(""),
 ):
     """Handle update role form submission."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
-
     perm_list = [p.strip() for p in permissions.split(",") if p.strip()]
     await admin_ops.update_role(storage, authority, name, perm_list)
 
@@ -131,11 +125,10 @@ async def delete_role_form(
     request: Request,
     name: str,
     _: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Handle delete role form submission."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
-
     try:
         await admin_ops.delete_role(storage, authority, name)
     except NotFound:
@@ -153,9 +146,9 @@ async def delete_role_form(
 async def grants_page(
     request: Request,
     user: Annotated[dict, Depends(get_session_user)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
 ):
     """List all services with grants."""
-    storage = _get_admin_storage(request)
     if not storage:
         storage = getattr(request.app.state, "secrets_storage", None)
 
@@ -172,7 +165,7 @@ async def grants_page(
             "user": user,
             "service_names": service_names,
             "is_admin": True,
-            "can_write": _can_write(request),
+            "can_write": _admin_writes_enabled(request),
             "error": request.query_params.get("error"),
             "success": request.query_params.get("success"),
         },
@@ -183,14 +176,13 @@ async def grants_page(
 async def create_service_grants_form(
     request: Request,
     _: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
     service: str = Form(...),
     subject: str = Form(...),
     roles: str = Form(""),
 ):
     """Handle create new service grants form submission."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
-
     service_name = service.strip()
     subject_email = subject.strip()
     role_list = [r.strip() for r in roles.split(",") if r.strip()]
@@ -215,9 +207,9 @@ async def grants_detail_page(
     request: Request,
     service: str,
     user: Annotated[dict, Depends(get_session_user)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
 ):
     """View/edit grants for a specific service."""
-    storage = _get_admin_storage(request)
     if not storage:
         storage = getattr(request.app.state, "secrets_storage", None)
 
@@ -237,7 +229,7 @@ async def grants_detail_page(
             "user": user,
             "service_grants": sg,
             "is_admin": True,
-            "can_write": _can_write(request),
+            "can_write": _admin_writes_enabled(request),
             "error": request.query_params.get("error"),
             "success": request.query_params.get("success"),
         },
@@ -249,11 +241,10 @@ async def update_grants_form(
     request: Request,
     service: str,
     _: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Handle grants form submission — parses subject/roles pairs from form data."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
-
     form_data = await request.form()
 
     # Parse grants from form: subject_0, roles_0, subject_1, roles_1, ...
@@ -284,11 +275,10 @@ async def delete_grants_form(
     request: Request,
     service: str,
     _: Annotated[None, Depends(needs_admin_storage)],
+    storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ):
     """Handle delete all grants for a service."""
-    storage = _get_admin_storage(request)
-    authority = _get_authority(request)
-
     try:
         await admin_ops.delete_service_grants(storage, authority, service)
     except NotFound:
@@ -302,17 +292,13 @@ async def delete_grants_form(
 # ------------------------------------------------------------------
 
 
-def _get_session_store(request: Request):
-    return getattr(request.app.state, "session_store", None)
-
-
 @router.get("/sessions", response_class=HTMLResponse)
 async def sessions_page(
     request: Request,
     user: Annotated[dict, Depends(get_session_user)],
+    store: Annotated[SessionStore | None, Depends(get_session_store)],
 ):
     """List all active sessions with revoke controls."""
-    store = _get_session_store(request)
     sessions = await admin_ops.list_sessions(store) if store else {}
 
     return templates.TemplateResponse(
@@ -333,9 +319,9 @@ async def sessions_page(
 async def revoke_session_form(
     request: Request,
     session_id: str,
+    store: Annotated[SessionStore | None, Depends(get_session_store)],
 ):
     """Handle revoke single session form submission."""
-    store = _get_session_store(request)
     if not store:
         return RedirectResponse(url="/ui/sessions?error=Session+store+not+configured", status_code=303)
 
@@ -349,10 +335,10 @@ async def revoke_session_form(
 @router.post("/sessions/revoke-by-email", response_class=HTMLResponse)
 async def revoke_sessions_by_email_form(
     request: Request,
+    store: Annotated[SessionStore | None, Depends(get_session_store)],
     email: str = Form(...),
 ):
     """Handle revoke all sessions for an email form submission."""
-    store = _get_session_store(request)
     if not store:
         return RedirectResponse(url="/ui/sessions?error=Session+store+not+configured", status_code=303)
 
