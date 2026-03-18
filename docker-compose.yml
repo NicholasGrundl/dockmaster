@@ -1,0 +1,31 @@
+# Dockmaster auth service — designed to be included in an existing Compose stack.
+#
+# Usage:
+#   docker compose up -d --build
+#
+# Prerequisites:
+#   1. Copy .env.dockmaster.example → .env.dockmaster and fill in values
+#   2. Place SA key files in ./secrets/ (gitignored)
+#   3. Point your reverse proxy at 127.0.0.1:8001
+
+services:
+  dockmaster:
+    build: .
+    container_name: dockmaster
+    env_file:
+      - .env.dockmaster
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ./secrets:/secrets:ro
+      - dockmaster-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/auth/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  dockmaster-data:

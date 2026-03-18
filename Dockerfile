@@ -22,9 +22,17 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Create non-root user
-RUN useradd -m dockmaster && chown -R dockmaster:dockmaster /app
+# Create non-root user and data directory for JWKS registry + logs
+RUN useradd -m dockmaster \
+    && mkdir -p /data/logs \
+    && chown -R dockmaster:dockmaster /app /data
+
+VOLUME ["/data"]
 USER dockmaster
 
 EXPOSE 8001
-CMD ["uvicorn", "dockmaster.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "dockmaster.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8001", \
+     "--proxy-headers", \
+     "--forwarded-allow-ips", "127.0.0.1"]

@@ -1,0 +1,27 @@
+# Dockmaster reverse proxy block — add to your existing Caddyfile.
+#
+# Prerequisites:
+#   1. DNS A record: auth.your-domain.com → droplet IP
+#   2. Caddy manages TLS automatically via Let's Encrypt
+#   3. Dockmaster container listening on 127.0.0.1:8001
+#
+# Usage:
+#   Copy this block into your site's Caddyfile, replace your-domain.com,
+#   then reload: sudo systemctl reload caddy
+
+auth.your-domain.com {
+    encode zstd gzip
+
+    reverse_proxy 127.0.0.1:8001 {
+        # Forward client info to dockmaster (required for OAuth callbacks
+        # to generate correct https:// URLs and for REQUIRE_PROXY_HEADERS)
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Real-IP {remote_host}
+    }
+
+    # HSTS — handled here because the app doesn't terminate TLS.
+    # Caddy sets this automatically, but being explicit doesn't hurt.
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+}

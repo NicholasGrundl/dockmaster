@@ -70,9 +70,17 @@ class Settings(BaseSettings):
     admin_sa_key_file: str | None = None
     dockmaster_admin_emails: str | set[str] = ""
 
+    # --- Deployment ---
+    require_proxy_headers: bool = False
+
+    # --- Logging ---
+    log_file: str | None = None
+    log_file_max_bytes: int = 10_485_760  # 10 MB
+    log_file_backup_count: int = 5
+
     # --- Session ---
     redis_url: str | None = None
-    session_secret_key: str = "change-me-in-production"
+    session_secret_key: str  # Required — generate with: python -c "import secrets; print(secrets.token_urlsafe(64))"
     session_ttl: int = 3600
 
     @model_validator(mode="after")

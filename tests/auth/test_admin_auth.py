@@ -88,6 +88,7 @@ def _admin_app(
     app.state.settings = Settings(
         _env_file=None,
         dockmaster_admin_emails=admin_emails or set(),
+        session_secret_key="test",
     )
     app.state.authority = authority
     app.state.admin_storage = mocker.MagicMock() if admin_storage is _SENTINEL else admin_storage

@@ -62,6 +62,28 @@ DEFAULT_CSP = (
 )
 
 
+class RequireProxyHeadersMiddleware(BaseHTTPMiddleware):
+    """Returns 502 if X-Forwarded-Proto header is missing.
+
+    Safety net for production behind a reverse proxy: catches the scenario
+    where uvicorn's ``--proxy-headers`` flag is forgotten or the proxy isn't
+    forwarding headers. Without ``X-Forwarded-Proto``, OAuth callbacks generate
+    ``http://`` URLs and secure cookies break.
+
+    Disable with ``REQUIRE_PROXY_HEADERS=false`` for local development
+    without a reverse proxy.
+    """
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if "x-forwarded-proto" not in request.headers:
+            return Response(
+                content='{"detail":"Missing proxy headers — is the reverse proxy configured?"}',
+                status_code=502,
+                media_type="application/json",
+            )
+        return await call_next(request)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Middleware that adds security hardening headers to every response.
 

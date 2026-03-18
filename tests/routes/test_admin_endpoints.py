@@ -37,6 +37,7 @@ def _admin_app(
     test_settings = Settings(
         _env_file=None,
         dockmaster_admin_emails={"admin@co.com"},
+        session_secret_key="test",
     )
     app.state.settings = test_settings
 
@@ -265,7 +266,7 @@ class TestAdminAuth:
         app = FastAPI()
         app.include_router(router, prefix="/admin")
 
-        test_settings = Settings(_env_file=None, dockmaster_admin_emails={"admin@co.com"})
+        test_settings = Settings(_env_file=None, dockmaster_admin_emails={"admin@co.com"}, session_secret_key="test")
         app.state.settings = test_settings
         app.state.authority = mocker.AsyncMock()
         app.state.authority.has_permission.return_value = True

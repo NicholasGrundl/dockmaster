@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from dockmaster.middleware import SecurityHeadersMiddleware
+from dockmaster.middleware import RequireProxyHeadersMiddleware, SecurityHeadersMiddleware
 
 from dockmaster.auth.jwt_signers import EphemeralKeypairSigner, ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
@@ -75,9 +75,14 @@ def _build_gcp_credentials(sa_key_data: dict | None, log: structlog.stdlib.Bound
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
     settings = app.state.settings
-    setup_logging(settings.log_level)
+    setup_logging(
+        log_level=settings.log_level,
+        log_file=settings.log_file,
+        log_file_max_bytes=settings.log_file_max_bytes,
+        log_file_backup_count=settings.log_file_backup_count,
+    )
     log = structlog.get_logger(__name__)
-    log.info("starting up", log_level=settings.log_level)
+    log.info("starting up", log_level=settings.log_level, log_file=settings.log_file)
 
     # --- Load SA key (shared across all GCP consumers) ---
     sa_key_data = _load_sa_key(settings.sa_key_file, log)
@@ -219,6 +224,10 @@ def setup_middleware(app: FastAPI, settings: Settings) -> None:
     # be removable now that OAuth CSRF state is managed by TTLStore (see S-005/S-012),
     # but requires verifying Authlib doesn't use it during token exchange.
     app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
+    # Proxy headers gate — outermost middleware (added last, runs first).
+    # Rejects requests missing X-Forwarded-Proto when behind a reverse proxy.
+    if settings.require_proxy_headers:
+        app.add_middleware(RequireProxyHeadersMiddleware)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

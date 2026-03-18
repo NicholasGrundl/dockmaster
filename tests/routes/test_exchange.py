@@ -17,6 +17,7 @@ def exchange_settings(fake_sa_key_data) -> Settings:
         authorized_issuers={fake_sa_key_data["client_email"]},
         authorized_domains={"example.com"},
         authorized_audience={"test-service"},
+        session_secret_key="test",
     )
 
 
@@ -97,6 +98,7 @@ class TestExchangeJWTPath:
             authorized_issuers={"https://accounts.google.com"},
             authorized_domains={"example.com"},
             authorized_audience={"test-service"},
+            session_secret_key="test",
         )
         token = signer.sign(subject="user@example.com", audience="test-service")
 
@@ -115,6 +117,7 @@ class TestExchangeJWTPath:
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
             authorized_audience={"allowed-service"},
+            session_secret_key="test",
         )
         token = signer.sign(subject="user@example.com", audience="wrong-service")
 
@@ -133,6 +136,7 @@ class TestExchangeJWTPath:
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"shipyard.com"},
             authorized_audience={"test-service"},
+            session_secret_key="test",
         )
         token = signer.sign(subject="user@example.com", audience="test-service")
 
@@ -240,6 +244,7 @@ class TestExchangeAccessTokenPath:
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
             authorized_audience={"test-client-id"},
+            session_secret_key="test",
         )
         tokeninfo_response = {
             "aud": "test-client-id",
@@ -271,6 +276,7 @@ class TestExchangeAccessTokenPath:
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
             authorized_audience={"test-client-id"},
+            session_secret_key="test",
         )
         tokeninfo_response = {
             "aud": "test-client-id",
@@ -298,6 +304,7 @@ class TestExchangeAccessTokenPath:
             authorized_issuers={fake_sa_key_data["client_email"]},
             authorized_domains={"example.com"},
             authorized_audience={"test-client-id"},
+            session_secret_key="test",
         )
         tokeninfo_response = {
             "aud": "test-client-id",
@@ -352,6 +359,7 @@ class TestExchangeErrors:
             authorized_issuers=set(),
             authorized_domains={"example.com"},
             authorized_audience={"test"},
+            session_secret_key="test",
         )
 
         mocker.patch(
