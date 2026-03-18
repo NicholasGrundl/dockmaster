@@ -358,6 +358,58 @@ Open `http://localhost:8000/docs` in your browser.
 
 ---
 
+### Test K: Admin Session API (curl)
+
+Sign a local JWT for API calls (no browser needed):
+
+```bash
+ADMIN_EMAIL="YOUR_ADMIN_EMAIL_HERE"
+TOKEN=$(uv run python -c "
+from dockmaster.auth.jwt_signers import ServiceAccountSigner
+from dockmaster.config import create_settings
+settings = create_settings()
+signer = ServiceAccountSigner(settings.sa_key_file)
+print(signer.sign(subject='$ADMIN_EMAIL', audience='dockmaster', expiry=900))
+")
+echo "TOKEN=${TOKEN:0:30}..."
+```
+
+**Note**: The email must be in `DOCKMASTER_ADMIN_EMAILS` or have the `admin` RBAC role.
+
+```bash
+# List all sessions
+curl -s "$BASE/admin/sessions" \
+  -H "Authorization: Bearer $TOKEN" | jq .
+
+# Revoke a session by ID (get ID from list above)
+curl -s -X DELETE "$BASE/admin/sessions/id/SESSION_ID" \
+  -H "Authorization: Bearer $TOKEN" | jq .
+
+# Revoke all sessions for an email
+curl -s -X DELETE "$BASE/admin/sessions/email/user@example.com" \
+  -H "Authorization: Bearer $TOKEN" | jq .
+
+# Revoke nonexistent session (expect 404)
+curl -s -X DELETE "$BASE/admin/sessions/id/nonexistent" \
+  -H "Authorization: Bearer $TOKEN" | jq .
+```
+
+**Verify:**
+- [ ] List returns all active sessions as JSON
+- [ ] Revoke by ID returns `{"revoked": true, "session_id": "..."}`
+- [ ] Revoke by email returns `{"revoked": N, "email": "..."}`
+- [ ] Revoke nonexistent returns 404
+
+```bash
+# User endpoint — GET /auth/sessions (returns only current user's sessions)
+# Must be called from a browser with a session cookie, or returns {}
+curl -s "$BASE/auth/sessions" | jq .
+```
+
+- [ ] Without session cookie: returns `{}`
+
+---
+
 ## Checklist Summary
 
 | # | Test | Status |
@@ -372,3 +424,4 @@ Open `http://localhost:8000/docs` in your browser.
 | H | Admin UI Pages | [ ] |
 | I | CORS Headers | [ ] |
 | J | FastAPI Docs | [ ] |
+| K | Admin Session API | [ ] |
