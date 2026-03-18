@@ -1,7 +1,5 @@
 """Tests for dockmaster configuration."""
 
-import pytest
-
 from dockmaster.config import Settings, create_settings
 
 
@@ -65,13 +63,19 @@ class TestSettingsDefaults:
         # Session defaults
         assert settings.redis_url is None
 
-    def test_session_secret_key_required(self, monkeypatch):
-        """Settings fails to load when SESSION_SECRET_KEY is missing."""
+    def test_session_secret_key_auto_generated(self, monkeypatch):
+        """Settings auto-generates session_secret_key when not provided."""
         monkeypatch.delenv("SESSION_SECRET_KEY", raising=False)
-        from pydantic import ValidationError
+        settings = Settings(_env_file=None)
+        assert settings.session_secret_key  # non-empty
+        assert len(settings.session_secret_key) > 32  # sufficiently random
+        assert settings._session_secret_auto_generated is True
 
-        with pytest.raises(ValidationError, match="session_secret_key"):
-            Settings(_env_file=None)
+    def test_session_secret_key_explicit(self):
+        """Explicit session_secret_key is preserved and not flagged as auto-generated."""
+        settings = Settings(_env_file=None, session_secret_key="my-explicit-key")
+        assert settings.session_secret_key == "my-explicit-key"
+        assert settings._session_secret_auto_generated is False
 
 
 class TestCommaSeparatedParsing:

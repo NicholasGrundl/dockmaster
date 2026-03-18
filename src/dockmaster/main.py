@@ -84,6 +84,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log = structlog.get_logger(__name__)
     log.info("starting up", log_level=settings.log_level, log_file=settings.log_file)
 
+    if getattr(settings, "_session_secret_auto_generated", False):
+        log.warning(
+            "SESSION_SECRET_KEY not set — using auto-generated key. "
+            "Sessions will not survive restarts. "
+            "Generate a stable key with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        )
+
     # --- Load SA key (shared across all GCP consumers) ---
     sa_key_data = _load_sa_key(settings.sa_key_file, log)
 

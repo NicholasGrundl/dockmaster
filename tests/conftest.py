@@ -1,7 +1,6 @@
 """Shared pytest fixtures for dockmaster tests."""
 
 import json
-import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -11,11 +10,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-# Set SESSION_SECRET_KEY before any Settings/create_app imports.
-# This is required because main.py creates an app at module level,
-# and session_secret_key has no default (intentional — see D-011).
-os.environ.setdefault("SESSION_SECRET_KEY", "test-secret-for-pytest")
 
 from dockmaster.auth.jwt_signers import ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm

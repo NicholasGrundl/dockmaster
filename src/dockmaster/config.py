@@ -1,11 +1,17 @@
 """Dockmaster service configuration via pydantic-settings."""
 
+import secrets
 from typing import Any
 
 from starlette.requests import Request
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _generate_session_secret() -> str:
+    """Generate a random session secret key for single-instance use."""
+    return secrets.token_urlsafe(64)
 
 
 def _parse_comma_separated(v: Any) -> set[str]:
@@ -80,7 +86,7 @@ class Settings(BaseSettings):
 
     # --- Session ---
     redis_url: str | None = None
-    session_secret_key: str  # Required — generate with: python -c "import secrets; print(secrets.token_urlsafe(64))"
+    session_secret_key: str = ""  # Empty → auto-generated; sessions won't survive restarts
     session_ttl: int = 3600
 
     @model_validator(mode="after")
@@ -97,6 +103,13 @@ class Settings(BaseSettings):
             raw = getattr(self, field)
             parsed = _parse_comma_separated(raw)
             object.__setattr__(self, field, parsed)
+
+        # Auto-generate session secret if not provided
+        if not self.session_secret_key:
+            object.__setattr__(self, "session_secret_key", _generate_session_secret())
+            object.__setattr__(self, "_session_secret_auto_generated", True)
+        else:
+            object.__setattr__(self, "_session_secret_auto_generated", False)
 
         # Normalize log_level to uppercase
         if isinstance(self.log_level, str):
