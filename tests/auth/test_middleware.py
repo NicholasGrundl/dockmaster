@@ -1,4 +1,51 @@
-"""Tests for allow_jwt auth dependency (via /auth/claims endpoint)."""
+"""Tests for middleware: JWT auth dependency and proxy header enforcement."""
+
+from fastapi.testclient import TestClient
+
+from dockmaster.config import Settings
+from dockmaster.main import create_app
+
+
+class TestRequireProxyHeadersMiddleware:
+    """Tests for RequireProxyHeadersMiddleware (default: enabled)."""
+
+    def test_returns_502_when_header_missing(self):
+        """Default settings enforce proxy headers — missing X-Forwarded-Proto returns 502."""
+        settings = Settings(
+            session_secret_key="test-secret",
+            _env_file=None,
+        )
+        app = create_app(settings)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.get("/auth/health")
+            assert response.status_code == 502
+            assert "proxy" in response.json()["detail"].lower()
+
+    def test_passes_when_header_present(self):
+        """Requests with X-Forwarded-Proto pass through normally."""
+        settings = Settings(
+            session_secret_key="test-secret",
+            _env_file=None,
+        )
+        app = create_app(settings)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.get(
+                "/auth/health",
+                headers={"X-Forwarded-Proto": "https"},
+            )
+            assert response.status_code == 200
+
+    def test_disabled_allows_requests_without_header(self):
+        """With require_proxy_headers=False, requests without the header pass through."""
+        settings = Settings(
+            require_proxy_headers=False,
+            session_secret_key="test-secret",
+            _env_file=None,
+        )
+        app = create_app(settings)
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.get("/auth/health")
+            assert response.status_code == 200
 
 
 class TestAllowJwt:

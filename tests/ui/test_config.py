@@ -61,7 +61,8 @@ class TestSettingsDefaults:
 
         # Session defaults
         assert settings.redis_url is None
-        assert settings.session_secret_key == "change-me-in-production"
+        assert isinstance(settings.session_secret_key, str)
+        assert len(settings.session_secret_key) > 0  # auto-generated
 
 
 class TestCommaSeparatedParsing:

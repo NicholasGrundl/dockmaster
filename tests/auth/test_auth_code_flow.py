@@ -60,6 +60,7 @@ def code_exchange_settings() -> Settings:
         allowed_redirect_uris={"https://app.example.com/callback"},
         authorized_domains={"example.com"},
         session_secret_key="test-secret",
+        require_proxy_headers=False,
         _env_file=None,
     )
 

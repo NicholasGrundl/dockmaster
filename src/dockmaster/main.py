@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from dockmaster.middleware import SecurityHeadersMiddleware
+from dockmaster.middleware import RequireProxyHeadersMiddleware, SecurityHeadersMiddleware
 
 from dockmaster.auth.jwt_signers import EphemeralKeypairSigner, ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
@@ -20,7 +20,7 @@ from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
 from dockmaster.auth.auth_code import AuthCodeStore
 from dockmaster.auth.ttl_store import TTLStore
 from dockmaster.auth.oauth import create_oauth
-from dockmaster.config import Settings, create_settings
+from dockmaster.config import Settings, create_settings, session_secret_was_auto_generated
 from dockmaster.logging import setup_logging
 from dockmaster.routes.claims import router as claims_router
 from dockmaster.routes.exchange import router as exchange_router
@@ -75,9 +75,21 @@ def _build_gcp_credentials(sa_key_data: dict | None, log: structlog.stdlib.Bound
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
     settings = app.state.settings
-    setup_logging(settings.log_level)
+    setup_logging(
+        settings.log_level,
+        log_file=settings.log_file,
+        log_file_max_bytes=settings.log_file_max_bytes,
+        log_file_backup_count=settings.log_file_backup_count,
+    )
     log = structlog.get_logger(__name__)
-    log.info("starting up", log_level=settings.log_level)
+    log.info("starting up", log_level=settings.log_level, log_file=settings.log_file)
+
+    if session_secret_was_auto_generated():
+        log.warning(
+            "SESSION_SECRET_KEY not set — using auto-generated key. "
+            "Sessions will not survive restarts. "
+            "Generate a stable key with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        )
 
     # --- Load SA key (shared across all GCP consumers) ---
     sa_key_data = _load_sa_key(settings.sa_key_file, log)
@@ -200,6 +212,9 @@ def setup_middleware(app: FastAPI, settings: Settings) -> None:
     Order matters — Starlette executes middleware in reverse-add order
     (last added runs first on the request path).
     """
+    # Proxy header check — must be outermost (first added = last to run on request)
+    if settings.require_proxy_headers:
+        app.add_middleware(RequireProxyHeadersMiddleware)
     # Security headers — safe defaults regardless of reverse proxy config
     if settings.security_headers:
         app.add_middleware(SecurityHeadersMiddleware)

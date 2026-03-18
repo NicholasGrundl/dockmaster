@@ -173,6 +173,7 @@ TEST_SETTINGS = Settings(
     client_id="test-client-id",
     client_secret="test-client-secret",
     session_secret_key="test-secret-key",
+    require_proxy_headers=False,
 )
 
 

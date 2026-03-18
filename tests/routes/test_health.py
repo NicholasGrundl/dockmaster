@@ -31,7 +31,7 @@ class TestRootEndpoint:
 
     def test_root_includes_docs_when_enabled(self, test_app_factory):
         """When enable_docs=True, docs URL is included in root response."""
-        with test_app_factory(Settings(enable_docs=True, session_secret_key="test")) as c:
+        with test_app_factory(Settings(enable_docs=True, session_secret_key="test", require_proxy_headers=False)) as c:
             data = c.get("/").json()
             assert data["service"] == "dockmaster"
             assert data["version"] == dockmaster.__version__
@@ -40,7 +40,7 @@ class TestRootEndpoint:
 
     def test_root_hides_docs_when_disabled(self, test_app_factory):
         """When enable_docs=False (production default), docs URL is null."""
-        with test_app_factory(Settings(enable_docs=False, session_secret_key="test")) as c:
+        with test_app_factory(Settings(enable_docs=False, session_secret_key="test", require_proxy_headers=False)) as c:
             data = c.get("/").json()
             assert data["docs"] is None
 
@@ -50,7 +50,7 @@ class TestOpenAPI:
 
     def test_openapi_available_when_enabled(self, test_app_factory):
         """When enable_docs=True, OpenAPI schema is served."""
-        with test_app_factory(Settings(enable_docs=True, session_secret_key="test")) as c:
+        with test_app_factory(Settings(enable_docs=True, session_secret_key="test", require_proxy_headers=False)) as c:
             response = c.get("/openapi.json")
             assert response.status_code == 200
             schema = response.json()
@@ -58,7 +58,7 @@ class TestOpenAPI:
 
     def test_openapi_disabled_by_default(self, test_app_factory):
         """When enable_docs=False (production default), OpenAPI returns 404."""
-        with test_app_factory(Settings(enable_docs=False, session_secret_key="test")) as c:
+        with test_app_factory(Settings(enable_docs=False, session_secret_key="test", require_proxy_headers=False)) as c:
             assert c.get("/openapi.json").status_code == 404
             assert c.get("/docs").status_code == 404
             assert c.get("/redoc").status_code == 404

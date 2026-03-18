@@ -1,11 +1,26 @@
 """Dockmaster service configuration via pydantic-settings."""
 
-from typing import Any
+import secrets
+from typing import Annotated, Any
 
 from starlette.requests import Request
 
-from pydantic import SecretStr, model_validator
+from pydantic import BeforeValidator, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_SESSION_SECRET_AUTO_GENERATED = False
+
+
+def _generate_session_secret() -> str:
+    """Generate a random session secret key for single-instance use."""
+    global _SESSION_SECRET_AUTO_GENERATED
+    _SESSION_SECRET_AUTO_GENERATED = True
+    return secrets.token_urlsafe(64)
+
+
+def session_secret_was_auto_generated() -> bool:
+    """Check whether the session secret key was auto-generated at startup."""
+    return _SESSION_SECRET_AUTO_GENERATED
 
 
 def _parse_comma_separated(v: Any) -> set[str]:
@@ -19,6 +34,11 @@ def _parse_comma_separated(v: Any) -> set[str]:
     if isinstance(v, str):
         return {s.strip() for s in v.split(",") if s.strip()}
     return set()
+
+
+# Typed as str | set[str] so pydantic-settings accepts raw comma-separated env var
+# strings without attempting JSON decode. BeforeValidator parses them into set[str].
+CommaSeparatedSet = Annotated[str | set[str], BeforeValidator(_parse_comma_separated)]
 
 
 class Settings(BaseSettings):
@@ -38,11 +58,9 @@ class Settings(BaseSettings):
     security_headers: bool = True
 
     # --- Authorization ---
-    # Typed as str to prevent pydantic-settings from attempting JSON decode on env vars.
-    # Converted to set[str] in model_validator(mode="after").
-    authorized_issuers: str | set[str] = ""
-    authorized_domains: str | set[str] = ""
-    authorized_audience: str | set[str] = ""
+    authorized_issuers: CommaSeparatedSet = set()
+    authorized_domains: CommaSeparatedSet = set()
+    authorized_audience: CommaSeparatedSet = set()
 
     # --- OAuth ---
     client_id: str | None = None
@@ -62,39 +80,31 @@ class Settings(BaseSettings):
     # --- Dockmaster Token Issuance (Phase 7) ---
     dockmaster_token_ttl: int = 900
     max_token_ttl: int = 3600
-    allowed_redirect_uris: str | set[str] = ""
-    allowed_origins: str | set[str] = ""
+    allowed_redirect_uris: CommaSeparatedSet = set()
+    allowed_origins: CommaSeparatedSet = set()
     jwks_registry_path: str | None = None
 
     # --- Admin ---
     admin_sa_key_file: str | None = None
-    dockmaster_admin_emails: str | set[str] = ""
+    dockmaster_admin_emails: CommaSeparatedSet = set()
+
+    # --- Deployment ---
+    require_proxy_headers: bool = True
+
+    # --- Logging ---
+    log_file: str | None = None
+    log_file_max_bytes: int = 10_485_760  # 10 MB
+    log_file_backup_count: int = 5
 
     # --- Session ---
     redis_url: str | None = None
-    session_secret_key: str = "change-me-in-production"
+    session_secret_key: str = Field(default_factory=_generate_session_secret)
     session_ttl: int = 3600
 
-    @model_validator(mode="after")
-    def postprocess(self) -> "Settings":
-        # Parse comma-separated authorization fields into sets
-        for field in (
-            "authorized_issuers",
-            "authorized_domains",
-            "authorized_audience",
-            "dockmaster_admin_emails",
-            "allowed_redirect_uris",
-            "allowed_origins",
-        ):
-            raw = getattr(self, field)
-            parsed = _parse_comma_separated(raw)
-            object.__setattr__(self, field, parsed)
-
-        # Normalize log_level to uppercase
-        if isinstance(self.log_level, str):
-            object.__setattr__(self, "log_level", self.log_level.upper())
-
-        return self
+    @field_validator("log_level")
+    @classmethod
+    def normalize_log_level(cls, v: str) -> str:
+        return v.upper()
 
 
 def get_settings(request: Request) -> Settings:
