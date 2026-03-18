@@ -3,11 +3,10 @@
 Creates (or re-creates) the dockmaster service account and downloads a JSON key
 file. This key is used for:
 
-1. **JWT signing** — `ServiceUser` signs dockmaster JWTs with the SA private key
+1. **JWT signing** — `ServiceAccountSigner` signs service-to-service JWTs with the SA private key
 2. **IAM key enumeration** — `ServiceAccountKeyCache` uses the SA credentials to
    list public keys across all SAs in the project
-3. **Secret Manager access** — the SA credential authorizes SM lookups for client
-   secrets and RBAC data
+3. **Secret Manager access** — the SA credential authorizes SM lookups for RBAC data
 
 The key file lives at `secrets/service-account-dockmaster.json` (gitignored) and
 is referenced by `SA_KEY_FILE` in `.env`.
@@ -195,10 +194,10 @@ sed -i '' 's|^SA_KEY_FILE=.*|SA_KEY_FILE=secrets/service-account-dockmaster.json
 
 ```bash
 uv run python -c "
-from dockmaster.auth.jwt_signer import ServiceUser
-su = ServiceUser('$KEY_FILE')
-token = su.get_token(subject='test@example.com', service_name='test')
-print(f'SUCCESS: signed JWT with kid={su.private_key_id}')
+from dockmaster.auth.jwt_signers import ServiceAccountSigner
+signer = ServiceAccountSigner('$KEY_FILE')
+token = signer.sign(subject='test@example.com', audience='test')
+print(f'SUCCESS: signed JWT with kid={signer.private_key_id}')
 print(f'token starts with: {token[:30]}...')
 "
 ```
@@ -301,10 +300,10 @@ grep SA_KEY_FILE .env
 # Should show: SA_KEY_FILE=secrets/service-account-dockmaster.json
 
 uv run python -c "
-from dockmaster.auth.jwt_signer import ServiceUser
-su = ServiceUser('secrets/service-account-dockmaster.json')
-token = su.get_token(subject='test@example.com', service_name='test')
-print(f'SUCCESS: signed JWT with kid={su.private_key_id}')
+from dockmaster.auth.jwt_signers import ServiceAccountSigner
+signer = ServiceAccountSigner('secrets/service-account-dockmaster.json')
+token = signer.sign(subject='test@example.com', audience='test')
+print(f'SUCCESS: signed JWT with kid={signer.private_key_id}')
 print(f'token starts with: {token[:30]}...')
 "
 ```
@@ -319,7 +318,7 @@ After completing either Option A or B:
 - [ ] `.env` has `SA_KEY_FILE=secrets/service-account-dockmaster.json`
 - [ ] SA has `roles/secretmanager.secretAccessor` (verify: `gcloud projects get-iam-policy ...`)
 - [ ] SA has `roles/iam.serviceAccountKeyAdmin` (verify same command)
-- [ ] `ServiceUser` can sign a JWT with the key (A8/B7 verification script)
+- [ ] `ServiceAccountSigner` can sign a JWT with the key (A8/B7 verification script)
 - [ ] Old keys deleted (if rotating)
 
 ---
