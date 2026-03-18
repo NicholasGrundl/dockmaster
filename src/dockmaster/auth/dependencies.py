@@ -90,21 +90,25 @@ async def check_permission(
     service: str,
     permission: str,
     authority: object | None,
-    admin_emails: set[str],
+    whitelist_emails: set[str] | None = None,
 ) -> bool:
-    """Check RBAC permission with admin email whitelist fallback.
+    """Check RBAC permission with optional email whitelist bypass.
 
-    Returns True if the user has the permission via RBAC, or if the
-    check is for ("dockmaster", "admin") and the email is in the
-    admin whitelist.
+    Returns True if:
+    1. The email is in ``whitelist_emails`` (if provided) — bypasses RBAC entirely.
+    2. The RBAC authority grants the permission.
+
+    The whitelist is a bootstrap/escape-hatch mechanism: callers must
+    explicitly construct and pass the set, so scope is controlled at
+    the call site.
     """
+    if whitelist_emails and email in whitelist_emails:
+        return True
+
     if authority is not None:
         granted = await authority.has_permission(email, service, permission)
         if granted:
             return True
-
-    if service == "dockmaster" and permission == "admin":
-        return email in admin_emails
 
     return False
 
@@ -292,7 +296,9 @@ async def allow_jwt_admin(
     email = user.get("email", "")
     authority = getattr(request.app.state, "authority", None)
 
-    if not await check_permission(email, "dockmaster", "admin", authority, settings.dockmaster_admin_emails):
+    if not await check_permission(
+        email, "dockmaster", "admin", authority, whitelist_emails=settings.dockmaster_admin_emails or None
+    ):
         logger.warning("admin_access_denied", email=email, auth="jwt")
         raise HTTPException(status_code=403, detail="Access denied")
 
@@ -313,7 +319,9 @@ async def allow_session_admin(
     email = user.get("email", "")
     authority = getattr(request.app.state, "authority", None)
 
-    if not await check_permission(email, "dockmaster", "admin", authority, settings.dockmaster_admin_emails):
+    if not await check_permission(
+        email, "dockmaster", "admin", authority, whitelist_emails=settings.dockmaster_admin_emails or None
+    ):
         logger.warning("admin_access_denied", email=email, auth="session")
         raise HTTPException(status_code=403, detail="Access denied")
 

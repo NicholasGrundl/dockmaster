@@ -109,7 +109,8 @@ async def dashboard(
     # Check admin status for nav links
     authority = getattr(request.app.state, "authority", None)
     admin = await check_permission(
-        user.get("email", ""), "dockmaster", "admin", authority, settings.dockmaster_admin_emails
+        user.get("email", ""), "dockmaster", "admin", authority,
+        whitelist_emails=settings.dockmaster_admin_emails or None,
     )
 
     return templates.TemplateResponse(

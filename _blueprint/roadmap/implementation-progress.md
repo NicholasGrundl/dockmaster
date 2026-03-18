@@ -2,7 +2,75 @@
 
 *Last updated: 2026-03-18*
 
-## Current Phase: Phase 8e — App Architecture Conventions
+## Current Phase: Phase 9 — Documentation Overhaul + Deployment Readiness
+**Status**: IN PROGRESS
+
+### Phase 9a — Deployment Readiness (partial, cherry-picked)
+**Status**: COMPLETE
+- Auto-generate `session_secret_key` via `default_factory` + module flag accessor
+- `CommaSeparatedSet` type using `Annotated[..., BeforeValidator(...)]` — eliminates all `object.__setattr__`
+- `field_validator` for `log_level` normalization, removed `model_validator` entirely
+- `RequireProxyHeadersMiddleware` (default enabled, 502 if `X-Forwarded-Proto` missing)
+- File-based structured logging with `RotatingFileHandler` (LOG_FILE, LOG_FILE_MAX_BYTES, LOG_FILE_BACKUP_COUNT)
+- Deferred: Dockerfile, docker-compose.yml, Caddyfile, .env templates, monitoring guide → Phase 9c
+
+### Phase 9b — Documentation Overhaul
+**Status**: IN PROGRESS
+
+#### GUIDEs (setup & howto — greenfield perspective)
+
+**`GUIDE-01-gcp-setup.md`** — COMPLETE
+- GCP project, APIs, both SAs, Secret Manager, OAuth, Appendix A (direnv)
+
+**`GUIDE-02-consumer-howto.md`** — COMPLETE
+- Prerequisites, install, dev server, browser login, CLI, service integration, env var reference, endpoints reference, Appendix A (12 curl tests)
+
+**`GUIDE-03-developer-howto.md`** — COMPLETE
+- Repo layout, dev commands, code patterns (settings, app factory, routes, middleware, auth dependencies), adding a new endpoint (three-layer protection model), test patterns, linting/types, Appendix A (security model + checklist)
+- Also: generalized `check_permission` — renamed `admin_emails` → `whitelist_emails` (optional, checked first, scope controlled at call site)
+
+*Future: `GUIDE-04-production-deployment.md`* — deferred to Phase 9c
+
+#### LEARNINGs (concepts & architecture — skeletons exist, need filling)
+
+**`LEARNING-01-overview.md`** — PLANNED
+1. The problem: unified auth for browsers + services + CLI
+2. Terminology glossary (JWT, OAuth, OIDC, RBAC, SA, claims, kid, etc.)
+3. The three user types (diagram: browser user, service account, CLI user)
+4. System architecture diagram (entities, trust boundaries, data flows)
+5. Token types (A, C) and when each is used
+
+**`LEARNING-02-auth-flows.md`** — PLANNED
+1. Browser SSO (OAuth → session cookie) — sequence diagram
+2. CLI login (OAuth → redirect to localhost → JWT) — sequence diagram
+3. Auth code flow (OAuth → code → exchange → JWT) — sequence diagram
+4. Service-to-service exchange (Google JWT → Dockmaster JWT) — sequence diagram
+5. Token issuance (authenticated user requests a scoped token)
+6. How verification works (key caches, kid lookup, ServiceRealm)
+
+**`LEARNING-03-rbac.md`** — PLANNED
+1. What is RBAC (roles, permissions, grants — with diagrams)
+2. Dockmaster's RBAC model (Secret Manager backed, service-scoped grants)
+3. Permission resolution flow (subject → grants → roles → permissions)
+4. The Authority engine (caching, TTL, cache invalidation)
+5. Admin operations (create/update/delete via admin SA)
+- Entity relationship diagram: roles ↔ permissions ↔ grants ↔ services
+
+**`LEARNING-04-internals.md`** — PLANNED
+1. FastAPI app factory + lifespan pattern
+2. Configuration (pydantic-settings, CommaSeparatedSet, default_factory)
+3. Middleware stack (session, CORS, security headers, proxy headers)
+4. Key management (ephemeral keypair, SA key cache, JWKS registry)
+5. Session management (cookie signing, in-memory store, TTL)
+
+#### README notes (for later pass)
+- Keep: capabilities table, quick start, tech stack
+- Update: architecture diagram (cleaner mermaid version)
+- Add: links to `docs/` for GUIDEs and LEARNINGs
+- Trim: remove detailed flow descriptions (point to LEARNING-02)
+
+### Previous phase (completed)
+## Phase 8e — App Architecture Conventions
 **Approach**: Three pillars — settings DI bridge, auth conventions, middleware consolidation
 **Status**: COMPLETE
 

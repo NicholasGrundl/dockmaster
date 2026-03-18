@@ -33,6 +33,7 @@ Phase 8d: Test Audit ................................. ✅ COMPLETE
 Phase 8e: Auth Dependency Conventions ................ ✅ COMPLETE
 Phase 9: Deployment + GCP Cleanup .................... PLANNED (next)
 Phase 10: UI Tests ................................... PLANNED
+Phase 11: dockmaster-auth SDK + Consumer Packages .... PLANNING
 ```
 
 **Test count**: 412 tests (as of Phase 8e completion)
@@ -289,3 +290,27 @@ Phase 10: UI Tests ................................... PLANNED
 - Auth guard tests for admin UI routes
 
 **Dependencies:** All UI-affecting phases complete (through Phase 7 at minimum)
+
+---
+
+## Phase 11: dockmaster-auth SDK + Consumer Packages — PLANNING
+
+> Core packages for consuming services: Python SDK (`dockmaster` core / `dockmaster[service]`), Node.js middleware (`@dockmaster/auth`), SPA client. Includes cross-domain session design review and CI/CD for publishing.
+
+**Spec**: [`features/planning/dockmaster-auth-sdk.md`](../features/planning/dockmaster-auth-sdk.md)
+
+**Key decisions pending (requires dedicated review session):**
+- Cross-domain session & cookie architecture (shared cookie vs auth code flow)
+- CORS, cookie domain, audience/service mapping for multi-app deployments
+- Service name → domain mapping strategy
+- `google-auth` in core or as separate extra
+
+**Deliverables (tentative — needs planning):**
+- `capabilities.py` import guard singleton for core vs service module split
+- `pyproject.toml` restructured: base deps (core SDK) + `[service]` extra (full microservice)
+- `@dockmaster/auth` npm package (JWT verification, permission checks, login flow)
+- GitHub Actions: CI, PyPI publish on tag, npm publish on tag, optional GCP Artifact Registry
+- Cross-domain session support (cookie domain setting, session validation endpoint)
+- Consumer integration guide (`docs/GUIDE-04-integration.md`) for Consumer B + C patterns
+
+**Dependencies:** Phase 9 (docs + deployment readiness) complete

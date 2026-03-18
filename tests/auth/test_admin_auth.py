@@ -26,24 +26,28 @@ class TestIsAdmin:
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = True
 
-        result = await self._is_admin("admin@co.com", "dockmaster", "admin", authority, set())
+        result = await self._is_admin("admin@co.com", "dockmaster", "admin", authority)
         assert result is True
         authority.has_permission.assert_called_once_with("admin@co.com", "dockmaster", "admin")
 
     @pytest.mark.anyio
-    async def test_email_whitelist_fallback(self, mocker):
+    async def test_whitelist_bypasses_rbac(self, mocker):
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
-        result = await self._is_admin("admin@co.com", "dockmaster", "admin", authority, {"admin@co.com"})
+        result = await self._is_admin(
+            "admin@co.com", "dockmaster", "admin", authority, whitelist_emails={"admin@co.com"}
+        )
         assert result is True
+        # Whitelist is checked first — RBAC is never called
+        authority.has_permission.assert_not_called()
 
     @pytest.mark.anyio
     async def test_denied_when_no_rbac_no_whitelist(self, mocker):
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
-        result = await self._is_admin("nobody@co.com", "dockmaster", "admin", authority, set())
+        result = await self._is_admin("nobody@co.com", "dockmaster", "admin", authority)
         assert result is False
 
     @pytest.mark.anyio
@@ -51,17 +55,21 @@ class TestIsAdmin:
         authority = mocker.AsyncMock()
         authority.has_permission.return_value = False
 
-        result = await self._is_admin("nobody@co.com", "dockmaster", "admin", authority, {"admin@co.com"})
+        result = await self._is_admin(
+            "nobody@co.com", "dockmaster", "admin", authority, whitelist_emails={"admin@co.com"}
+        )
         assert result is False
 
     @pytest.mark.anyio
     async def test_no_authority_uses_whitelist_only(self):
-        result = await self._is_admin("admin@co.com", "dockmaster", "admin", None, {"admin@co.com"})
+        result = await self._is_admin(
+            "admin@co.com", "dockmaster", "admin", None, whitelist_emails={"admin@co.com"}
+        )
         assert result is True
 
     @pytest.mark.anyio
     async def test_no_authority_no_whitelist_denied(self):
-        result = await self._is_admin("admin@co.com", "dockmaster", "admin", None, set())
+        result = await self._is_admin("admin@co.com", "dockmaster", "admin", None)
         assert result is False
 
 
