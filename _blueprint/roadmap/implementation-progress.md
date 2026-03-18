@@ -2,8 +2,33 @@
 
 *Last updated: 2026-03-18*
 
-## Current Phase: Phase 9 — Documentation Overhaul + Deployment Readiness
-**Status**: IN PROGRESS
+## Next up: Phase 11 — Auth SDK & Cross-Domain Support
+**Status**: PLANNED (spec complete, implementation not started) — **START HERE**
+**Spec**: `_blueprint/features/implementation-phase11-auth-sdk.md`
+
+Key decisions from planning session (2026-03-18):
+- Cross-domain uses refresh tokens (different TLDs, cookies don't cross)
+- Route reorg: session/service/cli namespaces
+- Python SDK (DockmasterClient) for consuming APIs — no GCP deps
+- SA exchange in SDK, pyproject.toml split deferred
+
+## Phase 11b — Node.js Browser Auth SDK
+**Status**: PLANNED (spec complete, implementation not started)
+**Spec**: `_blueprint/features/implementation-phase11b-js-sdk.md`
+
+Key decisions from planning session (2026-03-18):
+- TypeScript, ESM only, single dep (jose), framework-agnostic
+- Two modes: cookie (same-domain) vs token (cross-domain refresh)
+- Refresh token in sessionStorage, JWT in memory
+- Monorepo: packages/auth-js/ in dockmaster repo
+- GCP Artifact Registry for publishing, npm public deferred
+- React hooks, Astro middleware, SSR middleware all deferred
+- Small server addition: return_to param on GET /auth/login (cookie mode)
+
+---
+
+## Phase 9 — Documentation Overhaul + Deployment Readiness
+**Status**: 9a COMPLETE, 9b IN PROGRESS (docs). Deployment deferred to after Phase 11/11b.
 
 ### Phase 9a — Deployment Readiness (partial, cherry-picked)
 **Status**: COMPLETE

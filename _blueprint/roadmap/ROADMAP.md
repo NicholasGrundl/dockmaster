@@ -31,9 +31,10 @@ Phase 8b: Code Quality Review ........................ ✅ COMPLETE
 Phase 8c: Deployment Readiness ....................... ✅ COMPLETE
 Phase 8d: Test Audit ................................. ✅ COMPLETE
 Phase 8e: Auth Dependency Conventions ................ ✅ COMPLETE
-Phase 9: Deployment + GCP Cleanup .................... PLANNED (next)
-Phase 10: UI Tests ................................... PLANNED
-Phase 11: dockmaster-auth SDK + Consumer Packages .... PLANNING
+Phase 11: Auth SDK + Cross-Domain Support ............. PLANNED (next)
+Phase 11b: Node.js Browser Auth SDK ................... PLANNED
+Phase 9: Deployment + GCP Cleanup .................... PLANNED
+Phase 10: UI Tests ................................... PLANNED (low priority)
 ```
 
 **Test count**: 412 tests (as of Phase 8e completion)
@@ -259,6 +260,59 @@ Phase 11: dockmaster-auth SDK + Consumer Packages .... PLANNING
 
 ---
 
+## Phase 11: Auth SDK & Cross-Domain Consumer Support — PLANNED (next)
+
+> Route reorganization, refresh token support for cross-domain browser users, and Python
+> consumer SDK for backend services verifying JWTs and checking permissions.
+
+**Spec**: [`features/implementation-phase11-auth-sdk.md`](../features/implementation-phase11-auth-sdk.md)
+**Background**: [`features/planning/proposal-dockmaster-auth-sdk.md`](../features/planning/proposal-dockmaster-auth-sdk.md) (original broad proposal)
+
+**Key decisions made:**
+- Cross-domain auth uses refresh tokens (signed session handles), not shared cookies (different TLDs)
+- Route hierarchy: session-gated (`/auth/session/*`), API-gated (top-level), service (`/auth/service/*`), CLI (`/auth/cli/*`)
+- JS browser SDK planned as Phase 11b (separate spec)
+- No `pyproject.toml` split — clean import boundaries instead
+- SA token exchange deferred from SDK — consumers forward caller's JWT for permission checks
+
+**Deliverables:**
+- Route reorganization (session/service/cli namespaces, rename mapping in spec)
+- `POST /auth/login/code` — exchange auth code for refresh_token + profile
+- `POST /auth/session/token` — cookie or refresh_token → Type C JWT
+- `DockmasterClient` — JWT verification + permission checks via HTTP (no GCP deps)
+- `HTTPKeyCache` — lightweight key cache fetching from `/auth/keys`
+- Integration guide for Domain A API and Domain B SPA patterns
+
+**Dependencies:** Phase 8 complete (no Phase 9 dependency — deployment comes after)
+
+---
+
+## Phase 11b: Node.js Browser Auth SDK — PLANNED
+
+> TypeScript browser client (`@dockmaster/auth`) for Astro and React SPAs — login/logout,
+> token management, authenticated fetch, permission checks.
+
+**Spec**: [`features/implementation-phase11b-js-sdk.md`](../features/implementation-phase11b-js-sdk.md)
+
+**Key decisions made:**
+- Framework-agnostic core (no React hooks or Astro middleware yet)
+- Two modes: `'cookie'` (same-domain) and `'token'` (cross-domain refresh tokens)
+- Refresh token in sessionStorage, JWT in memory. Tab close = logout.
+- Single dependency: `jose` (JWT decoding, zero-dep, browser-native)
+- TypeScript, ESM only, published to GCP Artifact Registry
+- Monorepo: `packages/auth-js/` subdirectory in dockmaster repo
+
+**Deliverables:**
+- `DockmasterAuth` class — login, logout, getToken, fetch wrapper, permission checks
+- Typed response models for all dockmaster API interactions
+- `onAuthChange` event for framework integration
+- CI workflow (lint + typecheck + test) + publish workflow (tag-triggered)
+- Small server-side addition: `return_to` param on `GET /auth/login` for cookie mode
+
+**Dependencies:** Phase 11 (server-side route reorg + refresh token endpoints)
+
+---
+
 ## Phase 9: Deployment + GCP Cleanup — PLANNED
 
 > GCP credential rotation, setup/dev guides, and deployment configuration.
@@ -273,13 +327,13 @@ Phase 11: dockmaster-auth SDK + Consumer Packages .... PLANNING
 - Admin SA (`dockmaster-admin`) setup guide
 - Fix any deployment-blocking issues from Phase 8 audit
 
-**Dependencies:** Phase 8 audit complete
+**Dependencies:** Phase 11 + 11b complete (deploy with SDK integration ready)
 
 ---
 
-## Phase 10: UI Tests — PLANNED
+## Phase 10: UI Tests — PLANNED (low priority)
 
-> Comprehensive UI test coverage for all admin pages. Deferred until UI is finalized and stable.
+> Comprehensive UI test coverage for all admin pages. Deferred — not critical for launch.
 
 **Spec**: To be created during Phase 10 planning
 
@@ -289,28 +343,4 @@ Phase 11: dockmaster-auth SDK + Consumer Packages .... PLANNING
 - Read-only mode tests (when admin SA not configured)
 - Auth guard tests for admin UI routes
 
-**Dependencies:** All UI-affecting phases complete (through Phase 7 at minimum)
-
----
-
-## Phase 11: dockmaster-auth SDK + Consumer Packages — PLANNING
-
-> Core packages for consuming services: Python SDK (`dockmaster` core / `dockmaster[service]`), Node.js middleware (`@dockmaster/auth`), SPA client. Includes cross-domain session design review and CI/CD for publishing.
-
-**Spec**: [`features/planning/dockmaster-auth-sdk.md`](../features/planning/dockmaster-auth-sdk.md)
-
-**Key decisions pending (requires dedicated review session):**
-- Cross-domain session & cookie architecture (shared cookie vs auth code flow)
-- CORS, cookie domain, audience/service mapping for multi-app deployments
-- Service name → domain mapping strategy
-- `google-auth` in core or as separate extra
-
-**Deliverables (tentative — needs planning):**
-- `capabilities.py` import guard singleton for core vs service module split
-- `pyproject.toml` restructured: base deps (core SDK) + `[service]` extra (full microservice)
-- `@dockmaster/auth` npm package (JWT verification, permission checks, login flow)
-- GitHub Actions: CI, PyPI publish on tag, npm publish on tag, optional GCP Artifact Registry
-- Cross-domain session support (cookie domain setting, session validation endpoint)
-- Consumer integration guide (`docs/GUIDE-04-integration.md`) for Consumer B + C patterns
-
-**Dependencies:** Phase 9 (docs + deployment readiness) complete
+**Dependencies:** All UI-affecting phases complete
