@@ -104,6 +104,21 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 
 ---
 
+## Admin UI Cleanup
+
+### UI Architecture Refactor
+- **Context**: The admin UI grew piecemeal across phases 4c, 6, 6b. Several patterns need cleanup:
+  1. **Non-admin UI unnecessary** — the only reason to log in is admin ops. Consider removing the user-only dashboard or making login always land on admin.
+  2. **`is_admin` template flag** — passed around to conditionally show nav links, but if there's no non-admin UI it's excess complexity.
+  3. **Auth redirect handling** — `allow_session` currently throws 307 redirect from the auth gate. Auth gates should be pure 401/403; the UI layer should own redirect behavior. Currently two separate patterns: `require_ui_session` (ui.py) and `allow_session` (dependencies.py) both handle redirects differently.
+  4. **Exception handling** — need an app-level or router-scoped exception handler that converts 401 → redirect for `/ui/*` routes, so auth gates can be pure.
+  5. **Template/route consistency** — inconsistent patterns across `ui.py`, `admin_ui.py` for session checks, user data injection, etc.
+- **When**: After Phase 11 ships (auth gates cleaned up as part of route reorg, but UI patterns deferred).
+- **Effort**: Medium — mostly consolidation, not new features.
+- **Decision needed**: Whether to collapse user UI + admin UI into a single admin-only UI.
+
+---
+
 ## Future Features
 
 ### User Whitelisting via Secret Manager

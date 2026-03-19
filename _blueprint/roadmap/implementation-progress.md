@@ -2,15 +2,42 @@
 
 *Last updated: 2026-03-18*
 
-## Next up: Phase 11 — Auth SDK & Cross-Domain Support
-**Status**: PLANNED (spec complete, implementation not started) — **START HERE**
+## Current Phase: Phase 11 — Auth SDK & Cross-Domain Support
+**Status**: BLOCKED — structural edges found, needs re-planning (see `implementation-alignment.md`)
 **Spec**: `_blueprint/features/implementation-phase11-auth-sdk.md`
+**Approach**: TDD (route reorg + refresh token merged), then TDD for SDK
 
 Key decisions from planning session (2026-03-18):
 - Cross-domain uses refresh tokens (different TLDs, cookies don't cross)
 - Route reorg: session/service/cli namespaces
 - Python SDK (DockmasterClient) for consuming APIs — no GCP deps
 - SA exchange in SDK, pyproject.toml split deferred
+- SDK module: `dockmaster.sdk/` namespace (not `client/`), no code in `__init__.py`
+- HTTPKeyCache lives in `sdk/client_cache.py` (not alongside GCP caches in `auth/key_cache.py`)
+
+### Sub-tasks — Workstream 1: Route Reorg + Refresh Token (merged)
+
+- [ ] **1. Extend AuthCodeEntry with profile claims** — add profile fields to `AuthCodeEntry`, update `_handle_external_callback` to pass them through from OAuth callback
+- [ ] **2. Create `routes/session.py`** — new session-gated routes (`/auth/session/principal`, `/auth/session/token`, `/auth/session/list`). Move logic from `token.py` (issue_token) and `login.py` (principal, sessions). Accept cookie OR refresh_token body.
+- [ ] **3. Create `routes/service.py`** — move exchange logic from `exchange.py` to `POST /auth/service/token`
+- [ ] **4. Create `routes/cli_routes.py`** — extract CLI token issuance (`POST /auth/cli/token`) from old `/auth/token` Bearer JWT path
+- [ ] **5. Update `login.py`** — replace `code_exchange` with `login_code` (creates session + returns `{refresh_token, profile}`), change logout to POST (accept cookie or refresh_token body), add `return_to` param on GET `/auth/login`
+- [ ] **6. Add `allow_session` refresh_token support** — extend session auth dependency in `dependencies.py` to accept `refresh_token` in request body as alternative to cookie
+- [ ] **7. Update `main.py` router registrations** — remove old routers (`token`, `exchange`), register new ones (`session`, `service`, `cli_routes`)
+- [ ] **8. Update templates** — change logout links from GET `<a>` to POST `<form>`
+- [ ] **9. Update all existing tests** — fix paths and adapt to new route structure + new behavior
+
+### Sub-tasks — Workstream 2: Python Consumer SDK
+
+- [ ] **10. Create `sdk/client_cache.py`** — `HTTPKeyCache` fetching from `/auth/keys` via httpx, implements `KeyCacheLike` protocol
+- [ ] **11. Create `sdk/client.py`** — `DockmasterClient` class with `verify_jwt()` + `has_permission()` + caching
+- [ ] **12. Create `sdk/__init__.py`** — thin re-export of `DockmasterClient`
+- [ ] **13. Import hygiene test** — verify `dockmaster.sdk` imports without service-only deps (no authlib, google-cloud-*, structlog, fastapi)
+- [ ] **14. SDK unit tests** — `tests/sdk/` with mock httpx responses for key cache, JWT verification, permission checks
+
+### Close
+
+- [ ] **15. Full test suite pass** — run entire suite, fix any regressions, manual verification by user
 
 ## Phase 11b — Node.js Browser Auth SDK
 **Status**: PLANNED (spec complete, implementation not started)
