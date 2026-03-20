@@ -147,7 +147,7 @@ class TestCallback:
 
 
 class TestLogout:
-    """GET /auth/logout."""
+    """POST /auth/logout."""
 
     def test_logout_clears_session_and_cookie(self, login_client, session_store, login_settings):
         """Logout should delete session and clear cookie."""
@@ -157,7 +157,7 @@ class TestLogout:
         _seed_session(session_store, session_id, {"email": "user@example.com"})
 
         login_client.cookies.set("session_id", signed)
-        response = login_client.get("/auth/logout", follow_redirects=False)
+        response = login_client.post("/auth/logout", follow_redirects=False)
 
         assert response.status_code == 302
         assert response.headers["location"] == "/ui/"
@@ -165,7 +165,7 @@ class TestLogout:
 
     def test_logout_without_cookie_still_redirects(self, login_client):
         """Logout without a session cookie should still redirect."""
-        response = login_client.get("/auth/logout", follow_redirects=False)
+        response = login_client.post("/auth/logout", follow_redirects=False)
         assert response.status_code == 302
 
 

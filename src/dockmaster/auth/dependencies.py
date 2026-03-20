@@ -64,21 +64,23 @@ def verify_jwt(token: str, realm: object) -> dict:
 
 
 async def resolve_session(
-    cookie: str | None,
+    handle: str | None,
     session_store: object | None,
     secret_key: str,
 ) -> dict | None:
-    """Resolve session data from a signed cookie value.
+    """Resolve session data from a session handle
+    - a signed cookie value
+    - a refresh_token value
 
     Returns the session data dict if valid, or None if no cookie,
     bad signature, expired, or missing session store.
     """
-    if not cookie or not session_store:
+    if not handle or not session_store:
         return None
 
     signer = URLSafeSerializer(secret_key)
     try:
-        session_id = signer.loads(cookie)
+        session_id = signer.loads(handle)
     except BadSignature:
         return None
 
@@ -205,15 +207,33 @@ async def allow_session(
     settings: Annotated[Settings, Depends(get_settings)],
     session_cookie: Annotated[str | None, Cookie(alias="session_id")] = None,
 ) -> dict:
-    """Gate: require valid session cookie. Returns session data dict.
+    """Gate: require valid session handle. Returns session data dict.
+
+    Searches for session handle in this order:
+    - tries cookie first
+    - looks for refresh_token in JSON body as fallback
 
     Use as a router-level gate for session
     """
     store = getattr(request.app.state, "session_store", None)
+
+    # Try cookie first
     data = await resolve_session(session_cookie, store, settings.session_secret_key)
-    if data is None:
-        raise HTTPException(401, detail="Not authenticated")
-    return data
+    if data is not None:
+        return data
+    
+    # Try refresh_token freom request body
+    try:                                                                            
+        body = await request.json()
+        refresh_token = body.get("refresh_token")  
+    except Exception:
+        refresh_token = None
+    
+    data = await resolve_session(refresh_token, store, settings.session_secret_key)
+    if data is not None:
+        return data
+    
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 
 async def allow_jwt_or_session(
@@ -420,13 +440,31 @@ async def get_session_user(
 ) -> dict:
     """Info dependency: return the current session user's data.
 
-    Calls resolve_session to extract user data from the session cookie.
+    Calls resolve_session to extract user data from the session 
+    handle (e.g. cookie or refresh_token).
+    
     Returns an empty dict if no valid session. Use alongside a router-level
     auth gate — this dependency provides data, not auth enforcement.
     """
     store = getattr(request.app.state, "session_store", None)
+    
+    # Try cookie first
     data = await resolve_session(session_cookie, store, settings.session_secret_key)
-    return data or {}
+    if data is not None:
+        return data
+    
+    # Try refresh_token freom request body
+    try:                                                                            
+        body = await request.json()
+        refresh_token = body.get("refresh_token")  
+    except Exception:
+        refresh_token = None
+    
+    data = await resolve_session(refresh_token, store, settings.session_secret_key)
+    if data is not None:
+        return data
+    
+    return {}
 
 
 async def needs_admin_storage(request: Request) -> None:

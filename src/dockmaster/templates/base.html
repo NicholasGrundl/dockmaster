@@ -73,12 +73,14 @@
                     </div>
                     {% endif %}
                     <span class="text-sm hidden sm:inline">{{ user.name or user.email }}</span>
-                    <a href="/auth/logout" class="text-sm px-3 py-1.5 rounded-md no-underline font-medium"
-                       style="color: var(--color-text); background-color: var(--color-bg); border: 1px solid var(--color-border);"
-                       onmouseover="this.style.backgroundColor='#e5e7eb'"
-                       onmouseout="this.style.backgroundColor='var(--color-bg)'">
-                        Sign out
-                    </a>
+                    <form method="POST" action="/auth/logout" style="display: inline;">
+                        <button type="submit" class="text-sm px-3 py-1.5 rounded-md font-medium cursor-pointer"
+                            style="color: var(--color-text); background-color: var(--color-bg); border: 1px solid var(--color-border);"
+                            onmouseover="this.style.backgroundColor='#e5e7eb'"
+                            onmouseout="this.style.backgroundColor='var(--color-bg)'">
+                            Sign out
+                        </button>
+                    </form>
                 </div>
                 {% else %}
                 <a href="/ui/login" class="text-sm font-medium px-4 py-1.5 rounded-md text-white no-underline"

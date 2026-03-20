@@ -18,6 +18,7 @@ class AuthCodeEntry(BaseModel):
 
     subject: str
     redirect_uri: str
+    profile: dict = {}
     created_at: float = Field(default_factory=time.time)
 
 
@@ -31,9 +32,9 @@ class AuthCodeStore:
     def __init__(self, ttl: int = 300) -> None:
         self._store = TTLStore[AuthCodeEntry](ttl=ttl)
 
-    def create(self, subject: str, redirect_uri: str) -> str:
+    def create(self, subject: str, redirect_uri: str, profile: dict | None = None) -> str:
         """Generate a new auth code and store it. Returns the code string."""
-        entry = AuthCodeEntry(subject=subject, redirect_uri=redirect_uri)
+        entry = AuthCodeEntry(subject=subject, redirect_uri=redirect_uri, profile=profile or {})
         return self._store.create(entry)
 
     def consume(self, code: str, redirect_uri: str) -> AuthCodeEntry | None:

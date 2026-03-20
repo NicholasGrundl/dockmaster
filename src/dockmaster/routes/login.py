@@ -113,9 +113,10 @@ async def callback(
 
     # Redirect flow: allowlisted URI → auth code, localhost (CLI) → direct JWT
     redirect_target = state_meta.get("redirect_uri")
+    profile_claims = {k: id_token_claims[k] for k in PROFILE_CLAIM_KEYS if k in id_token_claims}
     if redirect_target:
         if redirect_target in settings.allowed_redirect_uris:
-            return _handle_external_callback(request, email, redirect_target, state)
+            return _handle_external_callback(request, email, redirect_target, state, profile_claims)
         if _LOCALHOST_RE.match(redirect_target):
             return _handle_cli_callback(request, email, redirect_target)
         # Should not reach here — _validate_redirect_uri would have rejected it
@@ -157,13 +158,14 @@ def _handle_external_callback(
     email: str,
     redirect_uri: str,
     state: str,
+    profile: dict | None = None,
 ) -> RedirectResponse:
     """Generate an auth code and redirect to the external service."""
     auth_code_store = getattr(request.app.state, "auth_code_store", None)
     if auth_code_store is None:
         raise HTTPException(status_code=503, detail="Auth code store not configured")
 
-    code = auth_code_store.create(subject=email, redirect_uri=redirect_uri)
+    code = auth_code_store.create(subject=email, redirect_uri=redirect_uri, profile=profile or {})
     target = f"{redirect_uri}?{urlencode({'code': code, 'state': state})}"
     logger.info("auth_code_issued", email=email, redirect_uri=redirect_uri)
     return RedirectResponse(url=target, status_code=302)
@@ -186,24 +188,39 @@ def _handle_cli_callback(request: Request, email: str, redirect_uri: str) -> Red
     return RedirectResponse(url=target, status_code=302)
 
 
-@router.get("/logout")
+@router.post("/logout")
 async def logout(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
 ):
     """Destroy session and clear cookie."""
     session_store = getattr(request.app.state, "session_store", None)
+    signer = _get_signer(settings)
 
-    # Try to read and delete the session
+    # Try cookie first
     cookie = request.cookies.get("session_id")
     if cookie and session_store:
-        signer = _get_signer(settings)
         try:
             session_id = signer.loads(cookie)
             await session_store.delete(session_id)
             logger.info("session_destroyed", session_id=session_id)
         except BadSignature:
             logger.warning("logout_bad_signature")
+
+    # Try refresh_token from body
+    try:
+        body = await request.json()
+        refresh_token = body.get("refresh_token")
+    except Exception:
+        refresh_token = None
+
+    if refresh_token and session_store:
+        try:
+            session_id = signer.loads(refresh_token)
+            await session_store.delete(session_id)
+            logger.info("session_destroyed", session_id=session_id)
+        except BadSignature:
+            logger.warning("logout_bad_refresh_token_signature")
 
     response = RedirectResponse(url="/ui/", status_code=302)
     response.delete_cookie(key="session_id", path="/")
