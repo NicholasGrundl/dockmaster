@@ -1,7 +1,5 @@
 """Routes: OAuth login flow — /auth/login, /auth/callback, /auth/logout, /auth/principal."""
 
-from __future__ import annotations
-
 import re
 import uuid
 from urllib.parse import urlencode

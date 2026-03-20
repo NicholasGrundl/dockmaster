@@ -15,15 +15,28 @@ Example JSON file::
     }
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 
 import structlog
 from pydantic import BaseModel
 
+from fastapi.templating import Jinja2Templates
+
 log = structlog.get_logger(__name__)
+
+
+TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+def _timestamp_to_datetime(ts: int | float) -> str:
+    """Convert a Unix timestamp to a human-readable datetime string."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+templates.env.filters["timestamp_to_datetime"] = _timestamp_to_datetime
 
 
 class UIConfig(BaseModel):

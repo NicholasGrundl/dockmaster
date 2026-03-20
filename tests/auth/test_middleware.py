@@ -10,8 +10,9 @@ class TestRequireProxyHeadersMiddleware:
     """Tests for RequireProxyHeadersMiddleware (default: enabled)."""
 
     def test_returns_502_when_header_missing(self):
-        """Default settings enforce proxy headers — missing X-Forwarded-Proto returns 502."""
+        """Explicit require_proxy_headers=True — missing X-Forwarded-Proto returns 502."""
         settings = Settings(
+            require_proxy_headers=True,
             session_secret_key="test-secret",
             _env_file=None,
         )

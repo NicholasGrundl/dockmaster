@@ -104,41 +104,6 @@ class TestTokenEndpointSessionAuth:
         assert "service" in response.json()["detail"].lower()
 
 
-class TestTokenEndpointBearerAuth:
-    """POST /auth/token with Bearer JWT auth (CLI path)."""
-
-    def test_bearer_auth_returns_token(self, token_client, app, signer, fake_realm, token_issuer):
-        """Valid Bearer JWT + service → 200 with Type C JWT."""
-        app.state.realm = fake_realm
-        input_token = signer.sign(subject="cli-user@example.com", audience="dockmaster")
-
-        response = token_client.post(
-            "/auth/token?service=billing",
-            headers={"Authorization": f"Bearer {input_token}"},
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["token_type"] == "bearer"
-
-        claims = pyjwt.decode(data["access_token"], options={"verify_signature": False})
-        assert claims["iss"] == "dockmaster"
-        assert claims["sub"] == "cli-user@example.com"
-        assert claims["aud"] == "billing"
-
-    def test_bearer_auth_missing_service(self, token_client, app, signer, fake_realm):
-        """Bearer auth without ?service= → 400."""
-        app.state.realm = fake_realm
-        input_token = signer.sign(subject="user@example.com", audience="dockmaster")
-
-        response = token_client.post(
-            "/auth/token",
-            headers={"Authorization": f"Bearer {input_token}"},
-        )
-
-        assert response.status_code == 400
-
-
 class TestTokenEndpointErrors:
     """Error cases for /auth/token."""
 

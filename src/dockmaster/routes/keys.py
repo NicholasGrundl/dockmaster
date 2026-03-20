@@ -1,7 +1,5 @@
 """Route: GET /auth/key/{kid} — unauthenticated public key endpoint."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 

@@ -3,21 +3,19 @@
 Dual auth: session cookie (browser) or Bearer JWT (CLI).
 """
 
-from __future__ import annotations
-
 from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from dockmaster.auth.dependencies import allow_jwt_or_session, get_session_or_jwt_email
+from dockmaster.auth.dependencies import allow_session, get_session_user
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(
     tags=["authenticated"],
-    dependencies=[Depends(allow_jwt_or_session)],
+    dependencies=[Depends(allow_session)],
 )
 
 
@@ -31,13 +29,14 @@ class TokenResponse(BaseModel):
 @router.post("/token", response_model=TokenResponse)
 async def issue_token(
     request: Request,
-    email: Annotated[str, Depends(get_session_or_jwt_email)],
+    user: Annotated[dict, Depends(get_session_user)],
 ) -> TokenResponse:
     """Issue a Type C JWT for a target service.
 
-    Auth: session cookie or Bearer JWT (verified by allow_jwt_or_session gate).
+    Auth: session cookie.
     Query params: service (required) — the target service audience.
     """
+    email = user.get("email", "")
     token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Token issuer not configured")

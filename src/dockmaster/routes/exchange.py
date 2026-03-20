@@ -1,7 +1,5 @@
 """Route: POST /auth/exchange — exchange Google credentials for a dockmaster JWT."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
 import structlog

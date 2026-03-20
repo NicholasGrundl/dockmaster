@@ -1,7 +1,5 @@
 """Routes: GET /auth/has, GET /auth/grants — permission check and grants resolution."""
 
-from __future__ import annotations
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response

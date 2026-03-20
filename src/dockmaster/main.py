@@ -31,8 +31,7 @@ from dockmaster.routes.admin import router as admin_router
 from dockmaster.routes.permissions import router as permissions_router
 from dockmaster.routes.token import router as token_router
 from dockmaster.routes.admin_ui import router as admin_ui_router
-from dockmaster.routes.ui import protected_router as ui_protected_router
-from dockmaster.routes.ui import public_router as ui_public_router
+from dockmaster.routes.ui import router as ui_router
 from dockmaster.sessions.memory import InMemorySessionStore
 from dockmaster.ui.config import load_ui_config
 
@@ -259,8 +258,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(permissions_router, prefix="/auth")
     application.include_router(token_router, prefix="/auth")
     application.include_router(admin_router, prefix="/admin")
-    application.include_router(ui_public_router, prefix="/ui")
-    application.include_router(ui_protected_router, prefix="/ui")
+    application.include_router(ui_router, prefix="/ui")
     application.include_router(admin_ui_router, prefix="/ui")
     application.add_api_route("/", root_info, methods=["GET"], tags=["info"])
     return application
