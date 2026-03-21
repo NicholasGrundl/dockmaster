@@ -77,107 +77,6 @@ def code_exchange_client(code_exchange_app: FastAPI) -> TestClient:
 
 
 # ---------------------------------------------------------------------------
-# POST /auth/code/exchange tests
-# ---------------------------------------------------------------------------
-
-
-class TestCodeExchangeEndpoint:
-    """POST /auth/code/exchange — exchange auth code for Type C JWT."""
-
-    def test_valid_code_exchange(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
-        """Valid code + matching redirect_uri returns a JWT."""
-        flow_store = code_exchange_app.state.flow_store
-        issuer = code_exchange_app.state.token_issuer
-        code = flow_store.create_login_ticket(
-            subject="user@example.com",
-            redirect_uri="https://app.example.com/callback",
-        )
-
-        resp = code_exchange_client.post(
-            "/auth/code/exchange",
-            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
-        )
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "access_token" in data
-        assert data["token_type"] == "bearer"
-        assert data["expires_in"] == issuer.default_ttl
-        assert data["refresh_token"] is None
-
-    def test_invalid_code_returns_400(self, code_exchange_client: TestClient):
-        """Non-existent code returns 400."""
-        resp = code_exchange_client.post(
-            "/auth/code/exchange",
-            json={"code": "bogus", "redirect_uri": "https://app.example.com/callback"},
-        )
-        assert resp.status_code == 400
-        assert "Invalid or expired" in resp.json()["detail"]
-
-    def test_wrong_redirect_uri_returns_400(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
-        """Mismatched redirect_uri returns 400."""
-        flow_store = code_exchange_app.state.flow_store
-        code = flow_store.create_login_ticket(
-            subject="user@example.com",
-            redirect_uri="https://app.example.com/callback",
-        )
-
-        resp = code_exchange_client.post(
-            "/auth/code/exchange",
-            json={"code": code, "redirect_uri": "https://wrong.com/callback"},
-        )
-        assert resp.status_code == 400
-
-    def test_code_single_use(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
-        """Code can only be exchanged once."""
-        flow_store = code_exchange_app.state.flow_store
-        code = flow_store.create_login_ticket(
-            subject="user@example.com",
-            redirect_uri="https://app.example.com/callback",
-        )
-
-        # First exchange succeeds
-        resp1 = code_exchange_client.post(
-            "/auth/code/exchange",
-            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
-        )
-        assert resp1.status_code == 200
-
-        # Second exchange fails (single-use)
-        resp2 = code_exchange_client.post(
-            "/auth/code/exchange",
-            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
-        )
-        assert resp2.status_code == 400
-
-    def test_missing_fields_returns_422(self, code_exchange_client: TestClient):
-        """Missing required fields returns 422 validation error."""
-        resp = code_exchange_client.post("/auth/code/exchange", json={"code": "abc"})
-        assert resp.status_code == 422
-
-    def test_jwt_contains_correct_subject(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
-        """The returned JWT contains the correct subject from the auth code."""
-        import jwt
-
-        flow_store = code_exchange_app.state.flow_store
-        code = flow_store.create_login_ticket(
-            subject="alice@example.com",
-            redirect_uri="https://app.example.com/callback",
-        )
-
-        resp = code_exchange_client.post(
-            "/auth/code/exchange",
-            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
-        )
-
-        token = resp.json()["access_token"]
-        # Decode without verification (we trust the issuer in tests)
-        claims = jwt.decode(token, options={"verify_signature": False})
-        assert claims["sub"] == "alice@example.com"
-        assert claims["iss"] == "dockmaster"
-
-
-# ---------------------------------------------------------------------------
 # Callback external redirect tests
 # ---------------------------------------------------------------------------
 
@@ -252,12 +151,12 @@ class TestCallbackExternalRedirect:
 
 
 # ---------------------------------------------------------------------------
-# POST /auth/login/code tests
+# POST /auth/login/exchange tests
 # ---------------------------------------------------------------------------
 
 
-class TestLoginCodeEndpoint:
-    """POST /auth/login/code — exchange auth code for refresh_token + profile."""
+class TestLoginTicketExchange:
+    """POST /auth/login/exchange — exchange login ticket for refresh_token + profile."""
 
     def test_valid_code_returns_refresh_token_and_profile(
         self, code_exchange_app: FastAPI, code_exchange_client: TestClient
@@ -271,7 +170,7 @@ class TestLoginCodeEndpoint:
         )
 
         resp = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://app.example.com/callback"},
         )
 
@@ -295,7 +194,7 @@ class TestLoginCodeEndpoint:
         )
 
         resp = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://app.example.com/callback"},
         )
 
@@ -319,7 +218,7 @@ class TestLoginCodeEndpoint:
     def test_invalid_code_returns_400(self, code_exchange_client: TestClient):
         """Non-existent code returns 400."""
         resp = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": "bogus", "redirect_uri": "https://app.example.com/callback"},
         )
         assert resp.status_code == 400
@@ -336,7 +235,7 @@ class TestLoginCodeEndpoint:
         )
 
         resp = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://wrong.com/callback"},
         )
         assert resp.status_code == 400
@@ -352,13 +251,13 @@ class TestLoginCodeEndpoint:
         )
 
         resp1 = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://app.example.com/callback"},
         )
         assert resp1.status_code == 200
 
         resp2 = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://app.example.com/callback"},
         )
         assert resp2.status_code == 400
@@ -374,7 +273,7 @@ class TestLoginCodeEndpoint:
         )
 
         resp = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://app.example.com/callback"},
         )
 
@@ -393,7 +292,7 @@ class TestLoginCodeEndpoint:
         )
 
         resp = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://app.example.com/callback"},
         )
 
@@ -411,7 +310,7 @@ class TestLoginCodeEndpoint:
         )
 
         resp = code_exchange_client.post(
-            "/auth/login/code",
+            "/auth/login/exchange",
             json={"code": code, "redirect_uri": "https://app.example.com/callback"},
         )
 

@@ -279,71 +279,29 @@ async def get_sessions(
     return await list_sessions_by_email(session_store, email)
 
 
-class CodeExchangeRequest(BaseModel):
-    """Request body for POST /auth/code/exchange."""
+class LoginTicketExchangeRequest(BaseModel):
+    """Request body for POST /auth/login/exchange."""
 
     code: str
     redirect_uri: str
 
 
-@router.post("/code/exchange")
-async def code_exchange(
-    body: CodeExchangeRequest,
-    request: Request,
-    flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
-) -> dict:
-    """Exchange an authorization code for a Type C JWT.
-
-    The code must be valid (exists, not expired, not already used) and the
-    redirect_uri must match the one used when the code was created.
-    """
-    if flow_store is None:
-        raise HTTPException(status_code=503, detail="Flow store not configured")
-
-    token_issuer = getattr(request.app.state, "token_issuer", None)
-    if token_issuer is None:
-        raise HTTPException(status_code=503, detail="Token issuer not configured")
-
-    entry = flow_store.consume(body.code)
-    if not isinstance(entry, LoginTicket) or entry.redirect_uri != body.redirect_uri:
-        raise HTTPException(status_code=400, detail="Invalid or expired authorization code")
-
-    token = token_issuer.sign(
-        subject=entry.subject,
-        audience="dockmaster",
-    )
-
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "expires_in": token_issuer.default_ttl,
-        "refresh_token": None,
-    }
-
-
-class LoginCodeRequest(BaseModel):
-    """Request body for POST /auth/login/code."""
-
-    code: str
-    redirect_uri: str
-
-
-class LoginCodeResponse(BaseModel):
-    """Response for POST /auth/login/code."""
+class LoginTicketExchangeResponse(BaseModel):
+    """Response for POST /auth/login/exchange."""
 
     refresh_token: str
     profile: dict
     return_to: str | None = None
 
 
-@router.post("/login/code", response_model=LoginCodeResponse)
-async def login_code(
-    body: LoginCodeRequest,
+@router.post("/login/exchange", response_model=LoginTicketExchangeResponse)
+async def login_exchange(
+    body: LoginTicketExchangeRequest,
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
-) -> LoginCodeResponse:
-    """Exchange an authorization code for a session refresh token + profile.
+) -> LoginTicketExchangeResponse:
+    """Exchange a login ticket for a session refresh token + profile.
 
     Validates the login ticket, creates a server-side session, and returns a
     signed refresh_token (for cross-domain clients) plus the user's profile.
@@ -370,7 +328,7 @@ async def login_code(
 
     logger.info("login_code_session_created", email=entry.subject, session_id=session_id)
 
-    return LoginCodeResponse(
+    return LoginTicketExchangeResponse(
         refresh_token=refresh_token,
         profile=entry.profile,
         return_to=entry.return_to,
