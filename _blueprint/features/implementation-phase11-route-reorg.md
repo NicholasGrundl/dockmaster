@@ -1,6 +1,7 @@
 ---
 state: Finalized
 changelog:
+  "2026-03-21 17h": "Updated current state — Steps 0-F complete, state bridge standardization, taxonomy docs, legacy removal. Steps G-H remain."
   "2026-03-20 20h": "Consolidated from v2 plan, login-reorg checklist, auth-gates proposal, and sequence diagrams. SDK split to Phase 12."
 ---
 
@@ -10,8 +11,8 @@ changelog:
 > refresh token support for cross-domain browser clients, and `return_to` support.
 > Python SDK split to Phase 12.
 
-**Status**: In Progress (Steps 0-1 complete, partial Step 2 work)
-**Test count**: 461 passing (pre-reorg)
+**Status**: In Progress (Steps 0-F complete, Steps G-H remain)
+**Test count**: 474 passing (as of 2026-03-21)
 
 ---
 
@@ -234,34 +235,35 @@ exchange expects `LoginTicket`.
 
 ---
 
-## Current State (as of 2026-03-20)
+## Current State (as of 2026-03-21)
 
 ### Completed
 
 - **Step 0 — Foundations**: `AuthResult`, `check_ui_session`, state bridges
+- **Step 0-pre**: `from __future__ import annotations` removed from all files
 - **Step 1 — Auth gate cleanup**: `allow_session` → 401, UI routes → `check_ui_session`,
   `allow_session_admin` commented out, `ui.py` single router
+- **Step A — CLI OAuth**: `cli_routes.py` with `/auth/cli/login`, `/auth/cli/callback`,
+  `/auth/cli/token`. CLI branch removed from main callback.
+- **Step B — OAuthFlowStore**: `auth/oauth_flow_store.py` with typed models
+- **Step C — Wire OAuthFlowStore**: `app.state.flow_store` replaces old stores, `get_flow_store` bridge
+- **Step D — Rename callback**: `GET /auth/login/callback`
+- **Step E — return_to support**: cookie + refresh token flows, open redirect prevention
+- **Step F — Rename exchange**: `POST /auth/login/exchange`
+- **State bridge standardization**: all `request.app.state` access → `Depends(get_*)` bridges.
+  Added `get_oauth`, `get_realm` to `state.py`. 8 bridges total.
+- **Dependency taxonomy docs**: module docstrings + section dividers for the prefix convention
+- **Legacy removal**: `/auth/principal` + `/auth/sessions` deleted (replaced by session.py)
+- **keys.py**: `JSONResponse` errors → `HTTPException`, uses `get_realm` bridge
 
-### Partial work in working tree
-
-- `allow_session` + `get_session_user` accept refresh_token from body
-- `POST /auth/logout` (was GET)
-- `AuthCodeEntry.profile` field + `_handle_external_callback` passes profile
-- `POST /auth/login/code` added to login.py
-- `routes/session.py`, `routes/service.py`, `routes/cli_routes.py` created
-- Old routes (token.py, exchange.py) still registered alongside new ones in main.py
-
-### Known edges (from 2026-03-20 replan)
+### Known edges (updated 2026-03-21)
 
 | Edge | Status | Resolution |
 |---|---|---|
-| Duplicate endpoints (old + new both registered) | Active | Step G cleanup |
 | Logout returns redirect for API clients | Active | Step H content negotiation |
 | `allow_jwt_or_session` dead code | Active | Step G delete |
 | `PROFILE_CLAIM_KEYS` inconsistency (login.py includes email) | Active | Step G centralize |
 | Double body parsing (allow_session + get_session_user) | Noted | Defer — FastAPI caches body |
-| `from __future__ import annotations` in 20+ files | Active | Step 0-pre sweep |
-| main.py imports `OAUTH_STATE_TTL` from login.py | Active | Step C resolves |
 
 ---
 

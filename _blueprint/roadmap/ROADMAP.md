@@ -1,16 +1,18 @@
 # Roadmap
 
-Master plan and status for the dockmaster project. Single source of truth for what
-is done, in progress, and planned.
+Master plan and status for the dockmaster project. Scannable index — detailed history
+lives in [`phase-history.md`](./phase-history.md).
 
 **Goal**: Get dockmaster running for LLC domain to host projects behind SSO.
 
-- Committed feature specs live in [`_blueprint/features/`](../features/)
-- Completed specs archived in [`_blueprint/archive/features/`](../archive/features/)
-- Backlogged ideas and draft specs live in [`feature-backlog.md`](./feature-backlog.md)
-- Architecture decisions in [`decision-log.md`](./decision-log.md)
+- Active specs: [`_blueprint/features/`](../features/)
+- Archived specs: [`_blueprint/archive/features/`](../archive/features/)
+- Upcoming plans + backlog ideas: [`feature-backlog.md`](./feature-backlog.md)
+- Active decisions: [`decision-log.md`](./decision-log.md)
+- Full phase narratives: [`phase-history.md`](./phase-history.md)
+- Current phase details: [`implementation-progress.md`](./implementation-progress.md)
 
-*Last updated: 2026-03-20*
+*Last updated: 2026-03-21*
 
 ---
 
@@ -31,342 +33,95 @@ Phase 8b: Code Quality Review ........................ ✅ COMPLETE
 Phase 8c: Deployment Readiness ....................... ✅ COMPLETE
 Phase 8d: Test Audit ................................. ✅ COMPLETE
 Phase 8e: Auth Dependency Conventions ................ ✅ COMPLETE
-Phase 11: Route Reorg + Refresh Token ................. IN PROGRESS (Steps 0-1 done)
-Phase 11b: Node.js Browser Auth SDK ................... PLANNED
-Phase 12: Python Consumer SDK ......................... PLANNED
-Phase 9: Deployment + GCP Cleanup .................... PLANNED
-Phase 10: UI Tests ................................... PLANNED (low priority)
+Phase 9a: Deployment Readiness Cherry-Picks .......... ✅ COMPLETE
+Phase 9b: Documentation Overhaul ..................... 🔄 IN PROGRESS (GUIDEs done, LEARNINGs planned)
+Phase 11: Route Reorg + Refresh Token ................ 🔄 IN PROGRESS (Steps 0-F done, G-H remain)
+Phase 11b: Node.js Browser Auth SDK .................. 📋 PLANNED
+Phase 12: Python Consumer SDK ........................ 📋 PLANNED
+Phase 9c: Production Deployment ...................... 📋 PLANNED
+Phase 10: UI Tests ................................... 📋 PLANNED (low priority)
 ```
 
-**Test count**: 412 tests (as of Phase 8e completion)
+**Test count**: 474 tests (as of Phase 11, 2026-03-21)
 
 ---
 
-## Phase 1: Config + Health + App Skeleton — ✅ COMPLETE
+## Completed Phases
 
-> Foundation: config loading, FastAPI app, health endpoint, logging, test infra.
+| Phase | Summary | Spec |
+|---|---|---|
+| 1 | Config, health endpoint, app factory, test infra | [archive](../archive/features/[completed]%20plan-phase1-scaffold.md) |
+| 2 | JWT signing/verification, key cache, auth middleware | [archive](../archive/features/[completed]%20phase2-jwt-infrastructure-v2.md) |
+| 3 | Token exchange (Google JWT/access token → dockmaster JWT) | [archive](../archive/features/[completed]%20phase3-token-exchange-v2.md) |
+| 4 | OAuth login, sessions, refresh, SecretsStorage, admin UI | [archive](../archive/features/[completed]%20phase4-oauth-login-v2.md) |
+| 5 | RBAC data model, Authority engine, permission endpoints | [archive](../archive/features/[completed]%20phase5-rbac-v2.md) |
+| 6 | Admin CRUD endpoints, RBAC management UI pages | [archive](../archive/features/[completed]%20phase6-rbac-management-v2.md) |
+| 6b | Session revocation (admin endpoints + UI) | [archive](../archive/features/[completed]%20implementation-phase6b-session-revocation.md) |
+| 6c | Typer CLI with browser-based OAuth login | [archive](../archive/features/[completed]%20phase6c-cli-v2.md) |
+| 7 | Redirect URI system, ephemeral RS256 keypair, token issuance | [archive](../archive/features/[completed]%20implementation-phase7-ephemeral-keypair-redirect.md) |
+| 8a | Security audit + fix all 14 findings | [archive](../archive/features/[completed]%20implementation-phase8a-security-audit.md) |
+| 8b | Code quality review (20 findings, 12 actioned) | [archive](../archive/features/[completed]%20implementation-phase8b-code-quality.md) |
+| 8c | Deployment readiness audit (7 findings) | [archive](../archive/features/[completed]%20implementation-phase8c-deployment-readiness.md) |
+| 8d | Test audit | [archive](../archive/features/[completed]%20implementation-phase8d-test-audit.md) |
+| 8e | Auth conventions, middleware consolidation, settings DI | [archive](../archive/features/[completed]%20implementation-phase8e-auth-conventions.md) |
+| 9a | Deployment-critical cherry-picks from 8c findings | See [phase-history.md](./phase-history.md#phase-9a) |
 
-**Spec**: [`archive/features/plan-phase1-scaffold.md`](../archive/features/[completed]%20plan-phase1-scaffold.md)
-
-**Deliverables:**
-- `Settings` model (pydantic-settings) with comma-separated set parsing
-- `create_app()` factory with lifespan, structlog integration
-- `GET /auth/health` and `GET /` endpoints
-- Test infrastructure: conftest fixtures, TestClient setup
-- `.env.example` with documented env vars
-
-**Dependencies added:** `structlog>=24.0`
-
-**GCP Guide:** `docs/GUIDE-gcp-project-setup.md` (follow-up)
-
----
-
-## Phase 2: JWT Infrastructure — ✅ COMPLETE
-
-> JWT signing (ServiceUser) and verification (ServiceRealm) with GCP service account keys, plus auth middleware and introspection endpoints.
-
-**Spec**: [`archive/features/phase2-jwt-infrastructure-v2.md`](../archive/features/[completed]%20phase2-jwt-infrastructure-v2.md)
-**Implementation guide**: [`archive/features/implementation-phase2-jwt-infrastructure.md`](../archive/features/[completed]%20implementation-phase2-jwt-infrastructure.md)
-
-**Deliverables:**
-- `ServiceUser` — JWT signing with GCP SA private key (RSA-SHA256)
-- `ServiceRealm` — JWT verification with key caching
-- `KeyCache` / `ServiceAccountKeyCache` — TTL-based public key fetching
-- Auth middleware — FastAPI dependency for Bearer token extraction
-- `GET /auth/key/{kid}` — serve public keys for external verification
-- `GET /auth/claims` — return decoded JWT claims (debug/introspection)
-
-**Dependencies:** `PyJWT>=2.0`, `cryptography`, `google-api-python-client`
+See [`phase-history.md`](./phase-history.md) for full narratives, decisions, and detours.
 
 ---
 
-## Phase 3: Token Exchange — ✅ COMPLETE
+## Active Phases
 
-> Exchange Google JWT or access token for a dockmaster JWT. Dual-mode verification with access token fallback.
-
-**Spec**: [`archive/features/phase3-token-exchange-v2.md`](../archive/features/[completed]%20phase3-token-exchange-v2.md)
-**Implementation guide**: [`archive/features/implementation-phase3-token-exchange.md`](../archive/features/[completed]%20implementation-phase3-token-exchange.md)
-
-**Deliverables:**
-- `POST /auth/exchange` — dual-mode token exchange endpoint
-- Access token validation helper (Google tokeninfo API)
-- Profile claim forwarding (name, picture, etc.)
-- Legacy bug fix: `can_issue` flag checked during exchange
-
-**Dependencies:** `httpx`
-
----
-
-## Phase 4: OAuth Login + Session — ✅ COMPLETE (4a, 4b, 4c)
-
-> Browser-based Google OAuth2 login via Authlib, session management, token refresh, SecretsStorage, and admin dashboard UI.
-
-**Spec**: [`archive/features/phase4-oauth-login-v2.md`](../archive/features/[completed]%20phase4-oauth-login-v2.md)
-**Implementation guide**: [`archive/features/implementation-phase4-oauth-login.md`](../archive/features/[completed]%20implementation-phase4-oauth-login.md)
-
-**Sub-phases:**
-- **4a**: OAuth login flow, `SessionStore` protocol + `InMemorySessionStore`, login/callback/logout/principal routes
-- **4b**: `POST /auth/refresh` (8-step flow), `SecretsStorage` (partial — pulled forward from Phase 5), test UI
-- **4c**: Admin dashboard with Jinja2 + Tailwind CSS, `UIConfig` system, auth guard (`require_ui_session`), `list_all()` on SessionStore
-
-**Dependencies:** `authlib>=1.0`, `jinja2`, `itsdangerous`, `pytest-playwright` (dev)
-
----
-
-## Phase 5: RBAC — ✅ COMPLETE
-
-> Role-based access control with RBAC data model, permission resolution engine, and permission-check endpoints.
-
-**Spec**: [`archive/features/phase5-rbac-v2.md`](../archive/features/[completed]%20phase5-rbac-v2.md)
-**Implementation guide**: [`archive/features/implementation-phase5-rbac.md`](../archive/features/[completed]%20implementation-phase5-rbac.md)
-
-**Deliverables:**
-- RBAC data model — `Role`, `Grant`, `ServiceGrants` (pydantic)
-- `SecretsStorage` extended with RBAC read methods + write methods (pulled forward from Phase 6)
-- `Authority` — permission resolution engine with TTL cache (RBAC_CACHE_TTL)
-- Permission check endpoints: `GET /auth/has/{s}/{t}/{p}` and `GET /auth/has`
-
-**Dependencies:** `google-cloud-secret-manager`
-
----
-
-## Phase 6: RBAC Management — ✅ COMPLETE
-
-> Admin CRUD endpoints for roles/grants, admin UI pages in existing dashboard.
-
-**Spec**: [`archive/features/phase6-rbac-management-v2.md`](../archive/features/[completed]%20phase6-rbac-management-v2.md)
-**Implementation guide**: [`archive/features/implementation-phase6-rbac-management.md`](../archive/features/[completed]%20implementation-phase6-rbac-management.md)
-
-**Deliverables:**
-- `SecretsStorage` / `AdminSecretsStorage` split (read-only base + write subclass, separate SM clients)
-- RBAC CRUD REST endpoints at `/admin/*`
-- RBAC management pages at `/ui/roles`, `/ui/grants`
-- Admin auth: RBAC-first + `DOCKMASTER_ADMIN_EMAILS` env whitelist fallback
-- Capability gate: 503 on writes when admin SA not configured
-
----
-
-## Phase 6b: Session Revocation — ✅ COMPLETE
-
-> Admin session management — API endpoints, admin_ops layer, and admin UI.
-
-**Spec**: [`archive/features/implementation-phase6b-session-revocation.md`](../archive/features/[completed]%20implementation-phase6b-session-revocation.md)
-
-**Deliverables:**
-- Admin session endpoints (`/admin/sessions`) — list all, list by email, revoke by ID/email
-- User endpoint (`GET /auth/sessions`) — current user's sessions
-- Admin UI page (`/ui/sessions`) with revoke controls
-- Dashboard filtered to current user's sessions only
-
----
-
-## Phase 6c: CLI + OAuth Login Flow — ✅ COMPLETE
-
-> Typer CLI with browser-based OAuth login for RBAC management from the terminal.
-
-**Spec**: [`archive/features/phase6c-cli-v2.md`](../archive/features/[completed]%20phase6c-cli-v2.md)
-
-**Deliverables:**
-- Typer CLI: `login`/`logout`, `role` (get/list/create/delete/add/remove with `-p`), `grant` (get/list/delete/add/remove with `-r`), `check` (Oui!/Non!)
-- Localhost-callback OAuth login flow (dynamic port, browser opens, CLI captures JWT)
-- 15-minute JWT persisted to disk via `platformdirs`
-- Server-side `redirect_uri` support on `/auth/login` (localhost-only validation)
-
-**Dependencies:** `typer>=0.9`, `platformdirs`
-
-**Deferred:** `token` command (awaiting ephemeral keypair design — Phase 7), external redirect URIs (Phase 7), server-side grant merge endpoint
-
----
-
-## Phase 7: Redirect URI + Ephemeral Keypair — ✅ COMPLETE
-
-> Two related enhancements: (1) full redirect URI system for external services to use dockmaster as identity broker, (2) ephemeral RS256 keypair for dockmaster-issued JWTs with JWKS endpoint.
-
-**Spec**: [`archive/features/[completed] implementation-phase7-ephemeral-keypair-redirect.md`](../archive/features/[completed]%20implementation-phase7-ephemeral-keypair-redirect.md)
-
-**Deliverables:**
-- Per-service redirect URI allowlist (`ALLOWED_REDIRECT_URIS` setting)
-- External redirect callback with auth code flow (code + state params)
-- `EphemeralKeypairSigner` — in-memory RS256 keypair, rotated on restart
-- `EphemeralKeyCache` with JWKS registry persistence
-- `GET /auth/keys` endpoint serving public keys
-- `POST /auth/token` — issue Type C JWT for a target service (session or Bearer auth)
-- `POST /auth/code/exchange` — exchange auth code for JWT
-- `token` CLI command
-
-**Dependencies:** Phase 6c complete
-
----
-
-## Phase 8a: Security Audit — ✅ COMPLETE
-
-> Security audit + implementation of all 14 findings.
-
-**Spec**: [`archive/features/[completed] implementation-phase8a-security-audit.md`](../archive/features/[completed]%20implementation-phase8a-security-audit.md)
-
-**Deliverables:**
-- 14 security findings identified and implemented (S-001 through S-014)
-- SecurityHeadersMiddleware (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
-- Generic error messages for auth failures (no internal leakage)
-- OAuth CSRF state management via TTLStore
-- Removed Google refresh token endpoint
-- Auth code flow with redirect URI validation
-
-**Dependencies:** Phase 7 complete
-
----
-
-## Phase 8b: Code Quality Review — ✅ COMPLETE
-
-> Naming, vocab, FastAPI patterns, docstrings, and API surface consistency audit.
-
-**Spec**: [`archive/features/[completed] implementation-phase8b-code-quality.md`](../archive/features/[completed]%20implementation-phase8b-code-quality.md)
-
-**Dependencies:** Phase 8a complete
-
----
-
-## Phase 8c: Deployment Readiness — ✅ COMPLETE
-
-> Audit app for deployment blockers. Plan Caddy + Docker Compose integration for existing DO stack.
-
-**Spec**: [`archive/features/[completed] implementation-phase8c-deployment-readiness.md`](../archive/features/[completed]%20implementation-phase8c-deployment-readiness.md)
-
-**Dependencies:** Phase 8a, 8b complete
-
----
-
-## Phase 8d: Test Audit — ✅ COMPLETE
-
-> Audit test suite coverage, organization, patterns, and markers against pytest best practices.
-
-**Spec**: [`archive/features/[completed] implementation-phase8d-test-audit.md`](../archive/features/[completed]%20implementation-phase8d-test-audit.md)
-
-**Dependencies:** Phase 8a–8c complete
-
----
-
-## Phase 8e: App Architecture Conventions — ✅ COMPLETE
-
-> Standardize three cross-cutting concerns: auth dependency conventions,
-> middleware organization, and settings injection.
-
-**Spec**: [`archive/features/[completed] implementation-phase8e-auth-conventions.md`](../archive/features/[completed]%20implementation-phase8e-auth-conventions.md)
-
-**Deliverables:**
-- **Pillar 1 — Auth conventions**: Two-layer design (pure utilities + FastAPI dependencies). 6 auth gates, 4 info deps, 2 system checks in `auth/dependencies.py`. Typed credential models (`GoogleJWTCredential`, `GoogleAccessTokenCredential`). Router-level `dependencies=[...]` on all non-public routers. `auth/admin.py` removed.
-- **Pillar 2 — Middleware consolidation**: `setup_middleware(app, settings)` helper in `main.py`.
-- **Pillar 3 — Settings DI bridge**: `get_settings(request)` bridge in `config.py`. All routes use `Annotated[Settings, Depends(get_settings)]`.
-- **App state bridges**: `state.py` module with `get_admin_storage`, `get_authority`, `get_session_store` bridge dependencies. Admin routes use `Annotated[X, Depends(...)]` instead of local helpers.
-
----
-
-## Phase 11: Route Reorg + Refresh Token — IN PROGRESS
+### Phase 11: Route Reorg + Refresh Token — IN PROGRESS
 
 > Route reorganization into clean namespaces (session/service/cli/login) and refresh token
 > support for cross-domain browser users. SDK split to Phase 12.
 
 **Spec**: [`features/implementation-phase11-route-reorg.md`](../features/implementation-phase11-route-reorg.md)
+**Progress**: [`implementation-progress.md`](./implementation-progress.md)
 
-**Key decisions made:**
-- Cross-domain auth uses refresh tokens (signed session handles), not shared cookies (different TLDs)
-- Route hierarchy: login (`/auth/login/*`), session-gated (`/auth/session/*`), service (`/auth/service/*`), CLI (`/auth/cli/*`)
-- Python SDK split to Phase 12 (separate scope)
-- Auth gate cleanup done first (allow_session → 401, check_ui_session for UI)
-- OAuthFlowStore consolidates oauth_state_store + auth_code_store
-- CLI OAuth gets own route pair (/auth/cli/login, /auth/cli/callback)
-- Logout uses content negotiation (JSON for API, redirect for browser)
-
-**Deliverables:**
-- Route reorganization (session/service/cli/login namespaces)
-- `OAuthFlowStore` — unified single-use store replacing two TTLStores
-- `POST /auth/login/exchange` — exchange login ticket for refresh_token + profile
-- `POST /auth/session/token` — cookie or refresh_token → Type C JWT
-- `return_to` support on login flow
-- CLI OAuth routes (`/auth/cli/login`, `/auth/cli/callback`)
-- Logout content negotiation
-
-**Dependencies:** Phase 8 complete
+Steps 0–F complete. Remaining: Step G (cleanup) and Step H (logout content negotiation).
 
 ---
 
-## Phase 11b: Node.js Browser Auth SDK — PLANNED
+### Phase 9b: Documentation Overhaul — IN PROGRESS
 
-> TypeScript browser client (`@dockmaster/auth`) for Astro and React SPAs — login/logout,
-> token management, authenticated fetch, permission checks.
+> Comprehensive documentation rewrite — GUIDEs and LEARNINGs.
+
+GUIDEs 01–03 complete. LEARNINGs 01–04 planned but not yet written.
+See [`implementation-progress.md`](./implementation-progress.md) for details.
+
+---
+
+## Planned Phases
+
+Plans for these phases live in [`feature-backlog.md`](./feature-backlog.md) until pulled
+into `implementation-progress.md` for active work.
+
+### Phase 11b: Node.js Browser Auth SDK
+
+> TypeScript browser client (`@dockmaster/auth`) for Astro and React SPAs.
 
 **Spec**: [`features/implementation-phase11b-js-sdk.md`](../features/implementation-phase11b-js-sdk.md)
+**Dependencies**: Phase 11 complete
 
-**Key decisions made:**
-- Framework-agnostic core (no React hooks or Astro middleware yet)
-- Two modes: `'cookie'` (same-domain) and `'token'` (cross-domain refresh tokens)
-- Refresh token in sessionStorage, JWT in memory. Tab close = logout.
-- Single dependency: `jose` (JWT decoding, zero-dep, browser-native)
-- TypeScript, ESM only, published to GCP Artifact Registry
-- Monorepo: `packages/auth-js/` subdirectory in dockmaster repo
+### Phase 12: Python Consumer SDK
 
-**Deliverables:**
-- `DockmasterAuth` class — login, logout, getToken, fetch wrapper, permission checks
-- Typed response models for all dockmaster API interactions
-- `onAuthChange` event for framework integration
-- CI workflow (lint + typecheck + test) + publish workflow (tag-triggered)
-- Small server-side addition: `return_to` param on `GET /auth/login` for cookie mode
+> Lightweight Python SDK for backend services — JWT verification + permission checks, no GCP deps.
 
-**Dependencies:** Phase 11 (server-side route reorg + refresh token endpoints)
+**Spec**: To be created during Phase 12 planning
+**Dependencies**: Phase 11 complete
 
----
+### Phase 9c: Production Deployment
 
-## Phase 12: Python Consumer SDK — PLANNED
+> Docker, Caddy, GCP credential rotation, .env templates, monitoring.
 
-> Lightweight Python SDK for backend services verifying dockmaster-issued JWTs and checking
-> permissions. No GCP dependencies.
+**Spec**: To be created during Phase 9c planning
+**Dependencies**: Phase 11 + 11b + 12 complete
 
-**Spec**: To be created during Phase 12 planning (extracted from original Phase 11 spec)
+### Phase 10: UI Tests (low priority)
 
-**Key decisions made (from original Phase 11 planning):**
-- SDK module: `dockmaster.sdk/` namespace (not `client/`), no code in `__init__.py`
-- HTTPKeyCache lives in `sdk/client_cache.py` (not alongside GCP caches in `auth/key_cache.py`)
-- No `pyproject.toml` split — clean import boundaries instead
-- SA token exchange deferred — consumers forward caller's JWT for permission checks
-
-**Deliverables:**
-- `DockmasterClient` — JWT verification + permission checks via HTTP (no GCP deps)
-- `HTTPKeyCache` — lightweight key cache fetching from `/auth/keys`
-- Import hygiene test — verify no service-only deps
-- Integration guide for Domain A API and Domain B SPA patterns
-
-**Dependencies:** Phase 11 complete (needs route reorg + refresh token endpoints)
-
----
-
-## Phase 9: Deployment + GCP Cleanup — PLANNED
-
-> GCP credential rotation, setup/dev guides, and deployment configuration.
-
-**Spec**: To be created during Phase 9 planning
-
-**Deliverables (tentative — needs planning):**
-- Rotate all GCP secrets (new client secret, rotate SA keys) — purge any credentials exposed during development
-- GCP setup guide (`docs/GUIDE-gcp-setup.md`) — from-scratch setup instructions
-- Local dev testing guide (`docs/GUIDE-local-dev.md`) — `.env`, uvicorn, curl/notebook walkthrough
-- Deployment configuration (Docker Compose, Caddy reverse proxy, DO droplet)
-- Admin SA (`dockmaster-admin`) setup guide
-- Fix any deployment-blocking issues from Phase 8 audit
-
-**Dependencies:** Phase 11 + 11b + 12 complete (deploy with SDK integration ready)
-
----
-
-## Phase 10: UI Tests — PLANNED (low priority)
-
-> Comprehensive UI test coverage for all admin pages. Deferred — not critical for launch.
+> Comprehensive UI test coverage for all admin pages.
 
 **Spec**: To be created during Phase 10 planning
-
-**Deliverables:**
-- Admin UI page tests (roles list, grants list, grants detail, session management)
-- Form submission tests (create, edit, delete flows)
-- Read-only mode tests (when admin SA not configured)
-- Auth guard tests for admin UI routes
-
-**Dependencies:** All UI-affecting phases complete
+**Dependencies**: All UI-affecting phases complete

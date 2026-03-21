@@ -4,7 +4,7 @@ Ideas and deferred features not yet scheduled for implementation. When an item i
 committed, create a spec in [`_blueprint/features/`](../features/) and link it from
 [`ROADMAP.md`](./ROADMAP.md).
 
-*Last updated: 2026-03-20*
+*Last updated: 2026-03-21*
 
 ---
 
@@ -114,14 +114,14 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 ## Admin UI Cleanup
 
 ### UI Architecture Refactor
-- **Context**: The admin UI grew piecemeal across phases 4c, 6, 6b. Several patterns need cleanup:
+- **Context**: The admin UI grew piecemeal across phases 4c, 6, 6b. Several patterns needed cleanup:
   1. **Non-admin UI unnecessary** — the only reason to log in is admin ops. Consider removing the user-only dashboard or making login always land on admin.
   2. **`is_admin` template flag** — passed around to conditionally show nav links, but if there's no non-admin UI it's excess complexity.
-  3. **Auth redirect handling** — `allow_session` currently throws 307 redirect from the auth gate. Auth gates should be pure 401/403; the UI layer should own redirect behavior. Currently two separate patterns: `require_ui_session` (ui.py) and `allow_session` (dependencies.py) both handle redirects differently.
-  4. **Exception handling** — need an app-level or router-scoped exception handler that converts 401 → redirect for `/ui/*` routes, so auth gates can be pure.
-  5. **Template/route consistency** — inconsistent patterns across `ui.py`, `admin_ui.py` for session checks, user data injection, etc.
-- **When**: After Phase 11 ships (auth gates cleaned up as part of route reorg, but UI patterns deferred).
-- **Effort**: Medium — mostly consolidation, not new features.
+  3. ~~**Auth redirect handling**~~ ✅ RESOLVED (Phase 11) — `allow_session` now returns 401 (not 307). UI routes use `check_ui_session` soft auth — the route owns redirect behavior, not the auth gate.
+  4. ~~**Exception handling**~~ ✅ RESOLVED (Phase 11) — `ui_exception_handler` converts HTTP errors to HTML for `/ui/*` routes. Auth gates are pure 401/403.
+  5. ~~**Template/route consistency**~~ ✅ RESOLVED (Phase 11) — all UI routes use consistent `check_ui_session` pattern with `AuthResult`. State bridges replace direct `app.state` access. Auth pattern documented in module docstrings.
+- **When**: Items 1-2 remain open. Consider after Phase 11 ships.
+- **Effort**: Small — items 1-2 are design decisions, not code changes.
 - **Decision needed**: Whether to collapse user UI + admin UI into a single admin-only UI.
 
 ---
