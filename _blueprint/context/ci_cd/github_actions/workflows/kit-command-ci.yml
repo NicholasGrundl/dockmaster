@@ -1,0 +1,28 @@
+name: CI -> kit-command
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/kit-command/**"
+  pull_request:
+    paths:
+      - "packages/kit-command/**"
+
+defaults:
+  run:
+    working-directory: packages/kit-command
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --extra dev
+      - run: uv run ruff check src/ tests/
+      - run: uv run ruff format --check src/ tests/
+      - name: Type check (informational)
+        run: uv run ty check src/
+        continue-on-error: true
+      - run: uv run pytest tests/ -v

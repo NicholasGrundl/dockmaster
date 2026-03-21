@@ -126,6 +126,20 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 
 ---
 
+## Phase 10: Test Coverage + Refactor (backlogged)
+
+- **Context**: Originally "Phase 10: UI Tests" — renamed to a broader scope. Admin UI test coverage, form submission tests, read-only mode tests, auth guard tests. Could also include general code polish and refactoring.
+- **When**: After deployment is stable and the system is in maintenance mode. Not a blocking phase.
+- **Effort**: Small-Medium
+
+## Phase 9b: Documentation LEARNINGs (deferred to post-deploy)
+
+- **Context**: GUIDEs 01–03 already complete. LEARNINGs 01–04 (conceptual architecture docs) planned but not yet written: overview, auth flows, RBAC, internals.
+- **When**: After 9c deployment, when the system is stable and worth documenting deeply.
+- **See**: `implementation-progress.md` for the LEARNING outlines.
+
+---
+
 ## Future Features
 
 ### User Whitelisting via Secret Manager

@@ -1,0 +1,41 @@
+name: Publish -> kit-nanobot
+
+on:
+  push:
+    tags:
+      - "kit-nanobot-v*"
+
+defaults:
+  run:
+    working-directory: packages/kit-nanobot
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --extra dev
+      - run: uv run ruff check nanobot/ tests/
+      - run: uv run ruff format --check nanobot/ tests/
+      - run: uv run pytest -v
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - run: uv build
+      - name: Upload to Artifact Registry
+        run: >
+          uvx --with keyrings.google-artifactregistry-auth twine upload
+          --repository-url https://${{ vars.AR_REGION }}-python.pkg.dev/${{ vars.GCP_PROJECT }}/${{ vars.AR_REPO }}/
+          dist/*

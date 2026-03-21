@@ -5,7 +5,7 @@
 
 **Status**: Planned
 **Priority**: P1
-**Phase**: 11b (after Phase 11 server-side + Python SDK)
+**Phase**: 11b (after Phase 11 server-side route reorg)
 **Last updated**: 2026-03-18
 
 ---
@@ -73,7 +73,7 @@ auth.login({ returnTo: '/dashboard' })
 
 // Handle OAuth callback (call this on your callback page)
 await auth.handleCallback()
-// Token mode: reads ?code= from URL, calls POST /auth/login/code,
+// Token mode: reads ?code= from URL, calls POST /auth/login/exchange,
 //   stores refresh_token in sessionStorage, redirects to returnTo
 // Cookie mode: no-op (dockmaster already set cookie and redirected)
 
@@ -158,7 +158,7 @@ User clicks Login
   ├─ User lands on /auth/callback page
   ├─ App calls auth.handleCallback()
   │   ├─ SDK reads ?code= and ?state= from URL
-  │   ├─ SDK calls POST {dockmaster}/auth/login/code { code, redirect_uri }
+  │   ├─ SDK calls POST {dockmaster}/auth/login/exchange { code, redirect_uri }
   │   ├─ Response: { refresh_token, profile: { email, name, picture } }
   │   ├─ SDK stores refresh_token in sessionStorage
   │   ├─ SDK sets auth state: isAuthenticated=true, user=profile
@@ -579,24 +579,16 @@ js-check: js-lint js-typecheck js-test
 
 ## Server-Side Changes (additions to Phase 11)
 
-The cookie mode flow revealed a server-side need not covered in the Phase 11 spec:
+### `return_to` parameter on `GET /auth/login` — ✅ ALREADY IMPLEMENTED
 
-### `return_to` parameter on `GET /auth/login`
+Phase 11 Step E implemented `return_to` support on the login flow (cookie flow + refresh
+token flow, with open redirect prevention). No additional server-side work needed for this.
 
-When a same-domain SPA uses cookie mode, it needs dockmaster to redirect back to the app
-(not `/ui/`) after setting the session cookie.
+### Logout content negotiation — PENDING (Phase 11 Step H)
 
-**Change**: `GET /auth/login` accepts an optional `return_to` query parameter.
-- Stored in OAuth state alongside `redirect_uri`
-- After cookie-based login, redirect to `return_to` instead of `/ui/`
-- Validated: must be a relative path or same-origin URL (prevent open redirect)
-- If not provided, falls back to `/ui/` (current behavior)
-
-This is distinct from `redirect_uri` (which triggers the auth code flow). `return_to` is
-just "where to go after cookie-based login."
-
-**Files**: `src/dockmaster/routes/login.py` — add `return_to` param to `login()` and
-`callback()` functions.
+`POST /auth/logout` needs to return JSON `{"ok": true}` when the request includes a
+`refresh_token` body (API/cross-domain clients) instead of redirecting. This is Phase 11
+Step H, not yet implemented.
 
 ---
 

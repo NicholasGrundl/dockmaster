@@ -1,0 +1,28 @@
+name: CI -> kit-watchdog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/kit-watchdog/**"
+  pull_request:
+    paths:
+      - "packages/kit-watchdog/**"
+
+defaults:
+  run:
+    working-directory: packages/kit-watchdog
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --extra dev
+      - run: uv run ruff check kit_watchdog/ tests/
+      - run: uv run ruff format --check kit_watchdog/ tests/
+      - name: Type check (informational)
+        run: uv run ty check kit_watchdog/
+        continue-on-error: true
+      - run: uv run pytest -v

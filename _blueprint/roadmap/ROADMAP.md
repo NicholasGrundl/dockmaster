@@ -34,12 +34,12 @@ Phase 8c: Deployment Readiness ....................... ✅ COMPLETE
 Phase 8d: Test Audit ................................. ✅ COMPLETE
 Phase 8e: Auth Dependency Conventions ................ ✅ COMPLETE
 Phase 9a: Deployment Readiness Cherry-Picks .......... ✅ COMPLETE
-Phase 9b: Documentation Overhaul ..................... 🔄 IN PROGRESS (GUIDEs done, LEARNINGs planned)
-Phase 11: Route Reorg + Refresh Token ................ 🔄 IN PROGRESS (Steps 0-F done, G-H remain)
-Phase 11b: Node.js Browser Auth SDK .................. 📋 PLANNED
+Phase 11: Route Reorg + Refresh Token ................ 🔄 IN PROGRESS (Steps G-H remain)
+Phase 11b: Node.js Browser Auth SDK .................. 📋 NEXT
 Phase 12: Python Consumer SDK ........................ 📋 PLANNED
 Phase 9c: Production Deployment ...................... 📋 PLANNED
-Phase 10: UI Tests ................................... 📋 PLANNED (low priority)
+Phase 9b: Documentation Overhaul ..................... ⏸️  DEFERRED (post-deploy)
+Phase 10: Test Coverage + Refactor ................... ⏸️  BACKLOG
 ```
 
 **Test count**: 474 tests (as of Phase 11, 2026-03-21)
@@ -70,12 +70,12 @@ See [`phase-history.md`](./phase-history.md) for full narratives, decisions, and
 
 ---
 
-## Active Phases
+## Active Phase
 
 ### Phase 11: Route Reorg + Refresh Token — IN PROGRESS
 
 > Route reorganization into clean namespaces (session/service/cli/login) and refresh token
-> support for cross-domain browser users. SDK split to Phase 12.
+> support for cross-domain browser users.
 
 **Spec**: [`features/implementation-phase11-route-reorg.md`](../features/implementation-phase11-route-reorg.md)
 **Progress**: [`implementation-progress.md`](./implementation-progress.md)
@@ -84,21 +84,21 @@ Steps 0–F complete. Remaining: Step G (cleanup) and Step H (logout content neg
 
 ---
 
-### Phase 9b: Documentation Overhaul — IN PROGRESS
+## Execution Order
 
-> Comprehensive documentation rewrite — GUIDEs and LEARNINGs.
+```
+11 (finish) → 11b (JS SDK) → 12 (Python SDK) → 9c (deploy)
+     ↑              ↑               ↑                ↑
+  stable       Astro app can   backend can      ship the
+  endpoints    do login +      verify JWTs +    whole stack
+               protected pages check perms      together
+```
 
-GUIDEs 01–03 complete. LEARNINGs 01–04 planned but not yet written.
-See [`implementation-progress.md`](./implementation-progress.md) for details.
+**Rationale**: Build all integration pieces locally (JS SDK for Astro frontend, Python SDK
+for backend API), test the full flow, then deploy everything together. After 12, focus shifts
+to building the actual consumer apps — dockmaster work pauses until deploy time.
 
----
-
-## Planned Phases
-
-Plans for these phases live in [`feature-backlog.md`](./feature-backlog.md) until pulled
-into `implementation-progress.md` for active work.
-
-### Phase 11b: Node.js Browser Auth SDK
+### Phase 11b: Node.js Browser Auth SDK — NEXT
 
 > TypeScript browser client (`@dockmaster/auth`) for Astro and React SPAs.
 
@@ -110,7 +110,7 @@ into `implementation-progress.md` for active work.
 > Lightweight Python SDK for backend services — JWT verification + permission checks, no GCP deps.
 
 **Spec**: To be created during Phase 12 planning
-**Dependencies**: Phase 11 complete
+**Dependencies**: Phase 11 complete (11b not required)
 
 ### Phase 9c: Production Deployment
 
@@ -119,9 +119,18 @@ into `implementation-progress.md` for active work.
 **Spec**: To be created during Phase 9c planning
 **Dependencies**: Phase 11 + 11b + 12 complete
 
-### Phase 10: UI Tests (low priority)
+---
 
-> Comprehensive UI test coverage for all admin pages.
+## Deferred
 
-**Spec**: To be created during Phase 10 planning
-**Dependencies**: All UI-affecting phases complete
+### Phase 9b: Documentation Overhaul — DEFERRED (post-deploy)
+
+> LEARNINGs (conceptual architecture docs). GUIDEs 01–03 already complete.
+
+Docs are most valuable when the system is stable and deployed. Resume after 9c.
+
+### Phase 10: Test Coverage + Refactor — BACKLOG
+
+> General test coverage improvements and code polish. Not a blocking phase.
+
+Moved to [`feature-backlog.md`](./feature-backlog.md). Pull into active work when needed.

@@ -1,6 +1,6 @@
 # Features Directory Standards
 
-This directory is the primary workspace for planning, auditing, and implementing Kit's features. It follows a strict topology and naming convention to ensure scannability and context retention for both humans and LLMs.
+This directory is the primary workspace for planning, auditing, and implementing dockmaster's features. It follows a strict topology and naming convention to ensure scannability and context retention for both humans and LLMs.
 
 ## Topology
 
@@ -36,7 +36,7 @@ changelog:
 
 ## Workflow-Aligned Primitives
 
-Use these primitives to categorize files based on Kit's development lifecycle:
+Use these primitives to categorize files based on dockmaster's development lifecycle:
 
 - **`research`**: Notes, POCs, prototypes, and initial discovery. Often unorganized or experimental.
 - **`proposal`**: A draft plan or architectural proposal focusing on patterns, tech stack, and logic.

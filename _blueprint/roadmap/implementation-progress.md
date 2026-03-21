@@ -51,25 +51,7 @@ Key decisions:
 
 ---
 
-## Phase 9b — Documentation Overhaul
+## Phase 9b — Documentation Overhaul — DEFERRED (post-deploy)
 
-**Status**: IN PROGRESS (GUIDEs done, LEARNINGs planned)
-
-### GUIDEs (complete)
-
-- **`GUIDE-01-gcp-setup.md`** — GCP project, APIs, both SAs, Secret Manager, OAuth, Appendix A (direnv)
-- **`GUIDE-02-consumer-howto.md`** — Prerequisites, install, dev server, browser login, CLI, service integration, env var reference, endpoints reference, Appendix A (12 curl tests)
-- **`GUIDE-03-developer-howto.md`** — Repo layout, dev commands, code patterns, adding endpoints (three-layer protection model), test patterns, linting/types, Appendix A (security model + checklist)
-
-### LEARNINGs (planned)
-
-**`LEARNING-01-overview.md`** — Problem, terminology, three user types, system architecture, token types
-**`LEARNING-02-auth-flows.md`** — Browser SSO, CLI login, auth code flow, service-to-service, token issuance (sequence diagrams)
-**`LEARNING-03-rbac.md`** — RBAC model, permission resolution, Authority engine, admin operations
-**`LEARNING-04-internals.md`** — App factory, configuration, middleware stack, key management, session management, dependency taxonomy
-
-### README notes (for later pass)
-- Keep: capabilities table, quick start, tech stack
-- Update: architecture diagram (cleaner mermaid version)
-- Add: links to `docs/` for GUIDEs and LEARNINGs
-- Trim: remove detailed flow descriptions (point to LEARNING-02)
+GUIDEs 01–03 complete. LEARNINGs and README updates deferred to after Phase 9c deployment.
+See `feature-backlog.md` for the LEARNING outlines.

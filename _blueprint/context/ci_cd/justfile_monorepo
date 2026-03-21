@@ -1,0 +1,132 @@
+# pi-agent justfile
+# Usage: just <recipe>    Run `just --list` for all recipes
+
+# ── CONFIG ────────────────────────────────────────────────────────────────────
+
+pi_host           := "pi4-ai"              # SSH config alias (set up in ~/.ssh/config)
+pi_user           := "nicholasgrundl"
+# pi_tailscale_host := "pi4-ai.tail1234.ts.net"  # uncomment when Tailscale is configured
+
+# Paths to exclude from kit backups (space-separated paths, not rsync flags)
+kit_backup_excludes := "config.json sessions/"
+
+# ── DEV SETUP ─────────────────────────────────────────────────────────────────
+
+# Install all package dev environments (run once after cloning)
+install: install-nanobot install-watchdog install-portal install-command
+
+# Install kit-nanobot dev environment
+install-nanobot:
+    cd packages/kit-nanobot && just install
+
+# Install kit-watchdog dev environment
+install-watchdog:
+    cd packages/kit-watchdog && just install
+
+# Install kit-portal dev environment
+install-portal:
+    cd packages/kit-portal && just install
+
+# Install kit-command dev environment
+install-command:
+    cd packages/kit-command && just install
+
+# ── VERSION & PUBLISH ─────────────────────────────────────────────────────────
+
+# Print or set kit-nanobot version (e.g. just version-nanobot 0.2.1rc1)
+version-nanobot *v:
+    cd packages/kit-nanobot && just version {{v}}
+
+# Publish kit-nanobot (dry run by default, 'just publish-nanobot now' to push)
+publish-nanobot *action:
+    cd packages/kit-nanobot && just publish {{action}}
+
+# Print or set kit-watchdog version (e.g. just version-watchdog 0.1.0rc1)
+version-watchdog *v:
+    cd packages/kit-watchdog && just version {{v}}
+
+# Publish kit-watchdog (dry run by default, 'just publish-watchdog now' to push)
+publish-watchdog *action:
+    cd packages/kit-watchdog && just publish {{action}}
+
+# Print or set kit-portal version (e.g. just version-portal 0.1.0rc1)
+version-portal *v:
+    cd packages/kit-portal && just version {{v}}
+
+# Publish kit-portal (dry run by default, 'just publish-portal now' to push)
+publish-portal *action:
+    cd packages/kit-portal && just publish {{action}}
+
+# Print or set kit-command version (e.g. just version-command 0.1.0rc1)
+version-command *v:
+    cd packages/kit-command && just version {{v}}
+
+# Publish kit-command (dry run by default, 'just publish-command now' to push)
+publish-command *action:
+    cd packages/kit-command && just publish {{action}}
+
+# ── KIT OPERATIONS ────────────────────────────────────────────────────────────
+
+# Check status of kit-nanobot and kit-watchdog services
+kit-status:
+    ssh {{pi_host}} "systemctl status kit-nanobot.service kit-watchdog.service --no-pager -l"
+
+# Backup Kit workspace and memory from Pi to +kit-backups/
+# (dry run by default — 'just kit-backup now' to run the rsync)
+kit-backup *action:
+    @just _backup-preflight
+    @[ "{{action}}" = "now" ] || { echo ""; echo "Run 'just kit-backup now' to start."; exit 0; }
+    @just _backup-run "+kit-backups/nanobot-$(date +%Y%m%d)"
+
+# ── RASPBERRY PI ────────────────────────────────────────────────────────────────────────
+
+# Open an SSH shell to the Pi
+pi-ssh:
+    ssh {{pi_host}}
+
+# Open an SSH shell to the Pi via Tailscale (set pi_tailscale_host in Config first)
+pi-tailscale:
+    @echo "Tailscale not yet configured — set pi_tailscale_host in this justfile first"
+
+# Show Pi hardware resource usage (RAM, disk, uptime)
+pi-resources:
+    ssh {{pi_host}} "free -h && df -h && uptime"
+
+# ── PRIVATE HELPERS ───────────────────────────────────────────────────────────
+
+[private]
+_backup-preflight:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dest="+kit-backups/nanobot-$(date +%Y%m%d)"
+    echo "────────────────────────────────────────"
+    echo "kit-backup preflight"
+    echo "────────────────────────────────────────"
+    echo "Source:   {{pi_user}}@{{pi_host}}:/home/nanobot/.nanobot/"
+    echo "Dest:     $dest/"
+    echo "Excludes: {{kit_backup_excludes}}"
+    echo ""
+    if git check-ignore -q "+kit-backups" 2>/dev/null; then
+        echo "✓ +kit-backups/ is gitignored"
+    else
+        echo "✗ +kit-backups/ is not gitignored"
+        echo "  Add '+kit-backups/' to .gitignore before running backups."
+        exit 1
+    fi
+
+[private]
+_backup-run dest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo ""
+    echo "Starting rsync..."
+    mkdir -p "{{dest}}"
+    exclude_flags=""
+    for item in {{kit_backup_excludes}}; do
+        exclude_flags="$exclude_flags --exclude $item"
+    done
+    rsync -avz --progress --ignore-errors \
+        $exclude_flags \
+        "{{pi_user}}@{{pi_host}}:/home/nanobot/.nanobot/" "{{dest}}/" \
+    && { echo ""; echo "✓ Backup complete → {{dest}}/ ($(du -sh "{{dest}}" | cut -f1))"; } \
+    || { echo ""; echo "⚠  Completed with warnings — some files skipped (see above)"; echo "   Location: {{dest}}/"; }

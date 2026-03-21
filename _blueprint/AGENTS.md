@@ -7,10 +7,16 @@ developing the project. Nothing here is part of the application itself.
 
 ## Directory Structure
 
-### `roadmap/` — Planning and status
-- `ROADMAP.md` — master plan and status, the canonical "what needs doing"
-- `feature-backlog.md` — brainstorm/ideation pool (feeds into ROADMAP)
-- `decision-log.md` — architecture decision log
+### `roadmap/` — Planning, status, and history
+
+| File | Role |
+|---|---|
+| `ROADMAP.md` | Slim index — phase status, one-liner, spec link |
+| `phase-history.md` | Append-only narrative log of completed phases (decisions, detours, full story) |
+| `implementation-progress.md` | Deep index of current active phase(s) only |
+| `decision-log.md` | Working decisions for active/recent phase — flushed to history during cleanup |
+| `feature-backlog.md` | Plans for non-active phases + backlog ideas/fixes/enhancements |
+| `implementation-alignment.md` | Temporary triage file for alignment sessions — items dispatched then cleared |
 
 ### `features/` — Active implementation specs
 - Active specs for upcoming or in-progress phases
