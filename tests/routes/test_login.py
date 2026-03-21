@@ -282,4 +282,39 @@ class TestLogout:
         response = login_client.post("/auth/logout", follow_redirects=False)
         assert response.status_code == 302
 
+    def test_logout_with_refresh_token_returns_json(self, login_client, session_store, login_settings):
+        """Logout with refresh_token in body returns JSON instead of redirect."""
+        signer = URLSafeSerializer(login_settings.session_secret_key)
+        session_id = "test-session-id"
+        signed = signer.dumps(session_id)
+        _seed_session(session_store, session_id, {"email": "user@example.com"})
 
+        response = login_client.post(
+            "/auth/logout",
+            json={"refresh_token": signed},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+        assert session_id not in session_store._store
+
+    def test_logout_with_refresh_token_clears_cookie(self, login_client, session_store, login_settings):
+        """Logout with refresh_token still clears the session cookie."""
+        signer = URLSafeSerializer(login_settings.session_secret_key)
+        session_id = "test-session-id"
+        signed = signer.dumps(session_id)
+        _seed_session(session_store, session_id, {"email": "user@example.com"})
+
+        login_client.cookies.set("session_id", signed)
+        response = login_client.post(
+            "/auth/logout",
+            json={"refresh_token": signed},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+        # Cookie should be deleted
+        set_cookie = response.headers.get("set-cookie", "")
+        assert "session_id" in set_cookie

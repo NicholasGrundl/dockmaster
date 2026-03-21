@@ -7,9 +7,9 @@ Active work across current phases. Completed phase details live in
 
 ---
 
-## Current Phase: Phase 11 — Route Reorg + Refresh Token
+## Current Phase: Phase 11 — Route Reorg + Refresh Token — COMPLETE
 
-**Status**: IN PROGRESS — Steps 0-F substantially complete, cleanup + content negotiation remain
+**Status**: COMPLETE
 **Spec**: `_blueprint/features/implementation-phase11-route-reorg.md`
 **Approach**: Incremental, isolated steps — each committable and testable independently
 
@@ -35,19 +35,23 @@ Key decisions:
 - [x] **Dependency taxonomy documentation** — `dependencies.py` and `state.py` module docstrings rewritten with full prefix taxonomy. Section dividers for allow_*/get_*/needs_*/check_* groups. Auth pattern docstrings added to all 10 route modules.
 - [x] **Legacy endpoint removal** — deleted `/auth/principal` and `/auth/sessions` from `login.py` (replaced by `/auth/session/principal` and `/auth/session/list` in `session.py`)
 - [x] **keys.py consistency** — `JSONResponse` errors → `HTTPException`, uses `get_realm` bridge
-
-### Remaining steps
-
-- [ ] **Step G: Cleanup** — Centralize `PROFILE_CLAIM_KEYS` (login.py includes "email", service.py excludes it — intentional difference but should be documented or centralized). Delete `auth/auth_code.py` if fully replaced. Full test suite + lint.
-- [ ] **Step H: Logout content negotiation** — if request has `refresh_token` in body, return `{"ok": true}`. If cookie-only, redirect to `/ui/`.
-- [ ] **Close: Full test suite + `just check`** — all green, lint clean
+- [x] **Step G: Cleanup** — `PROFILE_CLAIM_KEYS` documented with cross-references in both login.py and service.py. `auth/auth_code.py` already removed. Lint + format clean.
+- [x] **Step H: Logout content negotiation** — `POST /auth/logout` returns `{"ok": true}` JSON when `refresh_token` in body, redirects to `/ui/` for cookie-only requests.
 
 ### Test count
-- 474 tests passing (as of 2026-03-21)
+- 476 tests passing (as of 2026-03-21)
 
 ### Known design smells (not blocking)
-- Edge 10: `PROFILE_CLAIM_KEYS` defined separately in login.py and service.py (intentional difference, documented)
+- Edge 10: `PROFILE_CLAIM_KEYS` defined separately in login.py and service.py (intentional difference, documented with cross-reference comments)
 - Edge 14: Both `allow_session` and `get_session_user` parse `request.json()` for refresh_token (safe due to FastAPI body caching)
+
+---
+
+## Next Phase: Phase 11b — Node.js Browser Auth SDK
+
+**Status**: NEXT
+**Spec**: `_blueprint/features/implementation-phase11b-js-sdk.md`
+**Dependencies**: Phase 11 complete ✅
 
 ---
 

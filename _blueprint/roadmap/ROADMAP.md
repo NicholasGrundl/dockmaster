@@ -34,7 +34,7 @@ Phase 8c: Deployment Readiness ....................... ✅ COMPLETE
 Phase 8d: Test Audit ................................. ✅ COMPLETE
 Phase 8e: Auth Dependency Conventions ................ ✅ COMPLETE
 Phase 9a: Deployment Readiness Cherry-Picks .......... ✅ COMPLETE
-Phase 11: Route Reorg + Refresh Token ................ 🔄 IN PROGRESS (Steps G-H remain)
+Phase 11: Route Reorg + Refresh Token ................ ✅ COMPLETE
 Phase 11b: Node.js Browser Auth SDK .................. 📋 NEXT
 Phase 12: Python Consumer SDK ........................ 📋 PLANNED
 Phase 9c: Production Deployment ...................... 📋 PLANNED
@@ -42,7 +42,7 @@ Phase 9b: Documentation Overhaul ..................... ⏸️  DEFERRED (post-de
 Phase 10: Test Coverage + Refactor ................... ⏸️  BACKLOG
 ```
 
-**Test count**: 474 tests (as of Phase 11, 2026-03-21)
+**Test count**: 476 tests (as of Phase 11 close, 2026-03-21)
 
 ---
 
@@ -65,22 +65,9 @@ Phase 10: Test Coverage + Refactor ................... ⏸️  BACKLOG
 | 8d | Test audit | [archive](../archive/features/[completed]%20implementation-phase8d-test-audit.md) |
 | 8e | Auth conventions, middleware consolidation, settings DI | [archive](../archive/features/[completed]%20implementation-phase8e-auth-conventions.md) |
 | 9a | Deployment-critical cherry-picks from 8c findings | See [phase-history.md](./phase-history.md#phase-9a) |
+| 11 | Route reorg (session/service/cli/login namespaces), refresh token, logout content negotiation | [spec](../features/implementation-phase11-route-reorg.md) |
 
 See [`phase-history.md`](./phase-history.md) for full narratives, decisions, and detours.
-
----
-
-## Active Phase
-
-### Phase 11: Route Reorg + Refresh Token — IN PROGRESS
-
-> Route reorganization into clean namespaces (session/service/cli/login) and refresh token
-> support for cross-domain browser users.
-
-**Spec**: [`features/implementation-phase11-route-reorg.md`](../features/implementation-phase11-route-reorg.md)
-**Progress**: [`implementation-progress.md`](./implementation-progress.md)
-
-Steps 0–F complete. Remaining: Step G (cleanup) and Step H (logout content negotiation).
 
 ---
 

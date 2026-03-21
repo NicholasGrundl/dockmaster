@@ -30,6 +30,8 @@ router = APIRouter(
     dependencies=[Depends(allow_google_credential)],
 )
 
+# Omits "email" — for service tokens the subject IS the email.
+# login.py's PROFILE_CLAIM_KEYS includes "email" because Google userinfo puts it there.
 PROFILE_CLAIM_KEYS = ("name", "picture", "given_name", "family_name", "locale")
 
 

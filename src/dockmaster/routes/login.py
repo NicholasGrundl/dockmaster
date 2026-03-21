@@ -14,7 +14,7 @@ import structlog
 from authlib.integrations.starlette_client import OAuth
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel
 
@@ -252,7 +252,11 @@ async def logout(
         except BadSignature:
             logger.warning("logout_bad_refresh_token_signature")
 
-    response = RedirectResponse(url="/ui/", status_code=302)
+    # Content negotiation: JSON for API clients (refresh_token flow), redirect for browsers
+    if refresh_token:
+        response = JSONResponse(content={"ok": True})
+    else:
+        response = RedirectResponse(url="/ui/", status_code=302)
     response.delete_cookie(key="session_id", path="/")
     return response
 
