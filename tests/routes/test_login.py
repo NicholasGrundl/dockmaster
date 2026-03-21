@@ -1,4 +1,4 @@
-"""Tests for OAuth login routes — /auth/login, /auth/callback, /auth/logout, /auth/principal."""
+"""Tests for OAuth login routes — /auth/login, /auth/login/callback, /auth/logout, /auth/principal."""
 
 import time
 
@@ -88,7 +88,7 @@ class TestLogin:
 
 
 class TestCallback:
-    """GET /auth/callback."""
+    """GET /auth/login/callback."""
 
     def test_callback_creates_session_and_redirects(self, mocker, login_client, mock_oauth, session_store):
         """Valid callback -> session created, cookie set, redirect to /ui/."""
@@ -109,7 +109,7 @@ class TestCallback:
         )
 
         response = login_client.get(
-            f"/auth/callback?code=auth-code&state={state_key}",
+            f"/auth/login/callback?code=auth-code&state={state_key}",
             follow_redirects=False,
         )
 
@@ -120,7 +120,7 @@ class TestCallback:
     def test_callback_invalid_state_returns_401(self, login_client):
         """Callback with wrong state -> 401."""
         response = login_client.get(
-            "/auth/callback?code=auth-code&state=bad-state",
+            "/auth/login/callback?code=auth-code&state=bad-state",
             follow_redirects=False,
         )
 
@@ -138,7 +138,7 @@ class TestCallback:
         )
 
         response = login_client.get(
-            f"/auth/callback?code=auth-code&state={state_key}",
+            f"/auth/login/callback?code=auth-code&state={state_key}",
             follow_redirects=False,
         )
 

@@ -65,7 +65,9 @@ async def login(
     validated_redirect = _validate_redirect_uri(redirect_uri, settings.allowed_redirect_uris)
     state = flow_store.create_oauth_state(redirect_uri=validated_redirect)
 
-    callback_uri = str(request.url_for("callback"))
+    # GCP OAuth config: /auth/login/callback must be an authorized redirect URI
+    # in the Google Cloud Console OAuth client configuration.
+    callback_uri = str(request.url_for("login_callback"))
     return await oauth.google.authorize_redirect(
         request,
         callback_uri,
@@ -74,8 +76,8 @@ async def login(
     )
 
 
-@router.get("/callback")
-async def callback(
+@router.get("/login/callback")
+async def login_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],

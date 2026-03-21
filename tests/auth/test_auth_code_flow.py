@@ -205,7 +205,7 @@ class TestCallbackExternalRedirect:
         state_id = flow_store.create_oauth_state(redirect_uri="https://app.example.com/callback")
 
         resp = code_exchange_client.get(
-            f"/auth/callback?state={state_id}&code=google-auth-code",
+            f"/auth/login/callback?state={state_id}&code=google-auth-code",
             follow_redirects=False,
         )
 
@@ -237,7 +237,7 @@ class TestCallbackExternalRedirect:
         state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")
 
         resp = code_exchange_client.get(
-            f"/auth/callback?state={state_id}&code=google-auth-code",
+            f"/auth/login/callback?state={state_id}&code=google-auth-code",
             follow_redirects=False,
         )
 

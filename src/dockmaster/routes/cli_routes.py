@@ -79,6 +79,8 @@ async def cli_login(
     validated_redirect = _validate_cli_redirect_uri(redirect_uri)
     state = flow_store.create_oauth_state(redirect_uri=validated_redirect)
 
+    # GCP OAuth config: /auth/cli/callback must be an authorized redirect URI
+    # in the Google Cloud Console OAuth client configuration.
     callback_uri = str(request.url_for("cli_callback"))
     return await oauth.google.authorize_redirect(
         request,
