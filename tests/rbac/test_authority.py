@@ -1,6 +1,5 @@
 """Tests for Authority — permission resolution with TTL cache."""
 
-from __future__ import annotations
 
 import time
 

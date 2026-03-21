@@ -1,6 +1,5 @@
 """ServiceRealm — JWT verification using cached public keys."""
 
-from __future__ import annotations
 
 from typing import Protocol
 

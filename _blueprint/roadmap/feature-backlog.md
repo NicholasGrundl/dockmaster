@@ -4,7 +4,7 @@ Ideas and deferred features not yet scheduled for implementation. When an item i
 committed, create a spec in [`_blueprint/features/`](../features/) and link it from
 [`ROADMAP.md`](./ROADMAP.md).
 
-*Last updated: 2026-03-13*
+*Last updated: 2026-03-20*
 
 ---
 
@@ -44,6 +44,13 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **Context**: Phase 3 exchange endpoint uses try-both strategy (JWT verification → tokeninfo fallback). If a JWT-shaped token fails verification, it still tries tokeninfo. Could be smarter: only fall back if the token doesn't look like a JWT.
 - **When**: When security hardening is prioritized.
 - **Effort**: Small — add a structural check before fallback.
+
+### Session Renewal on Refresh Token Use
+- **Context**: Refresh tokens are signed session IDs. They're valid as long as the session exists (SESSION_TTL, default 1 hour). Cross-domain users must redo the full OAuth flow every hour. Session renewal would extend the session TTL each time a refresh token is used to issue a JWT.
+- **When**: When cross-domain usage patterns show that hourly re-auth is a friction point.
+- **Options**: (1) Extend session TTL on each `/auth/session/token` call with a valid refresh_token. (2) Separate refresh token TTL from session TTL (more complex, new config). (3) Accept 1h as-is.
+- **Effort**: Small for option 1 — add `session_store.set()` call (or a dedicated `touch()` method) in the token issuance route.
+- **Decision (2026-03-20)**: Deferred. 1h SESSION_TTL acceptable for now. Option 1 is the likely path.
 
 ### InMemorySessionStore Cleanup
 - **Context**: Phase 4 `InMemorySessionStore` has no max-size protection. `list_all()` (Phase 4c) does lazy cleanup of expired sessions on access, which partially addresses accumulation. Still no periodic cleanup or max-size cap.
@@ -148,10 +155,8 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **When**: When google-cloud-secret-manager ships a stable async API, or if blocking calls become a performance bottleneck.
 - **Decision needed**: Whether the async client is stable enough for production use.
 
-### Client Library / Python SDK
-- **Context**: Other services (behind dockmaster auth) need to call dockmaster APIs to verify tokens and check permissions.
-- **When**: After Phase 5 when the full API surface is stable.
-- **Scope**: Python package with `DockMasterClient` class — token exchange, permission checks, middleware integration.
+### ~~Client Library / Python SDK~~ → Phase 12
+- **Resolved**: Promoted to Phase 12 (Python Consumer SDK) during 2026-03-20 replan. See ROADMAP.md.
 
 ### Deployment Guides
 - **Context**: Need operational guides for various deployment targets.

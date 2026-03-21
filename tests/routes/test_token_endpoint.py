@@ -1,6 +1,5 @@
 """Tests for POST /auth/token — issue Type C JWT for a target service."""
 
-from __future__ import annotations
 
 import asyncio
 

@@ -301,3 +301,57 @@ async def code_exchange(body: CodeExchangeRequest, request: Request) -> dict:
         "expires_in": token_issuer.default_ttl,
         "refresh_token": None,
     }
+
+
+class LoginCodeRequest(BaseModel):
+    """Request body for POST /auth/login/code."""
+
+    code: str
+    redirect_uri: str
+
+
+class LoginCodeResponse(BaseModel):
+    """Response for POST /auth/login/code."""
+
+    refresh_token: str
+    profile: dict
+
+
+@router.post("/login/code", response_model=LoginCodeResponse)
+async def login_code(
+    body: LoginCodeRequest,
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> LoginCodeResponse:
+    """Exchange an authorization code for a session refresh token + profile.
+
+    Validates the auth code, creates a server-side session, and returns a
+    signed refresh_token (for cross-domain clients) plus the user's profile.
+    """
+    auth_code_store = getattr(request.app.state, "auth_code_store", None)
+    if auth_code_store is None:
+        raise HTTPException(status_code=503, detail="Auth code store not configured")
+
+    session_store = getattr(request.app.state, "session_store", None)
+    if session_store is None:
+        raise HTTPException(status_code=503, detail="Session store not configured")
+
+    entry = auth_code_store.consume(body.code, redirect_uri=body.redirect_uri)
+    if entry is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired authorization code")
+
+    # Create session
+    session_id = str(uuid.uuid4())
+    session_data = {"email": entry.subject, **entry.profile}
+    await session_store.set(session_id, session_data, ttl=settings.session_ttl)
+
+    # Sign session ID as refresh token
+    signer = _get_signer(settings)
+    refresh_token = signer.dumps(session_id)
+
+    logger.info("login_code_session_created", email=entry.subject, session_id=session_id)
+
+    return LoginCodeResponse(
+        refresh_token=refresh_token,
+        profile=entry.profile,
+    )

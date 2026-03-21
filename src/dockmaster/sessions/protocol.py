@@ -1,6 +1,5 @@
 """Session store protocol — interface for session backends."""
 
-from __future__ import annotations
 
 from typing import Protocol
 

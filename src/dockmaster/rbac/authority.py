@@ -1,6 +1,5 @@
 """RBAC permission resolution engine with TTL cache."""
 
-from __future__ import annotations
 
 import asyncio
 import time

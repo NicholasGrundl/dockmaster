@@ -1,6 +1,5 @@
 """Secret Manager storage backend for RBAC data and client secrets."""
 
-from __future__ import annotations
 
 import json
 

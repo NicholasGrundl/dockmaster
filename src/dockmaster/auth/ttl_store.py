@@ -9,7 +9,6 @@ Used by:
     - OAuth state store: CSRF state tokens (redirect_uri metadata)
 """
 
-from __future__ import annotations
 
 import secrets
 import time

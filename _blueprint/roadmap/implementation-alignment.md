@@ -1,17 +1,28 @@
 # Implementation Alignment Report
 
 *Generated: 2026-03-16*
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-20*
 *Purpose: Identify inconsistencies between blueprint docs and actual implementation state.*
 
 ---
 
-## Resolved Items
+## Resolved Items (from prior sessions)
 
 1. ~~Routes had local `_get_*` helpers instead of using dependencies~~ — DONE (2026-03-18)
-   - Created `state.py` with bridge dependencies (`get_admin_storage`, `get_authority`, `get_session_store`)
+   - Created `state.py` with bridge dependencies
    - Migrated `admin.py` and `admin_ui.py` to `Annotated[X, Depends(...)]` params
-   - Only `_admin_writes_enabled` remains as a local helper (template rendering hint, not a dependency)
+
+2. ~~Edge 1: `allow_session` raises 307 redirect~~ — DONE (2026-03-19)
+   - `allow_session` now returns 401
+   - `check_ui_session` handles UI redirect logic at the route layer
+
+3. ~~Edge 2: Two separate session auth paths~~ — DONE (2026-03-19)
+   - `require_ui_session` removed from `ui.py`
+   - `ui.py` and `admin_ui.py` both use `check_ui_session`
+
+4. ~~Edge 4: Profile claims on AuthCodeEntry~~ — DONE (2026-03-19)
+   - `AuthCodeEntry.profile` field added
+   - `_handle_external_callback` passes profile claims
 
 ## Established Pattern
 
@@ -30,81 +41,80 @@ route modules should not make helpers for app.state access
 - only use local helpers for route-specific logic (template rendering, form parsing, etc.)
 ```
 
-## ToDo Items
+---
 
-Clean up the allow gate versus info patterns in routers and dependencies.
-- allow gates should be on routers only
-- info dependencies should work for cookie or refresh etc.
-- id like the routes to generally Depend on the pure objects they need (DI bridges) and then decide if its a refresh or cookie or jwt at the route, then delegate to the right utility based on that. seems like cleaner logic.
-- ASK for a diagram and tree like map or table of what routes need what etc. it should be a DAG and i basically want the DI DAG to be as clean or ordered as it can be
+## Active Edges (discovered 2026-03-20 replan session)
+
+### Edge 7: Duplicate endpoints live simultaneously
+
+**Problem**: `main.py` registers BOTH old routes (token_router, exchange_router) AND new routes
+(session_router, service_router, cli_router). Both `/auth/token` and `/auth/session/token` exist.
+Both `/auth/exchange` and `/auth/service/token` exist.
+
+**Impact**: Tests pass, but the duplication creates confusion about canonical endpoints.
+**Fix**: Step G (cleanup) removes old routes from `main.py`.
+
+### Edge 8: POST /auth/logout returns redirect for all clients
+
+**Problem**: Cross-domain clients sending `{"refresh_token": "..."}` get a 302 redirect to `/ui/`,
+which makes no sense for API consumers.
+
+**Decision (2026-03-20)**: Content negotiation — if request has refresh_token body, return JSON
+`{"ok": true}`. If cookie-only, redirect. Added as Step H in implementation plan.
+
+### Edge 9: `allow_jwt_or_session` is dead code
+
+**Problem**: Nobody imports or uses it. Sitting in dependencies.py alongside commented-out
+`allow_session_admin` and `get_session_or_jwt_email`.
+
+**Fix**: Delete in Step G cleanup.
+
+### Edge 10: `PROFILE_CLAIM_KEYS` inconsistency
+
+**Problem**: login.py includes `"email"` in the tuple, service.py/exchange.py exclude it.
+Not a bug (email handled differently in each context), but a pattern divergence.
+
+**Fix**: Address in Step G cleanup — centralize the tuple or document the intentional difference.
+
+### Edge 11: Refresh token session lifetime
+
+**Problem**: Refresh token = signed session_id. Valid as long as session exists (SESSION_TTL,
+default 1 hour). Cross-domain users must redo OAuth every hour.
+
+**Decision (2026-03-20)**: Acceptable for now. Session renewal (extend TTL on use) added to
+feature backlog. Inline comment added where refresh token is created.
+
+### Edge 12: `from __future__ import annotations` in 20+ source files
+
+**Problem**: CLAUDE.md says no TYPE_CHECKING guards or future annotations. Most non-route files
+still have it. Can cause isinstance issues with Pydantic models at runtime.
+
+**Decision (2026-03-20)**: Clean sweep as standalone commit (Step 0, done immediately).
+
+### Edge 13: main.py imports OAUTH_STATE_TTL from login.py
+
+**Problem**: Lifespan does `from dockmaster.routes.login import OAUTH_STATE_TTL` — route module
+exporting config to app factory. Breaks when OAuthFlowStore (Step B) encapsulates the TTL.
+
+**Fix**: Resolved by Step C (wire OAuthFlowStore).
+
+### Edge 14: Double body parsing in session routes
+
+**Problem**: Both `allow_session` (router gate) and `get_session_user` (info dep) parse
+`request.json()` to check refresh_token. FastAPI caches body so it works.
+
+**Decision (2026-03-20)**: Known design smell, not blocking. Note and fix later if needed.
+FastAPI's body caching makes this safe.
 
 ---
 
-## Phase 11 Implementation Edges (discovered 2026-03-19)
+## Scope Decisions (2026-03-20 replan session)
 
-Attempted Phase 11 route reorg and hit several structural issues that need resolution
-before implementation can proceed cleanly. Reverted all code changes.
+1. **SDK split**: Python SDK (DockmasterClient) moved from Phase 11 to Phase 12.
+   Phase 11 focuses on route reorg + refresh tokens only.
 
-### Edge 1: `allow_session` raises 307 redirect (UI concern in auth gate)
+2. **Phase 11 implementation plan**: Login-reorg doc (Steps A-G) is the canonical
+   implementation checklist. Updated to Steps 0-H incorporating all edges above.
+   See `implementation-progress.md` for the revised task list.
 
-**Problem**: `allow_session` in `dependencies.py` raises `HTTPException(status_code=307, headers={"Location": "/ui/login"})` on failure. This bakes UI redirect behavior into a pure auth gate. The new session API routes (`/auth/session/*`) need `allow_session` to return 401 (pure gate), but changing it breaks the admin UI.
-
-**Consumers today**:
-- `allow_session_admin` (chains on `allow_session`) → used by `admin_ui.py` router-level dep
-- That's it. `ui.py` has its own independent `require_ui_session` that handles redirects separately.
-
-**Decision needed**: How to decouple auth failure (401) from UI redirect (307). Options explored:
-1. App-level exception handler converting 401→redirect for `/ui/*` paths — works but the handler catches ALL HTTPExceptions and must preserve headers (Location for 307s from other sources), gets messy fast.
-2. Deprecated shim gates (`deprecated_allow_session_ui`, `deprecated_allow_session_admin`) — functional but ugly naming, tech debt.
-3. Proper fix: `allow_*` gates always return 401/403. UI routes handle redirects at their layer.
-
-**Recommendation**: Fix this as part of a broader UI cleanup (see backlog item "Admin UI Cleanup"). For Phase 11, the temporary deprecated shim approach works but should be planned as a pre-step with clear naming.
-
-### Edge 2: Two separate session auth paths
-
-**Current state**: There are two independent session-checking mechanisms:
-1. `allow_session` in `dependencies.py` — used by `allow_session_admin` → `admin_ui.py`
-2. `require_ui_session` in `routes/ui.py` — used by dashboard route
-
-Both check cookie → session store, but they're completely separate implementations. Neither supports refresh_token.
-
-**Impact on Phase 11**: The new `allow_session` needs to support both cookie and refresh_token. The `get_session_user` info dependency also needs refresh_token support. This means extracting refresh_token from JSON body (`_extract_refresh_token` helper), which adds complexity to the dependency.
-
-### Edge 3: `get_session_user` info dep needs refresh_token support
-
-**Problem**: `get_session_user` currently only resolves from cookie. The new session routes need it to also check refresh_token in the request body (same resolution order as `allow_session`).
-
-**Design question**: Should info deps do body parsing? The `_extract_refresh_token` helper reads `request.json()` which consumes the body. FastAPI caches it, but it's a non-obvious side effect for an info dependency.
-
-### Edge 4: Profile claims on AuthCodeEntry
-
-**Problem**: `POST /auth/login/code` needs to return `{refresh_token, profile}`. The profile data (name, picture) exists during the OAuth callback but not during code exchange. The auth code only carries `subject` (email) and `redirect_uri`.
-
-**Resolution**: Add `profile: dict` field to `AuthCodeEntry`. The code is short-lived (5 min, single-use), so carrying profile data is safe. `_handle_external_callback` passes profile claims from the OAuth callback through the auth code.
-
-### Edge 5: Test blast radius
-
-**Observation**: Route reorg touches 4 test files with ~80 test failures:
-- `tests/auth/test_auth_code_flow.py` — path change (`/auth/code/exchange` → `/auth/login/code`) + response format change (returns refresh_token+profile instead of access_token)
-- `tests/routes/test_exchange.py` — path change (`/auth/exchange` → `/auth/service/token`)
-- `tests/routes/test_login.py` — removed endpoints (principal, sessions moved to session.py), logout GET→POST
-- `tests/routes/test_token_endpoint.py` — path change (`/auth/token` → split to `/auth/session/token` + `/auth/cli/token`)
-
-**Recommendation**: Plan test updates as explicit sub-tasks with clear mapping of old→new paths and expected behavior changes.
-
-### Edge 6: Admin UI cleanup needed (captured in backlog)
-
-The admin UI grew piecemeal and has several issues:
-- Non-admin UI may be unnecessary (only reason to log in is admin ops)
-- `is_admin` flag passed to templates to show/hide nav — excess if no non-admin UI
-- Inconsistent auth patterns across `ui.py` and `admin_ui.py`
-- Added to `feature-backlog.md` under "Admin UI Cleanup"
-
-### Pre-steps before Phase 11 implementation
-
-Based on the edges above, the recommended order is:
-1. **Resolve auth gate pattern** — decide on allow_session 401 vs deprecated shims vs UI cleanup first
-2. **Map the full DI DAG** — diagram all routes, their auth gates, info deps, and state bridges
-3. **Then implement route reorg** — with clean patterns established, the mechanical work is straightforward
-4. **Then refresh token** — builds on clean routes
-5. **Then SDK** — independent workstream
+3. **v1 plan archived**: `plan-phase11-implementation.md` moved to archive (superseded by v2).

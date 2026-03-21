@@ -242,3 +242,134 @@ class TestCallbackExternalRedirect:
         assert location.startswith("http://localhost:9876/callback?")
         assert "token=" in location  # JWT, not auth code
         assert "code=" not in location
+
+
+# ---------------------------------------------------------------------------
+# POST /auth/login/code tests
+# ---------------------------------------------------------------------------
+
+
+class TestLoginCodeEndpoint:
+    """POST /auth/login/code — exchange auth code for refresh_token + profile."""
+
+    def test_valid_code_returns_refresh_token_and_profile(
+        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
+        """Valid code + matching redirect_uri returns refresh_token and profile."""
+        auth_code_store = code_exchange_app.state.auth_code_store
+        code = auth_code_store.create(
+            subject="user@example.com",
+            redirect_uri="https://app.example.com/callback",
+            profile={"name": "Test User", "picture": "https://example.com/photo.jpg"},
+        )
+
+        resp = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "refresh_token" in data
+        assert data["profile"]["name"] == "Test User"
+        assert data["profile"]["picture"] == "https://example.com/photo.jpg"
+
+    def test_creates_session_in_store(
+        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
+        """The endpoint creates a session that can be resolved via the refresh_token."""
+        from itsdangerous import URLSafeSerializer
+
+        auth_code_store = code_exchange_app.state.auth_code_store
+        code = auth_code_store.create(
+            subject="user@example.com",
+            redirect_uri="https://app.example.com/callback",
+            profile={"name": "Test User"},
+        )
+
+        resp = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
+        )
+
+        refresh_token = resp.json()["refresh_token"]
+        settings = code_exchange_app.state.settings
+        signer = URLSafeSerializer(settings.session_secret_key)
+        session_id = signer.loads(refresh_token)
+
+        # Session should exist in the store
+        import asyncio
+        session_store = code_exchange_app.state.session_store
+        loop = asyncio.new_event_loop()
+        try:
+            session_data = loop.run_until_complete(session_store.get(session_id))
+        finally:
+            loop.close()
+
+        assert session_data["email"] == "user@example.com"
+        assert session_data["name"] == "Test User"
+
+    def test_invalid_code_returns_400(self, code_exchange_client: TestClient):
+        """Non-existent code returns 400."""
+        resp = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": "bogus", "redirect_uri": "https://app.example.com/callback"},
+        )
+        assert resp.status_code == 400
+        assert "Invalid or expired" in resp.json()["detail"]
+
+    def test_wrong_redirect_uri_returns_400(
+        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
+        """Mismatched redirect_uri returns 400."""
+        auth_code_store = code_exchange_app.state.auth_code_store
+        code = auth_code_store.create(
+            subject="user@example.com",
+            redirect_uri="https://app.example.com/callback",
+        )
+
+        resp = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://wrong.com/callback"},
+        )
+        assert resp.status_code == 400
+
+    def test_code_single_use(
+        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
+        """Code can only be exchanged once."""
+        auth_code_store = code_exchange_app.state.auth_code_store
+        code = auth_code_store.create(
+            subject="user@example.com",
+            redirect_uri="https://app.example.com/callback",
+        )
+
+        resp1 = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
+        )
+        assert resp1.status_code == 200
+
+        resp2 = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
+        )
+        assert resp2.status_code == 400
+
+    def test_empty_profile_when_none_stored(
+        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
+        """Code without profile data returns empty profile dict."""
+        auth_code_store = code_exchange_app.state.auth_code_store
+        code = auth_code_store.create(
+            subject="user@example.com",
+            redirect_uri="https://app.example.com/callback",
+        )
+
+        resp = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["profile"] == {}

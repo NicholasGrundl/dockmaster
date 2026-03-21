@@ -1,6 +1,5 @@
 """Access token validation via Google's tokeninfo API."""
 
-from __future__ import annotations
 
 from collections.abc import Set
 

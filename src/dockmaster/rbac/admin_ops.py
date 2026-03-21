@@ -8,18 +8,14 @@ RBAC storage calls use run_in_executor because the SM client is synchronous.
 Session operations are async-native (no executor needed).
 """
 
-from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 
 from google.api_core.exceptions import NotFound
 
 from dockmaster.rbac.models import Grant, Role, ServiceGrants
-
-if TYPE_CHECKING:
-    from dockmaster.sessions.protocol import SessionStore
 from dockmaster.rbac.storage import AdminSecretsStorage, SecretsStorage
+from dockmaster.sessions.protocol import SessionStore
 
 
 class RoleConflictError(Exception):

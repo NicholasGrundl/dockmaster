@@ -6,7 +6,6 @@ Includes:
 - EphemeralKeyCache: local ephemeral public key registry with file persistence
 """
 
-from __future__ import annotations
 
 import base64
 import json

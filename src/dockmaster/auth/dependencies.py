@@ -11,7 +11,7 @@ Two-layer design:
 """
 
 import hashlib
-from typing import Annotated, Literal
+from typing import Annotated, Callable, Literal
 
 import structlog
 from fastapi import Cookie, Depends, HTTPException, Request
@@ -504,8 +504,6 @@ async def needs_session_store(request: Request) -> None:
 # ═══════════════════════════════════════════════════════════════════
 # UI Authentication  - Conditional based on whats computed on route
 # ═══════════════════════════════════════════════════════════════════
-
-from typing import Callable
 
 class AuthResult(BaseModel):
     is_authenticated: bool

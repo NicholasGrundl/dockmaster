@@ -1,6 +1,5 @@
 """Tests for SecretsStorage RBAC methods — get/put/delete for roles and grants."""
 
-from __future__ import annotations
 
 import json
 

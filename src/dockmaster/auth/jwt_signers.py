@@ -6,7 +6,6 @@ Two signer classes that produce RS256 JWTs with different key sources:
 - EphemeralKeypairSigner: signs with a self-generated RSA keypair (ephemeral, in-memory)
 """
 
-from __future__ import annotations
 
 import base64
 import json

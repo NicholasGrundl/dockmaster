@@ -1,6 +1,5 @@
 """CLI OAuth login flow — localhost callback server + token storage."""
 
-from __future__ import annotations
 
 import json
 import time

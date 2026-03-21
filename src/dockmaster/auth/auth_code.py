@@ -4,7 +4,6 @@ Codes are single-use, cryptographically random, and expire after a configurable 
 Built on TTLStore for key generation, TTL, and pruning.
 """
 
-from __future__ import annotations
 
 import time
 

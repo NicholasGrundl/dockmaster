@@ -1,6 +1,5 @@
 """Tests for RBAC Pydantic models — Role, Grant, ServiceGrants."""
 
-from __future__ import annotations
 
 import json
 

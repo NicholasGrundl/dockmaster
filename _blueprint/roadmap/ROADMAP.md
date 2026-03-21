@@ -10,7 +10,7 @@ is done, in progress, and planned.
 - Backlogged ideas and draft specs live in [`feature-backlog.md`](./feature-backlog.md)
 - Architecture decisions in [`decision-log.md`](./decision-log.md)
 
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-20*
 
 ---
 
@@ -31,8 +31,9 @@ Phase 8b: Code Quality Review ........................ ✅ COMPLETE
 Phase 8c: Deployment Readiness ....................... ✅ COMPLETE
 Phase 8d: Test Audit ................................. ✅ COMPLETE
 Phase 8e: Auth Dependency Conventions ................ ✅ COMPLETE
-Phase 11: Auth SDK + Cross-Domain Support ............. PLANNED (next)
+Phase 11: Route Reorg + Refresh Token ................. IN PROGRESS (Steps 0-1 done)
 Phase 11b: Node.js Browser Auth SDK ................... PLANNED
+Phase 12: Python Consumer SDK ......................... PLANNED
 Phase 9: Deployment + GCP Cleanup .................... PLANNED
 Phase 10: UI Tests ................................... PLANNED (low priority)
 ```
@@ -260,30 +261,32 @@ Phase 10: UI Tests ................................... PLANNED (low priority)
 
 ---
 
-## Phase 11: Auth SDK & Cross-Domain Consumer Support — PLANNED (next)
+## Phase 11: Route Reorg + Refresh Token — IN PROGRESS
 
-> Route reorganization, refresh token support for cross-domain browser users, and Python
-> consumer SDK for backend services verifying JWTs and checking permissions.
+> Route reorganization into clean namespaces (session/service/cli/login) and refresh token
+> support for cross-domain browser users. SDK split to Phase 12.
 
-**Spec**: [`features/implementation-phase11-auth-sdk.md`](../features/implementation-phase11-auth-sdk.md)
-**Background**: [`features/planning/proposal-dockmaster-auth-sdk.md`](../features/planning/proposal-dockmaster-auth-sdk.md) (original broad proposal)
+**Spec**: [`features/implementation-phase11-route-reorg.md`](../features/implementation-phase11-route-reorg.md)
 
 **Key decisions made:**
 - Cross-domain auth uses refresh tokens (signed session handles), not shared cookies (different TLDs)
-- Route hierarchy: session-gated (`/auth/session/*`), API-gated (top-level), service (`/auth/service/*`), CLI (`/auth/cli/*`)
-- JS browser SDK planned as Phase 11b (separate spec)
-- No `pyproject.toml` split — clean import boundaries instead
-- SA token exchange deferred from SDK — consumers forward caller's JWT for permission checks
+- Route hierarchy: login (`/auth/login/*`), session-gated (`/auth/session/*`), service (`/auth/service/*`), CLI (`/auth/cli/*`)
+- Python SDK split to Phase 12 (separate scope)
+- Auth gate cleanup done first (allow_session → 401, check_ui_session for UI)
+- OAuthFlowStore consolidates oauth_state_store + auth_code_store
+- CLI OAuth gets own route pair (/auth/cli/login, /auth/cli/callback)
+- Logout uses content negotiation (JSON for API, redirect for browser)
 
 **Deliverables:**
-- Route reorganization (session/service/cli namespaces, rename mapping in spec)
-- `POST /auth/login/code` — exchange auth code for refresh_token + profile
+- Route reorganization (session/service/cli/login namespaces)
+- `OAuthFlowStore` — unified single-use store replacing two TTLStores
+- `POST /auth/login/exchange` — exchange login ticket for refresh_token + profile
 - `POST /auth/session/token` — cookie or refresh_token → Type C JWT
-- `DockmasterClient` — JWT verification + permission checks via HTTP (no GCP deps)
-- `HTTPKeyCache` — lightweight key cache fetching from `/auth/keys`
-- Integration guide for Domain A API and Domain B SPA patterns
+- `return_to` support on login flow
+- CLI OAuth routes (`/auth/cli/login`, `/auth/cli/callback`)
+- Logout content negotiation
 
-**Dependencies:** Phase 8 complete (no Phase 9 dependency — deployment comes after)
+**Dependencies:** Phase 8 complete
 
 ---
 
@@ -313,6 +316,29 @@ Phase 10: UI Tests ................................... PLANNED (low priority)
 
 ---
 
+## Phase 12: Python Consumer SDK — PLANNED
+
+> Lightweight Python SDK for backend services verifying dockmaster-issued JWTs and checking
+> permissions. No GCP dependencies.
+
+**Spec**: To be created during Phase 12 planning (extracted from original Phase 11 spec)
+
+**Key decisions made (from original Phase 11 planning):**
+- SDK module: `dockmaster.sdk/` namespace (not `client/`), no code in `__init__.py`
+- HTTPKeyCache lives in `sdk/client_cache.py` (not alongside GCP caches in `auth/key_cache.py`)
+- No `pyproject.toml` split — clean import boundaries instead
+- SA token exchange deferred — consumers forward caller's JWT for permission checks
+
+**Deliverables:**
+- `DockmasterClient` — JWT verification + permission checks via HTTP (no GCP deps)
+- `HTTPKeyCache` — lightweight key cache fetching from `/auth/keys`
+- Import hygiene test — verify no service-only deps
+- Integration guide for Domain A API and Domain B SPA patterns
+
+**Dependencies:** Phase 11 complete (needs route reorg + refresh token endpoints)
+
+---
+
 ## Phase 9: Deployment + GCP Cleanup — PLANNED
 
 > GCP credential rotation, setup/dev guides, and deployment configuration.
@@ -327,7 +353,7 @@ Phase 10: UI Tests ................................... PLANNED (low priority)
 - Admin SA (`dockmaster-admin`) setup guide
 - Fix any deployment-blocking issues from Phase 8 audit
 
-**Dependencies:** Phase 11 + 11b complete (deploy with SDK integration ready)
+**Dependencies:** Phase 11 + 11b + 12 complete (deploy with SDK integration ready)
 
 ---
 

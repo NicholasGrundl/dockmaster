@@ -1,6 +1,5 @@
 """Tests for admin ops service layer — CRUD operations with cache invalidation."""
 
-from __future__ import annotations
 
 import pytest
 from google.api_core.exceptions import NotFound

@@ -1,6 +1,5 @@
 """Tests for GET /auth/has — permission check endpoints."""
 
-from __future__ import annotations
 
 import pytest
 from fastapi import FastAPI

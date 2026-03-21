@@ -1,6 +1,5 @@
 """Authlib OAuth2 client for Google login."""
 
-from __future__ import annotations
 
 from authlib.integrations.starlette_client import OAuth
 

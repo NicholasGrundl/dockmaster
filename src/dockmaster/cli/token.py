@@ -1,6 +1,5 @@
 """CLI command: dockmaster token <service> — get a Type C JWT for a service."""
 
-from __future__ import annotations
 
 import httpx
 import typer

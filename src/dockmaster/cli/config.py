@@ -1,6 +1,5 @@
 """CLI configuration — server URL and credential storage paths."""
 
-from __future__ import annotations
 
 import os
 from pathlib import Path

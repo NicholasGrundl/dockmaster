@@ -45,7 +45,6 @@ Override:
     and you want to avoid duplicate or conflicting values.
 """
 
-from __future__ import annotations
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request

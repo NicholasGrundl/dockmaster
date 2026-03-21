@@ -1,6 +1,5 @@
 """Dockmaster FastAPI application."""
 
-from __future__ import annotations
 
 import json
 from collections.abc import AsyncGenerator
@@ -30,6 +29,9 @@ from dockmaster.routes.login import router as login_router
 from dockmaster.routes.admin import router as admin_router
 from dockmaster.routes.permissions import router as permissions_router
 from dockmaster.routes.token import router as token_router
+from dockmaster.routes.session import router as session_router
+from dockmaster.routes.service import router as service_router
+from dockmaster.routes.cli_routes import router as cli_router
 from dockmaster.routes.admin_ui import router as admin_ui_router
 from dockmaster.routes.ui import router as ui_router
 from dockmaster.sessions.memory import InMemorySessionStore
@@ -257,6 +259,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(login_router, prefix="/auth")
     application.include_router(permissions_router, prefix="/auth")
     application.include_router(token_router, prefix="/auth")
+    application.include_router(session_router, prefix="/auth")
+    application.include_router(service_router, prefix="/auth")
+    application.include_router(cli_router, prefix="/auth")
     application.include_router(admin_router, prefix="/admin")
     application.include_router(ui_router, prefix="/ui")
     application.include_router(admin_ui_router, prefix="/ui")

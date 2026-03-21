@@ -1,6 +1,5 @@
 """Tests for admin CRUD endpoints — roles and grants."""
 
-from __future__ import annotations
 
 from pytest_mock import MockerFixture
 from fastapi import FastAPI

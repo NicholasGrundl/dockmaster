@@ -1,6 +1,5 @@
 """Tests for admin authorization dependencies."""
 
-from __future__ import annotations
 
 import pytest
 from fastapi import Depends, FastAPI
