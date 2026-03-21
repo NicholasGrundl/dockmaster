@@ -170,7 +170,7 @@ admin_storage_initialized
 | Warning | Meaning | Impact |
 |---------|---------|--------|
 | `SESSION_SECRET_KEY not set — using auto-generated key` | No `SESSION_SECRET_KEY` in `.env` | Sessions won't survive server restarts. Fine for dev. |
-| `SA_KEY_FILE not set — JWT signing disabled` | No service account key configured | `/auth/exchange` and SA-signed endpoints return 503 |
+| `SA_KEY_FILE not set — JWT signing disabled` | No service account key configured | `/auth/service/token` and SA-signed endpoints return 503 |
 | `CLIENT_ID not set — OAuth login will return 503` | No OAuth credentials | `/auth/login` returns 503 — browser login won't work |
 | `SECRETS_PROJECT not set — Secret Manager lookups will return 503` | No GCP project for RBAC | Permission checks and admin endpoints return 503 |
 | `ADMIN_SA_KEY_FILE not set — RBAC write operations will return 503` | No admin SA key | Admin CRUD endpoints return 503 (reads still work) |
@@ -198,7 +198,7 @@ Click the button. You'll be redirected to Google's OAuth consent screen. Sign in
 
 ### Step 3: Callback & Dashboard
 
-After authenticating, Google redirects back to Dockmaster's `/auth/callback`. Dockmaster:
+After authenticating, Google redirects back to Dockmaster's `/auth/login/callback`. Dockmaster:
 1. Exchanges the Google auth code for your user info
 2. Validates your email domain
 3. Creates a server-side session
@@ -317,7 +317,7 @@ print(signer.sign(subject=signer.client_email, audience='dockmaster', expiry=300
 ")
 
 # Step 2: Exchange for a Dockmaster Type C JWT
-curl -s -X POST "$BASE/auth/exchange?service=my-target-service" \
+curl -s -X POST "$BASE/auth/service/token?service=my-target-service" \
   -H "Authorization: Bearer $SA_JWT" | jq .
 ```
 
@@ -351,10 +351,10 @@ http://localhost:8000/auth/login?redirect_uri=http://localhost:3000/callback
 http://localhost:3000/callback?code=abc123&state=xyz
 ```
 
-**Step 3**: Exchange the auth code for a JWT:
+**Step 3**: Exchange the login ticket for a refresh token and profile:
 
 ```bash
-curl -s -X POST "$BASE/auth/code/exchange" \
+curl -s -X POST "$BASE/auth/login/exchange" \
   -H "Content-Type: application/json" \
   -d '{"code": "abc123", "redirect_uri": "http://localhost:3000/callback"}' | jq .
 ```
@@ -520,20 +520,23 @@ All configuration is via environment variables or `.env` file. Variables are gro
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/auth/login` | None | Start OAuth login. Optional `?redirect_uri=` for CLI/SPA flows. |
-| `GET` | `/auth/callback` | None | OAuth callback (Google redirects here). |
-| `GET` | `/auth/logout` | Session | Destroy session, clear cookie. |
-| `GET` | `/auth/principal` | Session | Current user profile (email, name, picture). |
-| `GET` | `/auth/sessions` | Session | Current user's active sessions. |
+| `GET` | `/auth/login` | None | Start OAuth login. Optional `?redirect_uri=` for SPA flows, `?return_to=` for post-login redirect. |
+| `GET` | `/auth/login/callback` | None | OAuth callback (Google redirects here). |
+| `POST` | `/auth/login/exchange` | None (code) | Exchange login ticket for `{refresh_token, profile, return_to}`. Body: `{"code", "redirect_uri"}`. |
+| `POST` | `/auth/logout` | Session or refresh_token | Destroy session, clear cookie. |
+| `GET` | `/auth/session/principal` | Session | Current user profile (email, name, picture). |
+| `GET` | `/auth/session/list` | Session | Current user's active sessions. |
+| `GET` | `/auth/cli/login` | None | Start CLI OAuth login (localhost redirect_uri only). |
+| `GET` | `/auth/cli/callback` | None | CLI OAuth callback → JWT → redirect to localhost. |
+| `POST` | `/auth/cli/token` | Bearer JWT | Issue a Type C JWT from a Bearer JWT. |
 
 ### Token Operations
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/auth/claims` | Bearer | Decode and return JWT claims. |
-| `POST` | `/auth/exchange` | Bearer (Type A) | Exchange Google JWT/access token for Type C JWT. `?service=` sets audience. |
-| `POST` | `/auth/token` | Session or Bearer | Issue a new Type C JWT. `?service=` sets audience. |
-| `POST` | `/auth/code/exchange` | None (code) | Exchange auth code for Type C JWT. Body: `{"code", "redirect_uri"}`. |
+| `POST` | `/auth/service/token` | Bearer (Type A) | Exchange Google JWT/access token for Type C JWT. `?service=` sets audience. |
+| `POST` | `/auth/session/token` | Session or refresh_token | Issue a new Type C JWT. `?service=` sets audience. |
 
 ### Public Keys
 
@@ -652,7 +655,7 @@ print(signer.sign(subject=signer.client_email, audience='dockmaster', expiry=300
 ")
 
 # Exchange for a Dockmaster Type C JWT
-RESPONSE=$(curl -s -X POST "$BASE/auth/exchange?service=billing" \
+RESPONSE=$(curl -s -X POST "$BASE/auth/service/token?service=billing" \
   -H "Authorization: Bearer $SA_JWT")
 echo "$RESPONSE" | jq .
 TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
@@ -675,31 +678,30 @@ REDIRECT_URL="<paste full redirect URL here>"
 CODE=$(get_param "$REDIRECT_URL" code)
 echo "Code: $CODE"
 
-# Step 3: Exchange code for JWT
-RESPONSE=$(curl -s -X POST "$BASE/auth/code/exchange" \
+# Step 3: Exchange code for refresh_token + profile
+RESPONSE=$(curl -s -X POST "$BASE/auth/login/exchange" \
   -H "Content-Type: application/json" \
   -d "{\"code\": \"$CODE\", \"redirect_uri\": \"http://localhost:3000/callback\"}")
 echo "$RESPONSE" | jq .
-TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-decode_jwt "$TOKEN"
 
 # Step 4: Replay (should fail — single-use)
-curl -s -X POST "$BASE/auth/code/exchange" \
+curl -s -X POST "$BASE/auth/login/exchange" \
   -H "Content-Type: application/json" \
   -d "{\"code\": \"$CODE\", \"redirect_uri\": \"http://localhost:3000/callback\"}" | jq .
 ```
 
 **Verify:**
 - [ ] Redirect URL contains `?code=...&state=...`
-- [ ] Exchange returns `access_token`, `token_type`, `expires_in`
+- [ ] Exchange returns `refresh_token`, `profile`, `return_to`
 - [ ] Replay returns 400: "Invalid or expired authorization code"
 
 ### A7. Token Issuance
 
 ```bash
-# Using a Bearer JWT (from exchange or CLI)
-curl -s -X POST "$BASE/auth/token?service=billing" \
-  -H "Authorization: Bearer $TOKEN" | jq .
+# Using a session cookie or refresh_token
+curl -s -X POST "$BASE/auth/session/token?service=billing" \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "THE_REFRESH_TOKEN"}' | jq .
 ```
 
 **Verify:**
@@ -782,14 +784,14 @@ curl -s "$BASE/auth/login?redirect_uri=https://evil.com/callback" | jq .
 
 ```bash
 # Allowed origin
-curl -s -D - -o /dev/null -X OPTIONS "$BASE/auth/code/exchange" \
+curl -s -D - -o /dev/null -X OPTIONS "$BASE/auth/login/exchange" \
   -H "Origin: http://localhost:3000" \
   -H "Access-Control-Request-Method: POST" \
   -H "Access-Control-Request-Headers: Content-Type"
 # → access-control-allow-origin: http://localhost:3000
 
 # Disallowed origin
-curl -s -D - -o /dev/null -X OPTIONS "$BASE/auth/code/exchange" \
+curl -s -D - -o /dev/null -X OPTIONS "$BASE/auth/login/exchange" \
   -H "Origin: https://evil.com" \
   -H "Access-Control-Request-Method: POST"
 # → No access-control-allow-origin header

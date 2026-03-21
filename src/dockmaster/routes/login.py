@@ -1,4 +1,4 @@
-"""Routes: OAuth login flow — /auth/login, /auth/callback, /auth/logout, /auth/principal."""
+"""Routes: OAuth login flow — /auth/login, /auth/login/callback, /auth/logout."""
 
 import uuid
 from urllib.parse import urlencode

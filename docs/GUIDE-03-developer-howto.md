@@ -215,7 +215,7 @@ app.include_router(ui_public_router, prefix="/ui")
 - **Bearer JWT** — API routes for programmatic access. Use `allow_jwt` or `allow_jwt_admin` as a dependency.
 - **Session cookie** — UI routes for browser users. Use `allow_session` or `allow_session_admin` as a dependency.
 
-Routes that accept either (e.g., `/auth/token`) use `allow_jwt_or_session`.
+Routes that accept either (e.g., `/auth/session/token`) use `allow_jwt_or_session`.
 
 ### 3d. Middleware Stack
 
@@ -253,7 +253,7 @@ Auth enforcement lives in `src/dockmaster/auth/dependencies.py`. It follows a tw
 |---|---|---|
 | `allow_jwt` | `dict` (decoded claims) | API routes requiring a valid dockmaster JWT |
 | `allow_session` | `dict` (session data) | UI routes requiring a valid session cookie |
-| `allow_jwt_or_session` | `str` (email) | Routes accepting either auth method (e.g., `/auth/token`) |
+| `allow_jwt_or_session` | `str` (email) | Routes accepting either auth method (e.g., `/auth/session/token`) |
 | `allow_google_credential` | `GoogleJWTCredential \| GoogleAccessTokenCredential` | Exchange endpoint — verifies Google-issued credentials |
 | `allow_jwt_admin` | `dict` (claims) | Admin API — JWT + admin permission check |
 | `allow_session_admin` | `dict` (session data) | Admin UI — session + admin permission check |
@@ -735,7 +735,7 @@ Today, Dockmaster collapses L1+L2 into composed gates for its own admin access (
 
 **Token types**:
 - **Type A** — Google-signed JWTs from service accounts. Verified against Google's public OIDC keys or IAM-published keys.
-- **Type C** — Dockmaster-signed JWTs issued via `/auth/exchange` or `/auth/token`. Signed with an ephemeral RSA keypair generated at startup.
+- **Type C** — Dockmaster-signed JWTs issued via `/auth/service/token` or `/auth/session/token`. Signed with an ephemeral RSA keypair generated at startup.
 
 **Audience validation**: Dockmaster endpoints do **not** validate the `aud` claim on Type C JWTs. Audience validation is the responsibility of downstream services. This is by design — Dockmaster issues tokens scoped to target services, but it's the target service that should verify `aud` matches its own identity.
 
@@ -764,7 +764,7 @@ Today, Dockmaster collapses L1+L2 into composed gates for its own admin access (
 
 **Redirect URI validation**: The `redirect_uri` parameter on `/auth/login` is validated against `ALLOWED_REDIRECT_URIS`. Unrecognized URIs are rejected with 400, preventing open redirect attacks.
 
-**Auth code single-use**: Auth codes issued by `/auth/callback` are stored in `AuthCodeStore` (TTL-based, 5 min expiry). Each code can only be exchanged once — replay attempts return 400.
+**Login ticket single-use**: Login ticket codes issued by `/auth/login/callback` are stored in `OAuthFlowStore` (TTL-based, 5 min expiry). Each code can only be exchanged once — replay attempts return 400.
 
 ### A5. Domain & Issuer Allowlists
 

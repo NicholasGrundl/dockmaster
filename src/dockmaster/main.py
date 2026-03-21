@@ -7,9 +7,11 @@ from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from dockmaster.exceptions import ui_exception_handler
 from dockmaster.middleware import RequireProxyHeadersMiddleware, SecurityHeadersMiddleware
 
 from dockmaster.auth.jwt_signers import EphemeralKeypairSigner, ServiceAccountSigner
@@ -254,6 +256,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(ui_router, prefix="/ui")
     application.include_router(admin_ui_router, prefix="/ui")
     application.add_api_route("/", root_info, methods=["GET"], tags=["info"])
+    application.add_exception_handler(StarletteHTTPException, ui_exception_handler)
     return application
 
 

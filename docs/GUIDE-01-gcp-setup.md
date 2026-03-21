@@ -413,8 +413,9 @@ Google OAuth credentials enable browser login. Without these, the `/auth/login` 
    - **Application type**: Web application
    - **Name**: `Dockmaster` (or your preferred name)
    - **Authorized redirect URIs**: add:
-     - `http://localhost:8000/auth/callback` (for local development)
-     - Your production URL when ready (e.g. `https://auth.yourcompany.com/auth/callback`)
+     - `http://localhost:8000/auth/login/callback` (browser login, local dev)
+     - `http://localhost:8000/auth/cli/callback` (CLI login, local dev)
+     - Your production URLs when ready (e.g. `https://auth.yourcompany.com/auth/login/callback`, `https://auth.yourcompany.com/auth/cli/callback`)
 4. Click **Create**
 5. Note the **Client ID** and **Client Secret** — you'll need both for `.env` in [Guide 02](GUIDE-02-consumer-howto.md)
 

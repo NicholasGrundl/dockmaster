@@ -19,7 +19,7 @@
 
 ### 1b. Sequence Diagram
 
-[Mermaid sequence diagram showing: Browser → /auth/login → Google OAuth → /auth/callback → SessionStore → Browser (cookie set). Include state parameter for CSRF, code exchange with Google, domain validation.]
+[Mermaid sequence diagram showing: Browser → /auth/login → Google OAuth → /auth/login/callback → SessionStore → Browser (cookie set). Include state parameter for CSRF, code exchange with Google, domain validation.]
 
 ### 1c. Step-by-Step
 
@@ -37,11 +37,11 @@
 
 ### 2a. Overview
 
-[One-paragraph summary: CLI starts a local HTTP server on a random port, opens browser to /auth/login?redirect_uri=http://localhost:PORT/callback, user authenticates with Google, Dockmaster redirects to localhost with a Type C JWT in the query string, CLI captures it and stores to disk.]
+[One-paragraph summary: CLI starts a local HTTP server on a random port, opens browser to /auth/cli/login?redirect_uri=http://localhost:PORT/callback, user authenticates with Google, Dockmaster redirects to localhost with a Type C JWT in the query string, CLI captures it and stores to disk.]
 
 ### 2b. Sequence Diagram
 
-[Mermaid sequence diagram showing: CLI → Browser → /auth/login → Google OAuth → /auth/callback → 302 to localhost:PORT/callback?token=<JWT> → CLI captures token → stores to ~/.local/share/dockmaster/.]
+[Mermaid sequence diagram showing: CLI → Browser → /auth/cli/login → Google OAuth → /auth/cli/callback → 302 to localhost:PORT/callback?token=<JWT> → CLI captures token → stores to ~/.local/share/dockmaster/.]
 
 ### 2c. Step-by-Step
 
@@ -59,11 +59,11 @@
 
 ### 3a. Overview
 
-[One-paragraph summary: external app redirects user to /auth/login?redirect_uri=https://app.example.com/callback, user authenticates, Dockmaster redirects back with a short-lived auth code (not a JWT), app exchanges the code for a JWT via POST /auth/code/exchange.]
+[One-paragraph summary: external app redirects user to /auth/login?redirect_uri=https://app.example.com/callback, user authenticates, Dockmaster redirects back with a short-lived login ticket code (not a JWT), app exchanges the code for a refresh_token and profile via POST /auth/login/exchange.]
 
 ### 3b. Sequence Diagram
 
-[Mermaid sequence diagram showing: SPA → /auth/login → Google OAuth → /auth/callback → 302 to redirect_uri?code=<code>&state=<state> → SPA → POST /auth/code/exchange → Type C JWT returned.]
+[Mermaid sequence diagram showing: SPA → /auth/login → Google OAuth → /auth/login/callback → 302 to redirect_uri?code=<code>&state=<state> → SPA → POST /auth/login/exchange → {refresh_token, profile, return_to} returned.]
 
 ### 3c. Step-by-Step
 
@@ -81,11 +81,11 @@
 
 ### 4a. Overview
 
-[One-paragraph summary: service presents a Google SA JWT or access token to POST /auth/exchange?service=<target>, Dockmaster verifies the credential, checks the service identity, issues a Type C JWT with the caller's identity.]
+[One-paragraph summary: service presents a Google SA JWT or access token to POST /auth/service/token?service=<target>, Dockmaster verifies the credential, checks the service identity, issues a Type C JWT with the caller's identity.]
 
 ### 4b. Sequence Diagram
 
-[Mermaid sequence diagram showing: Service → signs JWT with SA key → POST /auth/exchange (Bearer: <JWT>) → Dockmaster verifies via ServiceRealm → issues Type C JWT → Service uses Type C JWT to call target service.]
+[Mermaid sequence diagram showing: Service → signs JWT with SA key → POST /auth/service/token (Bearer: <JWT>) → Dockmaster verifies via ServiceRealm → issues Type C JWT → Service uses Type C JWT to call target service.]
 
 ### 4c. Step-by-Step
 
@@ -103,11 +103,11 @@
 
 ### 5a. Overview
 
-[One-paragraph summary: authenticated user (session cookie or Bearer JWT) calls POST /auth/token, receives a fresh Type C JWT. Used when a browser user needs a JWT to call an API, or when a service needs a re-scoped token.]
+[One-paragraph summary: authenticated user (session cookie or refresh_token) calls POST /auth/session/token?service=<target>, receives a fresh Type C JWT. Used when a browser user needs a JWT to call an API, or when an external app with a refresh_token needs a service-scoped token.]
 
 ### 5b. Sequence Diagram
 
-[Mermaid sequence diagram showing: Browser/Service (with session cookie or Bearer JWT) → POST /auth/token → Dockmaster verifies identity → issues Type C JWT.]
+[Mermaid sequence diagram showing: Browser/Service (with session cookie or refresh_token) → POST /auth/session/token?service=<target> → Dockmaster verifies identity → issues Type C JWT.]
 
 ### 5c. Step-by-Step
 
