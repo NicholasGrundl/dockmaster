@@ -1,4 +1,10 @@
-"""Routes: GET /auth/has, GET /auth/grants — permission check and grants resolution."""
+"""Routes: GET /auth/has, GET /auth/grants — permission check and grants resolution.
+
+Auth pattern: Hard gate (``allow_jwt`` at router level). All routes require
+a valid dockmaster Bearer JWT. Uses ``get_authority`` state bridge for RBAC.
+"""
+
+from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -6,6 +12,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from dockmaster.auth.dependencies import allow_jwt
+from dockmaster.rbac.authority import Authority
+from dockmaster.state import get_authority
 
 logger = structlog.get_logger(__name__)
 
@@ -15,9 +23,8 @@ router = APIRouter(
 )
 
 
-async def _check_permission(request: Request, subject: str, target: str, permission: str) -> Response:
+async def _check_permission(authority: Authority | None, subject: str, target: str, permission: str) -> Response:
     """Shared permission check logic for both endpoint variants."""
-    authority = getattr(request.app.state, "authority", None)
     if authority is None:
         raise HTTPException(status_code=503, detail="RBAC service not configured")
 
@@ -42,9 +49,10 @@ async def has_permission_path(
     subject: str,
     target: str,
     permission: str,
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ) -> Response:
     """Check permission via path parameters."""
-    return await _check_permission(request, subject, target, permission)
+    return await _check_permission(authority, subject, target, permission)
 
 
 @router.get("/has")
@@ -53,9 +61,10 @@ async def has_permission_query(
     subject: str,
     target: str,
     permission: str,
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ) -> Response:
     """Check permission via query parameters."""
-    return await _check_permission(request, subject, target, permission)
+    return await _check_permission(authority, subject, target, permission)
 
 
 class GrantsResponse(BaseModel):
@@ -69,13 +78,13 @@ async def get_grants(
     request: Request,
     subject: str,
     target: str,
+    authority: Annotated[Authority | None, Depends(get_authority)],
 ) -> GrantsResponse:
     """Return all resolved permissions for a subject on a target service.
 
     Auth: Bearer JWT (Type A SA JWT).
     Returns a flat list of "target:permission" strings.
     """
-    authority = getattr(request.app.state, "authority", None)
     if authority is None:
         raise HTTPException(status_code=503, detail="RBAC service not configured")
 

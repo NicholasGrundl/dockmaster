@@ -1,4 +1,10 @@
-"""Routes: Admin UI pages — /ui/roles, /ui/grants, /ui/sessions."""
+"""Routes: Admin UI pages — /ui/roles, /ui/grants, /ui/sessions.
+
+Auth pattern: Soft gate (``check_ui_session("dockmaster", "admin")`` at route level,
+no router-level gate). Each route handles auth failures with HTML redirects/templates.
+Uses ``needs_admin_storage`` for write operations. State bridges: ``get_admin_storage``,
+``get_authority``, ``get_session_store``, ``get_ui_config``.
+"""
 
 from typing import Annotated
 

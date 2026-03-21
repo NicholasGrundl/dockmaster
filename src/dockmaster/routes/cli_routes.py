@@ -2,6 +2,10 @@
 
 CLI OAuth flow: localhost-only redirect_uri, direct JWT issuance (no sessions).
 Token endpoint: exchange a valid dockmaster Bearer JWT for a Type C JWT.
+
+Auth pattern: Mixed. CLI OAuth routes (login, callback) are public entry points.
+``POST /auth/cli/token`` uses ``allow_jwt`` at route level. Uses ``get_flow_store``,
+``get_oauth``, and ``get_token_issuer`` state bridges.
 """
 
 import re
@@ -9,14 +13,16 @@ from typing import Annotated
 from urllib.parse import urlencode
 
 import structlog
+from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from dockmaster.auth.dependencies import allow_jwt, get_jwt_claims
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
 from dockmaster.auth.oauth_flow_store import OAuthFlowStore, OAuthState
 from dockmaster.config import Settings, get_settings
-from dockmaster.state import get_flow_store
+from dockmaster.state import get_flow_store, get_oauth, get_token_issuer
 
 logger = structlog.get_logger(__name__)
 
@@ -62,6 +68,7 @@ async def cli_login(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
+    oauth: Annotated[OAuth | None, Depends(get_oauth)],
     redirect_uri: str | None = None,
 ):
     """Start CLI OAuth flow — redirect to Google with localhost callback.
@@ -70,7 +77,6 @@ async def cli_login(
     After Google auth, the callback at /auth/cli/callback mints a JWT and
     redirects back to the CLI's localhost server.
     """
-    oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
     if flow_store is None:
@@ -95,6 +101,8 @@ async def cli_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
+    oauth: Annotated[OAuth | None, Depends(get_oauth)],
+    token_issuer: Annotated[EphemeralKeypairSigner | None, Depends(get_token_issuer)],
 ):
     """Handle Google OAuth callback for CLI flow.
 
@@ -102,7 +110,6 @@ async def cli_callback(
     checks email domain, mints a short-lived JWT, and redirects
     to the CLI's localhost server with the token.
     """
-    oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
     if flow_store is None:
@@ -133,7 +140,6 @@ async def cli_callback(
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Mint short-lived JWT and redirect to CLI's localhost server
-    token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Token issuer not configured")
 
@@ -159,6 +165,7 @@ async def cli_callback(
 async def issue_cli_token(
     request: Request,
     claims: Annotated[dict, Depends(get_jwt_claims)],
+    token_issuer: Annotated[EphemeralKeypairSigner | None, Depends(get_token_issuer)],
 ) -> TokenResponse:
     """Issue a Type C JWT for a target service.
 
@@ -166,7 +173,6 @@ async def issue_cli_token(
     Query params: service (required) — the target service audience.
     """
     email = claims.get("email", "")
-    token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Token issuer not configured")
 

@@ -1,4 +1,8 @@
-"""Route: GET /auth/claims — return decoded JWT claims."""
+"""Route: GET /auth/claims — return decoded JWT claims.
+
+Auth pattern: Hard gate (``allow_jwt`` at router level). Uses ``get_jwt_claims``
+to extract the decoded token data. Textbook example of the gate + info pattern.
+"""
 
 from typing import Annotated
 

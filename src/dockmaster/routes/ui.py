@@ -1,13 +1,20 @@
-"""Routes: Admin UI — /ui/login, /ui/ (dashboard)."""
+"""Routes: UI pages — /ui/login, /ui/ (dashboard).
+
+Auth pattern: Soft gate (``check_ui_session`` at route level, no router-level gate).
+UI routes never raise on auth failure — they redirect to login or render
+conditional content based on ``AuthResult``.
+"""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from dockmaster.auth.dependencies import AuthResult, check_ui_session
+from dockmaster.rbac.admin_ops import list_sessions_by_email
+from dockmaster.sessions.protocol import SessionStore
+from dockmaster.state import get_session_store, get_ui_config
 from dockmaster.ui.config import UIConfig, templates
-from dockmaster.state import get_ui_config
-from dockmaster.auth.dependencies import check_ui_session, AuthResult
 
 router = APIRouter(tags=["ui"])
 
@@ -38,21 +45,16 @@ async def dashboard(
     request: Request,
     auth: Annotated[AuthResult, Depends(check_ui_session("dockmaster", "admin"))],
     ui_config: Annotated[UIConfig, Depends(get_ui_config)],
+    session_store: Annotated[SessionStore | None, Depends(get_session_store)],
 ):
     """Admin dashboard — user's sessions, service status."""
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:
-        is_admin = False
-    else:
-        is_admin = True
+    is_admin = bool(auth.has_permission)
     user = auth.user
 
-    session_store = getattr(request.app.state, "session_store", None)
     if session_store:
-        from dockmaster.rbac.admin_ops import list_sessions_by_email
-
         email = user.get("email", "")
         sessions = await list_sessions_by_email(session_store, email) if email else {}
     else:
@@ -76,5 +78,3 @@ async def dashboard(
             "is_admin": is_admin,
         },
     )
-
-

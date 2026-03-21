@@ -12,7 +12,7 @@ class TestGetPublicKey:
     def test_unknown_kid_returns_404(self, auth_client):
         response = auth_client.get("/auth/key/nonexistent-kid")
         assert response.status_code == 404
-        assert "nonexistent-kid" in response.json()["error"]
+        assert "nonexistent-kid" in response.json()["detail"]
 
     def test_no_auth_required(self, auth_client):
         """Key endpoint is public — no Authorization header needed."""

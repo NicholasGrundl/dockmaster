@@ -1,19 +1,27 @@
-"""Routes: OAuth login flow — /auth/login, /auth/login/callback, /auth/logout."""
+"""Routes: OAuth login flow — /auth/login, /auth/login/callback, /auth/logout, /auth/login/exchange.
+
+Auth pattern: Public (no router-level gate). These are OAuth lifecycle endpoints
+that handle unauthenticated users. Validation happens within each route via
+OAuth state/CSRF checks (OAuthFlowStore) rather than auth dependencies.
+
+State bridges used: get_flow_store, get_oauth, get_session_store, get_settings.
+"""
 
 import uuid
 from urllib.parse import urlencode
 
 import structlog
+from authlib.integrations.starlette_client import OAuth
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel
 
-from dockmaster.auth.dependencies import resolve_session
 from dockmaster.auth.oauth_flow_store import LoginTicket, OAuthFlowStore, OAuthState
 from dockmaster.config import Settings, get_settings
-from dockmaster.state import get_flow_store
+from dockmaster.sessions.protocol import SessionStore
+from dockmaster.state import get_flow_store, get_oauth, get_session_store
 
 logger = structlog.get_logger(__name__)
 
@@ -81,6 +89,7 @@ async def login(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
+    oauth: Annotated[OAuth | None, Depends(get_oauth)],
     redirect_uri: str | None = None,
     return_to: str | None = None,
 ):
@@ -94,7 +103,6 @@ async def login(
     - Cookie flow: browser redirects to this relative path after login (default /ui/)
     - Refresh token flow: passed through in the exchange response for the app to use
     """
-    oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
     if flow_store is None:
@@ -119,9 +127,10 @@ async def login_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
+    oauth: Annotated[OAuth | None, Depends(get_oauth)],
+    session_store: Annotated[SessionStore | None, Depends(get_session_store)],
 ):
     """Handle Google OAuth2 callback — exchange code for tokens, create session."""
-    oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
     if flow_store is None:
@@ -162,7 +171,6 @@ async def login_callback(
         )
 
     # Browser flow: create session and set cookie
-    session_store = getattr(request.app.state, "session_store", None)
     if session_store is None:
         raise HTTPException(status_code=503, detail="Session store not configured")
 
@@ -214,9 +222,9 @@ def _handle_external_callback(
 async def logout(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    session_store: Annotated[SessionStore | None, Depends(get_session_store)],
 ):
     """Destroy session and clear cookie."""
-    session_store = getattr(request.app.state, "session_store", None)
     signer = _get_signer(settings)
 
     # Try cookie first
@@ -249,43 +257,6 @@ async def logout(
     return response
 
 
-@router.get("/principal")
-async def get_principal(
-    request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> dict:
-    """Return current session profile, or {} if not authenticated."""
-    store = getattr(request.app.state, "session_store", None)
-    cookie = request.cookies.get("session_id")
-    data = await resolve_session(cookie, store, settings.session_secret_key)
-    return data or {}
-
-
-@router.get("/sessions")
-async def get_sessions(
-    request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> dict:
-    """Return current user's active sessions, or {} if not authenticated."""
-    store = getattr(request.app.state, "session_store", None)
-    cookie = request.cookies.get("session_id")
-    data = await resolve_session(cookie, store, settings.session_secret_key)
-    if not data:
-        return {}
-
-    email = data.get("email")
-    if not email:
-        return {}
-
-    session_store = getattr(request.app.state, "session_store", None)
-    if session_store is None:
-        return {}
-
-    from dockmaster.rbac.admin_ops import list_sessions_by_email
-
-    return await list_sessions_by_email(session_store, email)
-
-
 class LoginTicketExchangeRequest(BaseModel):
     """Request body for POST /auth/login/exchange."""
 
@@ -307,6 +278,7 @@ async def login_exchange(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
+    session_store: Annotated[SessionStore | None, Depends(get_session_store)],
 ) -> LoginTicketExchangeResponse:
     """Exchange a login ticket for a session refresh token + profile.
 
@@ -316,7 +288,6 @@ async def login_exchange(
     if flow_store is None:
         raise HTTPException(status_code=503, detail="Flow store not configured")
 
-    session_store = getattr(request.app.state, "session_store", None)
     if session_store is None:
         raise HTTPException(status_code=503, detail="Session store not configured")
 

@@ -1,4 +1,7 @@
-"""Health and service info endpoints."""
+"""Health and service info endpoints.
+
+Auth pattern: Public (no gate). Health checks must be accessible without auth.
+"""
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel

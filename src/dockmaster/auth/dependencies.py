@@ -1,13 +1,36 @@
 """FastAPI authentication dependencies.
 
-Two-layer design:
+This module contains all auth-related FastAPI dependencies, organized by the
+dependency prefix taxonomy::
 
-**Utility functions** — pure logic, explicit typed args, no Depends, no app.state.
-    verify_jwt, resolve_session, check_permission, verify_google_credential
+    HARD (raise on failure — route never executes)
+    ├── allow_*    → Auth enforcement (401/403)          [router-level]
+    │   ├── allow_jwt                  Verify dockmaster Bearer JWT
+    │   ├── allow_session              Verify session (cookie or refresh_token)
+    │   ├── allow_google_credential    Verify Google JWT or access token
+    │   └── allow_jwt_admin            allow_jwt + admin permission check
+    ├── needs_*    → System capability check (503)       [router or route-level]
+    │   ├── needs_admin_storage        Assert admin SM client is configured
+    │   └── needs_session_store        Assert session store is configured
+    │
+    SOFT (never raise — route decides what to do)
+    ├── check_*    → Auth evaluation → AuthResult        [route-level, UI only]
+    │   └── check_ui_session(service?, permission?)
+    └── get_*      → Data extraction → value or empty    [route-level]
+        ├── get_jwt_claims             Decoded JWT claims (or {})
+        ├── get_session_user           Session user data (or {})
+        └── get_google_claims          Verified Google credential (or None)
 
-**FastAPI dependencies** — inject via Depends/Cookie/HTTPBearer, call utilities.
-    allow_jwt, allow_session, allow_jwt_or_session, allow_google_credential,
-    allow_jwt_admin, allow_session_admin, needs_admin_storage
+**Two-layer design within this module:**
+
+- **Utility functions** — pure logic, explicit typed args, no Depends, no app.state.
+  ``verify_jwt``, ``resolve_session``, ``check_permission``, ``verify_google_credential``
+
+- **FastAPI dependencies** — inject via Depends/Cookie/HTTPBearer, call utilities.
+  All functions above with ``allow_*``, ``needs_*``, ``check_*``, or ``get_*`` prefixes.
+
+State bridge ``get_*`` dependencies (``get_authority``, ``get_token_issuer``, etc.)
+live in ``state.py``, not here — they access infrastructure, not credentials.
 """
 
 import hashlib
@@ -163,7 +186,8 @@ async def verify_google_credential(
 
 
 # ═══════════════════════════════════════════════════════════════════
-# FastAPI dependencies — inject via Depends, call utilities above
+# HARD dependencies — allow_* (auth gates, raise on failure)
+# Applied at router-level via dependencies=[Depends(allow_*)].
 # ═══════════════════════════════════════════════════════════════════
 
 
@@ -290,6 +314,13 @@ async def allow_jwt_admin(
     return user
 
 
+# ═══════════════════════════════════════════════════════════════════
+# SOFT dependencies — get_* (data extraction, never raise)
+# Used at route-level alongside a router-level allow_* gate.
+# Return data or empty/None — the route decides what to do.
+# ═══════════════════════════════════════════════════════════════════
+
+
 async def get_google_claims(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -377,6 +408,12 @@ async def get_session_user(
     return {}
 
 
+# ═══════════════════════════════════════════════════════════════════
+# HARD dependencies — needs_* (system capability checks, raise 503)
+# Check what the system can do, not what the user is allowed to do.
+# ═══════════════════════════════════════════════════════════════════
+
+
 async def needs_admin_storage(request: Request) -> None:
     """System capability check: admin SM client is configured for writes.
 
@@ -411,7 +448,10 @@ async def needs_session_store(request: Request) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# UI Authentication  - Conditional based on whats computed on route
+# SOFT dependencies — check_* (auth evaluation, never raise)
+# UI routes use these instead of allow_* gates because every branch
+# (no session, no permission, success) must produce HTML, not JSON.
+# The route owns the full decision tree.
 # ═══════════════════════════════════════════════════════════════════
 
 

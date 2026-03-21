@@ -1,4 +1,10 @@
-"""Routes: Admin CRUD for RBAC roles and grants — /admin/*."""
+"""Routes: Admin CRUD for RBAC roles and grants — /admin/*.
+
+Auth pattern: Hard composed gate (``allow_jwt_admin`` at router level — Bearer JWT
++ dockmaster admin permission). Uses ``needs_admin_storage`` and ``needs_session_store``
+capability checks on write/session routes. State bridges: ``get_admin_storage``,
+``get_authority``, ``get_session_store``.
+"""
 
 from typing import Annotated
 

@@ -1,4 +1,9 @@
-"""Routes: Session-gated endpoints — /auth/session/principal, /auth/session/token, /auth/session/list."""
+"""Routes: Session-gated endpoints — /auth/session/principal, /auth/session/token, /auth/session/list.
+
+Auth pattern: Hard gate (``allow_session`` at router level). All routes require
+a valid session (cookie or refresh_token). Uses ``get_session_user`` for user
+data and ``get_token_issuer``/``get_session_store`` state bridges.
+"""
 
 from typing import Annotated
 
@@ -7,7 +12,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from dockmaster.auth.dependencies import allow_session, get_session_user
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
 from dockmaster.rbac.admin_ops import list_sessions_by_email
+from dockmaster.sessions.protocol import SessionStore
+from dockmaster.state import get_session_store, get_token_issuer
 
 logger = structlog.get_logger(__name__)
 
@@ -36,6 +44,7 @@ async def get_principal(
 async def issue_token(
     request: Request,
     user: Annotated[dict, Depends(get_session_user)],
+    token_issuer: Annotated[EphemeralKeypairSigner | None, Depends(get_token_issuer)],
 ) -> TokenResponse:
     """Issue a Type C JWT for a target service.
 
@@ -43,7 +52,6 @@ async def issue_token(
     Query params: service (required) — the target service audience.
     """
     email = user.get("email", "")
-    token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Token issuer not configured")
 
@@ -68,13 +76,13 @@ async def issue_token(
 async def list_sessions(
     request: Request,
     user: Annotated[dict, Depends(get_session_user)],
+    session_store: Annotated[SessionStore | None, Depends(get_session_store)],
 ) -> dict:
     """Return current user's active sessions."""
     email = user.get("email", "")
     if not email:
         return {}
 
-    session_store = getattr(request.app.state, "session_store", None)
     if session_store is None:
         return {}
 

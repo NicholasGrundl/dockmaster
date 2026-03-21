@@ -1,6 +1,10 @@
 """Routes: Service-to-service auth — POST /auth/service/token.
 
 Exchange a Google credential (JWT or access token) for a dockmaster Type C JWT.
+
+Auth pattern: Hard gate (``allow_google_credential`` at router level). Verifies
+the caller's Google JWT or access token. Uses ``get_google_claims`` for credential
+data and ``get_token_issuer`` state bridge for JWT issuance.
 """
 
 from typing import Annotated
@@ -15,7 +19,9 @@ from dockmaster.auth.dependencies import (
     allow_google_credential,
     get_google_claims,
 )
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
 from dockmaster.config import Settings, get_settings
+from dockmaster.state import get_token_issuer
 
 logger = structlog.get_logger(__name__)
 
@@ -40,13 +46,13 @@ async def exchange_token(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     google_claims: Annotated[GoogleJWTCredential | GoogleAccessTokenCredential | None, Depends(get_google_claims)],
+    token_issuer: Annotated[EphemeralKeypairSigner | None, Depends(get_token_issuer)],
 ) -> ExchangeResponse:
     """Exchange a Google JWT or access token for a dockmaster JWT.
 
     Auth: Google JWT or access token (verified by allow_google_credential gate).
     The verified claims are injected via get_google_claims.
     """
-    token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Auth service not configured")
 
