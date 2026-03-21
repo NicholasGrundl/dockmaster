@@ -35,7 +35,9 @@ def mock_oauth(mocker):
 
 
 @pytest.fixture
-def cli_client(app: FastAPI, cli_settings: Settings, token_issuer: EphemeralKeypairSigner, fake_realm, mock_oauth) -> TestClient:
+def cli_client(
+    app: FastAPI, cli_settings: Settings, token_issuer: EphemeralKeypairSigner, fake_realm, mock_oauth
+) -> TestClient:
     """TestClient wired for CLI route tests."""
     app.state.settings = cli_settings
     with TestClient(app) as client:
@@ -248,9 +250,7 @@ class TestCliCallback:
 
     def test_no_email_returns_400(self, mocker, cli_client, mock_oauth):
         """Callback with no email in token response returns 400."""
-        mock_oauth.google.authorize_access_token = mocker.AsyncMock(
-            return_value={"userinfo": {}}
-        )
+        mock_oauth.google.authorize_access_token = mocker.AsyncMock(return_value={"userinfo": {}})
 
         flow_store = cli_client.app.state.flow_store
         state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")

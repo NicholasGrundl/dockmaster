@@ -221,51 +221,17 @@ async def allow_session(
     data = await resolve_session(session_cookie, store, settings.session_secret_key)
     if data is not None:
         return data
-    
+
     # Try refresh_token freom request body
-    try:                                                                            
+    try:
         body = await request.json()
-        refresh_token = body.get("refresh_token")  
+        refresh_token = body.get("refresh_token")
     except Exception:
         refresh_token = None
-    
+
     data = await resolve_session(refresh_token, store, settings.session_secret_key)
     if data is not None:
         return data
-    
-    raise HTTPException(status_code=401, detail="Not authenticated")
-
-
-async def allow_jwt_or_session(
-    request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-    credentials: Annotated[
-        HTTPAuthorizationCredentials | None,
-        Depends(HTTPBearer(auto_error=False)),
-    ],
-    session_cookie: Annotated[str | None, Cookie(alias="session_id")] = None,
-) -> str:
-    """Gate: session cookie OR Bearer JWT. Returns email.
-
-    Tries session first (browser clients), Bearer second (CLI/API).
-    Use per-route for endpoints that accept either auth method.
-    Raises 401 if neither succeeds.
-    """
-    # Try session first
-    store = getattr(request.app.state, "session_store", None)
-    data = await resolve_session(session_cookie, store, settings.session_secret_key)
-    if data:
-        return data.get("email", "")
-
-    # Try Bearer JWT
-    if credentials:
-        realm = getattr(request.app.state, "realm", None)
-        if realm:
-            try:
-                claims = verify_jwt(credentials.credentials, realm)
-                return claims.get("email", "")
-            except ValueError:
-                pass
 
     raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -324,29 +290,6 @@ async def allow_jwt_admin(
     return user
 
 
-# async def allow_session_admin(
-#     request: Request,
-#     user: Annotated[dict, Depends(allow_session)],
-#     settings: Annotated[Settings, Depends(get_settings)],
-# ) -> dict:
-#     """Composed gate: session cookie + dockmaster admin permission.
-
-#     Session-based counterpart to allow_jwt_admin. For HTML/form-based
-#     admin pages. Redirects to /ui/login if no session, raises 403 if
-#     authenticated but not admin.
-#     """
-#     email = user.get("email", "")
-#     authority = getattr(request.app.state, "authority", None)
-
-#     if not await check_permission(
-#         email, "dockmaster", "admin", authority, whitelist_emails=settings.dockmaster_admin_emails or None
-#     ):
-#         logger.warning("admin_access_denied", email=email, auth="session")
-#         raise HTTPException(status_code=403, detail="Access denied")
-
-#     return user
-
-
 async def get_google_claims(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -400,39 +343,6 @@ async def get_jwt_claims(
         return {}
 
 
-# async def get_session_or_jwt_email(
-#     request: Request,
-#     settings: Annotated[Settings, Depends(get_settings)],
-#     session_cookie: Annotated[str | None, Cookie(alias="session_id")] = None,
-#     credentials: Annotated[
-#         HTTPAuthorizationCredentials | None,
-#         Depends(HTTPBearer(auto_error=False)),
-#     ] = None,
-# ) -> str:
-#     """Info dependency: return email from session cookie or Bearer JWT.
-
-#     Tries session first, then Bearer JWT. Returns empty string if
-#     neither yields an email. Use alongside a router-level auth gate.
-#     """
-#     # Try session first
-#     store = getattr(request.app.state, "session_store", None)
-#     data = await resolve_session(session_cookie, store, settings.session_secret_key)
-#     if data:
-#         return data.get("email", "")
-
-#     # Try JWT
-#     if credentials:
-#         realm = getattr(request.app.state, "realm", None)
-#         if realm:
-#             try:
-#                 claims = verify_jwt(credentials.credentials, realm)
-#                 return claims.get("email", "")
-#             except ValueError:
-#                 pass
-
-#     return ""
-
-
 async def get_session_user(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -440,30 +350,30 @@ async def get_session_user(
 ) -> dict:
     """Info dependency: return the current session user's data.
 
-    Calls resolve_session to extract user data from the session 
+    Calls resolve_session to extract user data from the session
     handle (e.g. cookie or refresh_token).
-    
+
     Returns an empty dict if no valid session. Use alongside a router-level
     auth gate — this dependency provides data, not auth enforcement.
     """
     store = getattr(request.app.state, "session_store", None)
-    
+
     # Try cookie first
     data = await resolve_session(session_cookie, store, settings.session_secret_key)
     if data is not None:
         return data
-    
+
     # Try refresh_token freom request body
-    try:                                                                            
+    try:
         body = await request.json()
-        refresh_token = body.get("refresh_token")  
+        refresh_token = body.get("refresh_token")
     except Exception:
         refresh_token = None
-    
+
     data = await resolve_session(refresh_token, store, settings.session_secret_key)
     if data is not None:
         return data
-    
+
     return {}
 
 
@@ -500,20 +410,18 @@ async def needs_session_store(request: Request) -> None:
         )
 
 
-
 # ═══════════════════════════════════════════════════════════════════
 # UI Authentication  - Conditional based on whats computed on route
 # ═══════════════════════════════════════════════════════════════════
 
+
 class AuthResult(BaseModel):
     is_authenticated: bool
-    has_permission: bool | None 
+    has_permission: bool | None
     user: dict
 
-def check_ui_session(
-        service: str | None = None, 
-        permission: str | None = None
-    )->Callable[...,AuthResult]:
+
+def check_ui_session(service: str | None = None, permission: str | None = None) -> Callable[..., AuthResult]:
     """Soft auth check for UI routes. Returns AuthResult, never raises.
 
     With no args: checks session only (has_permission = None).
@@ -521,13 +429,14 @@ def check_ui_session(
 
     Also returns user session data if available
     """
+
     async def _check(
         request: Request,
         settings: Annotated[Settings, Depends(get_settings)],
         session_cookie: Annotated[str | None, Cookie(alias="session_id")] = None,
     ) -> AuthResult:
         store = getattr(request.app.state, "session_store", None)
-        
+
         # Check is user in session
         data = await resolve_session(session_cookie, store, settings.session_secret_key)
         if not data:
@@ -536,15 +445,14 @@ def check_ui_session(
         if service is not None and permission is not None:
             authority = getattr(request.app.state, "authority", None)
             permitted = await check_permission(
-                data.get("email", ""), 
-                service, 
-                permission, 
+                data.get("email", ""),
+                service,
+                permission,
                 authority,
                 whitelist_emails=settings.dockmaster_admin_emails or None,
             )
             return AuthResult(is_authenticated=True, has_permission=permitted, user=data)
-        
-        return AuthResult(is_authenticated=True, has_permission=None, user=data)
-    
-    return _check
 
+        return AuthResult(is_authenticated=True, has_permission=None, user=data)
+
+    return _check

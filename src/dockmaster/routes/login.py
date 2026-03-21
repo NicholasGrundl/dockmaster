@@ -19,6 +19,8 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["oauth"])
 
+# Includes "email" because Google's userinfo response puts it here (not in sub).
+# service.py's PROFILE_CLAIM_KEYS omits "email" — there it's already the sub claim.
 PROFILE_CLAIM_KEYS = ("email", "name", "picture", "given_name", "family_name", "locale")
 
 
@@ -151,7 +153,12 @@ async def login_callback(
     if redirect_target:
         validated_return_to = _validate_external_return_to(state_entry.return_to)
         return _handle_external_callback(
-            flow_store, email, redirect_target, state, profile_claims, return_to=validated_return_to,
+            flow_store,
+            email,
+            redirect_target,
+            state,
+            profile_claims,
+            return_to=validated_return_to,
         )
 
     # Browser flow: create session and set cookie

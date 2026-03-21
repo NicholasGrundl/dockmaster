@@ -16,6 +16,7 @@ from dockmaster.rbac.storage import AdminSecretsStorage
 from dockmaster.sessions.protocol import SessionStore
 from dockmaster.ui.config import UIConfig
 
+
 def get_admin_storage(request: Request) -> AdminSecretsStorage | None:
     """Bridge: admin Secret Manager client from app.state."""
     return getattr(request.app.state, "admin_storage", None)
@@ -30,8 +31,10 @@ def get_session_store(request: Request) -> SessionStore | None:
     """Bridge: session store from app.state."""
     return getattr(request.app.state, "session_store", None)
 
+
 def get_ui_config(request: Request) -> UIConfig:
     return getattr(request.app.state, "ui_config", UIConfig())
+
 
 def get_token_issuer(request: Request) -> EphemeralKeypairSigner | None:
     return getattr(request.app.state, "token_issuer", None)

@@ -180,9 +180,7 @@ class TestLoginTicketExchange:
         assert data["profile"]["name"] == "Test User"
         assert data["profile"]["picture"] == "https://example.com/photo.jpg"
 
-    def test_creates_session_in_store(
-        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
-    ):
+    def test_creates_session_in_store(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """The endpoint creates a session that can be resolved via the refresh_token."""
         from itsdangerous import URLSafeSerializer
 
@@ -205,6 +203,7 @@ class TestLoginTicketExchange:
 
         # Session should exist in the store
         import asyncio
+
         session_store = code_exchange_app.state.session_store
         loop = asyncio.new_event_loop()
         try:
@@ -224,9 +223,7 @@ class TestLoginTicketExchange:
         assert resp.status_code == 400
         assert "Invalid or expired" in resp.json()["detail"]
 
-    def test_wrong_redirect_uri_returns_400(
-        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
-    ):
+    def test_wrong_redirect_uri_returns_400(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """Mismatched redirect_uri returns 400."""
         flow_store = code_exchange_app.state.flow_store
         code = flow_store.create_login_ticket(
@@ -240,9 +237,7 @@ class TestLoginTicketExchange:
         )
         assert resp.status_code == 400
 
-    def test_code_single_use(
-        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
-    ):
+    def test_code_single_use(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """Code can only be exchanged once."""
         flow_store = code_exchange_app.state.flow_store
         code = flow_store.create_login_ticket(
@@ -262,9 +257,7 @@ class TestLoginTicketExchange:
         )
         assert resp2.status_code == 400
 
-    def test_empty_profile_when_none_stored(
-        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
-    ):
+    def test_empty_profile_when_none_stored(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """Code without profile data returns empty profile dict."""
         flow_store = code_exchange_app.state.flow_store
         code = flow_store.create_login_ticket(
@@ -280,9 +273,7 @@ class TestLoginTicketExchange:
         assert resp.status_code == 200
         assert resp.json()["profile"] == {}
 
-    def test_return_to_forwarded_in_response(
-        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
-    ):
+    def test_return_to_forwarded_in_response(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """return_to from the login ticket is included in the exchange response."""
         flow_store = code_exchange_app.state.flow_store
         code = flow_store.create_login_ticket(
@@ -299,9 +290,7 @@ class TestLoginTicketExchange:
         assert resp.status_code == 200
         assert resp.json()["return_to"] == "/settings"
 
-    def test_return_to_defaults_to_none(
-        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
-    ):
+    def test_return_to_defaults_to_none(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """return_to is null when not set on the login ticket."""
         flow_store = code_exchange_app.state.flow_store
         code = flow_store.create_login_ticket(
