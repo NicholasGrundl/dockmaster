@@ -1,6 +1,5 @@
 """Tests for admin ops service layer — CRUD operations with cache invalidation."""
 
-
 import pytest
 from google.api_core.exceptions import NotFound
 from pytest_mock import MockerFixture

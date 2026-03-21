@@ -1,6 +1,5 @@
 """Tests for Authority — permission resolution with TTL cache."""
 
-
 import time
 
 import pytest

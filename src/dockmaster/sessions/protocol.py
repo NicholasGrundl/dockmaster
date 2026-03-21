@@ -1,6 +1,5 @@
 """Session store protocol — interface for session backends."""
 
-
 from typing import Protocol
 
 

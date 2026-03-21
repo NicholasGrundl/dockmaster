@@ -1,6 +1,5 @@
 """Tests for admin authorization dependencies."""
 
-
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
@@ -61,9 +60,7 @@ class TestIsAdmin:
 
     @pytest.mark.anyio
     async def test_no_authority_uses_whitelist_only(self):
-        result = await self._is_admin(
-            "admin@co.com", "dockmaster", "admin", None, whitelist_emails={"admin@co.com"}
-        )
+        result = await self._is_admin("admin@co.com", "dockmaster", "admin", None, whitelist_emails={"admin@co.com"})
         assert result is True
 
     @pytest.mark.anyio

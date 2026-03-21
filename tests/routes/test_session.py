@@ -1,6 +1,5 @@
 """Tests for session-gated routes — /auth/session/principal, /auth/session/token, /auth/session/list."""
 
-import asyncio
 import time
 
 import jwt as pyjwt
@@ -50,7 +49,9 @@ def _seed_session(store: InMemorySessionStore, session_id: str, data: dict, ttl:
     store._store[session_id] = (data, time.time() + ttl)
 
 
-def _create_session_cookie(session_store: InMemorySessionStore, settings: Settings, email: str = "user@example.com") -> str:
+def _create_session_cookie(
+    session_store: InMemorySessionStore, settings: Settings, email: str = "user@example.com"
+) -> str:
     """Create a session and return the signed cookie value."""
     session_id = f"test-session-{email}"
     _seed_session(session_store, session_id, {"email": email, "name": "Test User"})

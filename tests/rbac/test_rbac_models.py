@@ -1,6 +1,5 @@
 """Tests for RBAC Pydantic models — Role, Grant, ServiceGrants."""
 
-
 import json
 
 from dockmaster.rbac.models import Grant, Role, ServiceGrants

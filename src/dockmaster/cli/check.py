@@ -1,6 +1,5 @@
 """CLI command for permission checks."""
 
-
 from typing import Annotated
 
 import httpx

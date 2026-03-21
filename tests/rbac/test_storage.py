@@ -1,6 +1,5 @@
 """Tests for SecretsStorage RBAC methods — get/put/delete for roles and grants."""
 
-
 import json
 
 import pytest

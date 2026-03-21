@@ -1,6 +1,5 @@
 """CLI OAuth login flow — localhost callback server + token storage."""
 
-
 import json
 import time
 import webbrowser
@@ -146,7 +145,7 @@ def login_command():
     redirect_uri = f"http://localhost:{port}/callback"
 
     # Open browser to dockmaster login with redirect_uri
-    login_url = f"{server_url}/auth/login?redirect_uri={redirect_uri}"
+    login_url = f"{server_url}/auth/cli/login?redirect_uri={redirect_uri}"
     typer.echo("Opening browser for login...")
     typer.echo(f"If the browser doesn't open, visit: {login_url}")
     webbrowser.open(login_url)

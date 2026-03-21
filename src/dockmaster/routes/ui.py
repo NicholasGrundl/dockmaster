@@ -11,23 +11,24 @@ from dockmaster.auth.dependencies import check_ui_session, AuthResult
 
 router = APIRouter(tags=["ui"])
 
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(
     request: Request,
     auth: Annotated[AuthResult, Depends(check_ui_session())],
-    ui_config : Annotated[UIConfig,Depends(get_ui_config)],
-    ):
+    ui_config: Annotated[UIConfig, Depends(get_ui_config)],
+):
     """Branded login page with Google SSO button."""
-    
+
     # Auth Check, no permissions
     if not auth.is_authenticated:
-        #Send to login page
+        # Send to login page
         return templates.TemplateResponse(
             request,
             "login.html",
             {"ui": ui_config, "user": None},
         )
-    
+
     # Authenticated/logged in, redirect to dashboard
     return RedirectResponse(url="/ui/", status_code=302)
 
@@ -36,13 +37,13 @@ async def login_page(
 async def dashboard(
     request: Request,
     auth: Annotated[AuthResult, Depends(check_ui_session("dockmaster", "admin"))],
-    ui_config : Annotated[UIConfig,Depends(get_ui_config)],
+    ui_config: Annotated[UIConfig, Depends(get_ui_config)],
 ):
     """Admin dashboard — user's sessions, service status."""
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         is_admin = False
     else:
         is_admin = True

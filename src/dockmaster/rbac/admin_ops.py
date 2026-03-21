@@ -8,7 +8,6 @@ RBAC storage calls use run_in_executor because the SM client is synchronous.
 Session operations are async-native (no executor needed).
 """
 
-
 import asyncio
 
 from google.api_core.exceptions import NotFound

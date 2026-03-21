@@ -9,7 +9,6 @@ Used by:
     - OAuth state store: CSRF state tokens (redirect_uri metadata)
 """
 
-
 import secrets
 import time
 from typing import Generic, TypeVar

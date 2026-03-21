@@ -1,6 +1,5 @@
 """CLI configuration — server URL and credential storage paths."""
 
-
 import os
 from pathlib import Path
 

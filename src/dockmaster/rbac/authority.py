@@ -1,6 +1,5 @@
 """RBAC permission resolution engine with TTL cache."""
 
-
 import asyncio
 import time
 from typing import Any

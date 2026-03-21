@@ -1,6 +1,5 @@
 """Shared HTTP client for CLI commands."""
 
-
 import json
 
 import httpx

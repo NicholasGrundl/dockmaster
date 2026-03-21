@@ -1,6 +1,5 @@
 """CLI command: dockmaster token <service> — get a Type C JWT for a service."""
 
-
 import httpx
 import typer
 
@@ -17,7 +16,7 @@ def token_command(
 
     with httpx.Client(base_url=server_url, timeout=30) as client:
         response = client.post(
-            "/auth/token",
+            "/auth/cli/token",
             params={"service": service},
             headers={"Authorization": f"Bearer {cli_token}"},
         )

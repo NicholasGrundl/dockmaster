@@ -49,7 +49,7 @@ class TestTokenCommand:
         runner.invoke(app, ["token", "analytics"])
 
         mock_client.post.assert_called_once_with(
-            "/auth/token",
+            "/auth/cli/token",
             params={"service": "analytics"},
             headers={"Authorization": "Bearer fake-jwt"},
         )

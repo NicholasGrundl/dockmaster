@@ -1,6 +1,5 @@
 """Access token validation via Google's tokeninfo API."""
 
-
 from collections.abc import Set
 
 import httpx

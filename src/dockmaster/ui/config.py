@@ -15,7 +15,6 @@ Example JSON file::
     }
 """
 
-
 import json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -30,6 +29,7 @@ log = structlog.get_logger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
 
 def _timestamp_to_datetime(ts: int | float) -> str:
     """Convert a Unix timestamp to a human-readable datetime string."""

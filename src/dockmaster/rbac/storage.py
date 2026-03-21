@@ -1,6 +1,5 @@
 """Secret Manager storage backend for RBAC data and client secrets."""
 
-
 import json
 
 import structlog

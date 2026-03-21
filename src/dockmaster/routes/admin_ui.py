@@ -38,13 +38,13 @@ async def roles_page(
     request: Request,
     auth: Annotated[AuthResult, Depends(check_ui_session("dockmaster", "admin"))],
     storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
-    ui_config : Annotated[UIConfig,Depends(get_ui_config)]
+    ui_config: Annotated[UIConfig, Depends(get_ui_config)],
 ):
     """List all roles with inline create form."""
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
     user = auth.user
 
@@ -72,7 +72,6 @@ async def roles_page(
         else:
             roles = []
 
-    
     return templates.TemplateResponse(
         request,
         "roles.html",
@@ -102,10 +101,9 @@ async def create_role_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
-
+    _user = auth.user
 
     perm_list = [p.strip() for p in permissions.split(",") if p.strip()]
 
@@ -131,9 +129,9 @@ async def update_role_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
+    _user = auth.user
 
     perm_list = [p.strip() for p in permissions.split(",") if p.strip()]
     await admin_ops.update_role(storage, authority, name, perm_list)
@@ -154,9 +152,9 @@ async def delete_role_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
+    _user = auth.user
 
     try:
         await admin_ops.delete_role(storage, authority, name)
@@ -173,16 +171,16 @@ async def delete_role_form(
 
 @router.get("/grants", response_class=HTMLResponse)
 async def grants_page(
-    request : Request,
+    request: Request,
     auth: Annotated[AuthResult, Depends(check_ui_session("dockmaster", "admin"))],
     storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
-    ui_config : Annotated[UIConfig,Depends(get_ui_config)]
+    ui_config: Annotated[UIConfig, Depends(get_ui_config)],
 ):
     """List all services with grants."""
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
     user = auth.user
 
@@ -224,9 +222,9 @@ async def create_service_grants_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
+    _user = auth.user
 
     service_name = service.strip()
     subject_email = subject.strip()
@@ -253,13 +251,13 @@ async def grants_detail_page(
     auth: Annotated[AuthResult, Depends(check_ui_session("dockmaster", "admin"))],
     service: str,
     storage: Annotated[AdminSecretsStorage | None, Depends(get_admin_storage)],
-    ui_config : Annotated[UIConfig,Depends(get_ui_config)]
+    ui_config: Annotated[UIConfig, Depends(get_ui_config)],
 ):
     """View/edit grants for a specific service."""
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
     user = auth.user
 
@@ -302,10 +300,10 @@ async def update_grants_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
-    
+    _user = auth.user
+
     form_data = await request.form()
 
     # Parse grants from form: subject_0, roles_0, subject_1, roles_1, ...
@@ -344,10 +342,10 @@ async def delete_grants_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
-    
+    _user = auth.user
+
     try:
         await admin_ops.delete_service_grants(storage, authority, service)
     except NotFound:
@@ -366,16 +364,16 @@ async def sessions_page(
     request: Request,
     auth: Annotated[AuthResult, Depends(check_ui_session("dockmaster", "admin"))],
     store: Annotated[SessionStore | None, Depends(get_session_store)],
-    ui_config : Annotated[UIConfig,Depends(get_ui_config)]
+    ui_config: Annotated[UIConfig, Depends(get_ui_config)],
 ):
     """List all active sessions with revoke controls."""
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
     user = auth.user
-    
+
     sessions = await admin_ops.list_sessions(store) if store else {}
 
     return templates.TemplateResponse(
@@ -403,10 +401,10 @@ async def revoke_session_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
-    
+    _user = auth.user
+
     if not store:
         return RedirectResponse(url="/ui/sessions?error=Session+store+not+configured", status_code=303)
 
@@ -428,10 +426,10 @@ async def revoke_sessions_by_email_form(
     # Auth Check
     if not auth.is_authenticated:
         return RedirectResponse("/ui/login", 307)
-    if not auth.has_permission:                  
+    if not auth.has_permission:
         return RedirectResponse("/ui/login", 307)
-    user = auth.user
-    
+    _user = auth.user
+
     if not store:
         return RedirectResponse(url="/ui/sessions?error=Session+store+not+configured", status_code=303)
 

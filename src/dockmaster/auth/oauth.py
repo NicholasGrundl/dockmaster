@@ -1,6 +1,5 @@
 """Authlib OAuth2 client for Google login."""
 
-
 from authlib.integrations.starlette_client import OAuth
 
 from dockmaster.config import Settings

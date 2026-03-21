@@ -1,6 +1,5 @@
 """Dockmaster CLI — Typer app entry point."""
 
-
 import typer
 
 from dockmaster.cli.auth import login_command, logout_command

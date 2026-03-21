@@ -33,7 +33,9 @@ def cors_client(cors_app) -> TestClient:
 @pytest.fixture
 def no_cors_client() -> TestClient:
     """App with no allowed_origins — CORS middleware should not be added."""
-    settings = Settings(allowed_origins=set(), session_secret_key="test-secret", require_proxy_headers=False, _env_file=None)
+    settings = Settings(
+        allowed_origins=set(), session_secret_key="test-secret", require_proxy_headers=False, _env_file=None
+    )
     application = create_app(settings)
     with TestClient(application) as c:
         yield c

@@ -1,6 +1,5 @@
 """RBAC data models — Role, Grant, ServiceGrants."""
 
-
 from pydantic import BaseModel, ConfigDict
 
 

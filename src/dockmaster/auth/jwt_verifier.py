@@ -1,6 +1,5 @@
 """ServiceRealm — JWT verification using cached public keys."""
 
-
 from typing import Protocol
 
 import jwt

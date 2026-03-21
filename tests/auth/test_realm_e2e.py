@@ -4,7 +4,6 @@ Phase 7, sub-task 6 — proves that Type A/B (SA-signed) and Type C (ephemeral-s
 both verify correctly through a single ServiceRealm with [EphemeralKeyCache, SA cache].
 """
 
-
 import json
 
 import pytest
