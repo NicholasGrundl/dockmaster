@@ -28,16 +28,16 @@ class TestValidateRedirectUriAllowlist:
             _validate_redirect_uri("https://evil.com/callback", allowed)
         assert exc_info.value.status_code == 400
 
-    def test_localhost_still_allowed_without_allowlist(self):
-        """Localhost URIs are always allowed, even with an empty allowlist."""
-        result = _validate_redirect_uri("http://localhost:9876/callback", set())
-        assert result == "http://localhost:9876/callback"
+    def test_localhost_rejected_without_allowlist(self):
+        """Localhost URIs are no longer accepted — CLI uses /auth/cli/login."""
+        with pytest.raises(HTTPException):
+            _validate_redirect_uri("http://localhost:9876/callback", set())
 
-    def test_localhost_allowed_alongside_allowlist(self):
-        """Localhost URIs work even when an allowlist is configured."""
+    def test_localhost_rejected_with_allowlist(self):
+        """Localhost URIs rejected even when an allowlist is configured."""
         allowed = {"https://app.example.com/callback"}
-        result = _validate_redirect_uri("http://localhost:9876/callback", allowed)
-        assert result == "http://localhost:9876/callback"
+        with pytest.raises(HTTPException):
+            _validate_redirect_uri("http://localhost:9876/callback", allowed)
 
     def test_empty_allowlist_rejects_external(self):
         with pytest.raises(HTTPException):
@@ -215,10 +215,10 @@ class TestCallbackExternalRedirect:
         assert "code=" in location
         assert "state=" in location
 
-    def test_localhost_redirect_still_returns_jwt(
+    def test_localhost_redirect_no_longer_handled(
         self, mocker, code_exchange_app: FastAPI, code_exchange_client: TestClient
     ):
-        """Callback with a localhost redirect_uri still returns JWT directly."""
+        """Callback with a localhost redirect_uri is no longer handled — CLI uses /auth/cli/callback."""
         mock_oauth = mocker.MagicMock()
         mock_google = mocker.MagicMock()
         mock_google.authorize_access_token = mocker.AsyncMock(
@@ -229,6 +229,10 @@ class TestCallbackExternalRedirect:
         mock_oauth.google = mock_google
         code_exchange_app.state.oauth = mock_oauth
 
+        # If a localhost redirect_uri somehow ends up in state, callback
+        # would try _handle_external_callback (since CLI branch is gone).
+        # The redirect_uri won't be in allowed_redirect_uris, so this
+        # verifies the old CLI path no longer exists on the main callback.
         oauth_state_store = code_exchange_app.state.oauth_state_store
         state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
 
@@ -237,11 +241,14 @@ class TestCallbackExternalRedirect:
             follow_redirects=False,
         )
 
+        # The callback will attempt _handle_external_callback which creates
+        # an auth code and redirects — localhost is treated as any other
+        # external redirect_uri now. It won't get a JWT.
         assert resp.status_code == 302
         location = resp.headers["location"]
         assert location.startswith("http://localhost:9876/callback?")
-        assert "token=" in location  # JWT, not auth code
-        assert "code=" not in location
+        assert "code=" in location  # Auth code, not JWT
+        assert "token=" not in location
 
 
 # ---------------------------------------------------------------------------

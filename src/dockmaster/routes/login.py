@@ -1,6 +1,5 @@
 """Routes: OAuth login flow — /auth/login, /auth/callback, /auth/logout, /auth/principal."""
 
-import re
 import uuid
 from urllib.parse import urlencode
 
@@ -21,9 +20,6 @@ router = APIRouter(tags=["oauth"])
 
 PROFILE_CLAIM_KEYS = ("email", "name", "picture", "given_name", "family_name", "locale")
 
-# Regex for allowed CLI redirect URIs (localhost only, any port)
-_LOCALHOST_RE = re.compile(r"^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?(?:/.*)?$")
-
 # OAuth state TTL — 10 minutes is generous for a login flow round-trip
 OAUTH_STATE_TTL = 600
 
@@ -35,14 +31,11 @@ def _get_signer(settings: Settings) -> URLSafeSerializer:
 def _validate_redirect_uri(uri: str | None, allowed_redirect_uris: set[str] | None = None) -> str | None:
     """Validate and return the redirect URI, or None if not provided.
 
-    Allows localhost URIs (CLI flow) and URIs in the ALLOWED_REDIRECT_URIS allowlist
-    (external service flow).
+    Only accepts URIs in the ALLOWED_REDIRECT_URIS allowlist (external service flow).
+    CLI flow uses /auth/cli/login instead.
     """
     if not uri:
         return None
-    # Localhost always allowed (CLI flow)
-    if _LOCALHOST_RE.match(uri):
-        return uri
     # Check against configured allowlist
     if allowed_redirect_uris and uri in allowed_redirect_uris:
         return uri
@@ -60,8 +53,9 @@ async def login(
 ):
     """Redirect to Google OAuth2 authorization endpoint.
 
-    If redirect_uri is provided (CLI flow), the callback will redirect there
-    with a JWT token instead of creating a session cookie.
+    If redirect_uri is provided (external app flow), the callback will redirect
+    there with an auth code. Otherwise, creates a session cookie (browser flow).
+    CLI flow uses /auth/cli/login instead.
     """
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
@@ -111,16 +105,11 @@ async def callback(
         logger.warning("domain_not_allowed", domain=domain, email=email)
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Redirect flow: allowlisted URI → auth code, localhost (CLI) → direct JWT
+    # Redirect flow: allowlisted URI → auth code
     redirect_target = state_meta.get("redirect_uri")
     profile_claims = {k: id_token_claims[k] for k in PROFILE_CLAIM_KEYS if k in id_token_claims}
     if redirect_target:
-        if redirect_target in settings.allowed_redirect_uris:
-            return _handle_external_callback(request, email, redirect_target, state, profile_claims)
-        if _LOCALHOST_RE.match(redirect_target):
-            return _handle_cli_callback(request, email, redirect_target)
-        # Should not reach here — _validate_redirect_uri would have rejected it
-        raise HTTPException(status_code=400, detail="Invalid redirect_uri")
+        return _handle_external_callback(request, email, redirect_target, state, profile_claims)
 
     # Browser flow: create session and set cookie
     session_store = getattr(request.app.state, "session_store", None)
@@ -150,9 +139,6 @@ async def callback(
     return response
 
 
-CLI_TOKEN_TTL = 900  # 15 minutes
-
-
 def _handle_external_callback(
     request: Request,
     email: str,
@@ -168,23 +154,6 @@ def _handle_external_callback(
     code = auth_code_store.create(subject=email, redirect_uri=redirect_uri, profile=profile or {})
     target = f"{redirect_uri}?{urlencode({'code': code, 'state': state})}"
     logger.info("auth_code_issued", email=email, redirect_uri=redirect_uri)
-    return RedirectResponse(url=target, status_code=302)
-
-
-def _handle_cli_callback(request: Request, email: str, redirect_uri: str) -> RedirectResponse:
-    """Mint a short-lived Type C JWT and redirect to the CLI's localhost callback."""
-    token_issuer = getattr(request.app.state, "token_issuer", None)
-    if token_issuer is None:
-        raise HTTPException(status_code=503, detail="Token issuer not configured")
-
-    token = token_issuer.sign(
-        subject=email,
-        audience="dockmaster",
-        ttl=CLI_TOKEN_TTL,
-    )
-
-    target = f"{redirect_uri}?{urlencode({'token': token})}"
-    logger.info("cli_token_issued", email=email, redirect_uri=redirect_uri)
     return RedirectResponse(url=target, status_code=302)
 
 
