@@ -16,9 +16,8 @@ from dockmaster.middleware import RequireProxyHeadersMiddleware, SecurityHeaders
 from dockmaster.auth.jwt_signers import EphemeralKeypairSigner, ServiceAccountSigner
 from dockmaster.auth.jwt_verifier import ServiceRealm
 from dockmaster.auth.key_cache import EphemeralKeyCache, ServiceAccountKeyCache
-from dockmaster.auth.auth_code import AuthCodeStore
-from dockmaster.auth.ttl_store import TTLStore
 from dockmaster.auth.oauth import create_oauth
+from dockmaster.auth.oauth_flow_store import OAuthFlowStore
 from dockmaster.config import Settings, create_settings, session_secret_was_auto_generated
 from dockmaster.logging import setup_logging
 from dockmaster.routes.claims import router as claims_router
@@ -135,15 +134,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.realm = ServiceRealm(key_cache=key_caches)
     log.info("jwt_verifier_initialized", num_caches=len(key_caches))
 
-    # --- Auth code store (for OAuth auth code flow with external redirects) ---
-    app.state.auth_code_store = AuthCodeStore(ttl=300)
-    log.info("auth_code_store_initialized", ttl=300)
-
-    # --- OAuth state store (CSRF state tokens for login flow) ---
-    from dockmaster.routes.login import OAUTH_STATE_TTL
-
-    app.state.oauth_state_store = TTLStore[dict](ttl=OAUTH_STATE_TTL)
-    log.info("oauth_state_store_initialized", ttl=OAUTH_STATE_TTL)
+    # --- OAuth flow store (CSRF state + login tickets for the login lifecycle) ---
+    app.state.flow_store = OAuthFlowStore(oauth_state_ttl=600, login_ticket_ttl=300)
+    log.info("flow_store_initialized", oauth_state_ttl=600, login_ticket_ttl=300)
 
     # --- UI config ---
     app.state.ui_config = load_ui_config(settings.ui_config_path)

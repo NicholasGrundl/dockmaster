@@ -48,25 +48,25 @@ class TestLoginRedirectParam:
     """Test that /auth/login accepts redirect_uri query param."""
 
     def test_login_stores_redirect_uri_in_state(self, client):
-        """Login with allowlisted redirect_uri stores it in the oauth_state_store."""
+        """Login with no redirect_uri stores state in the flow_store."""
         # Default test settings don't have allowed_redirect_uris, so any
         # non-localhost URI will be rejected. This test verifies state storage
         # for the cookie flow (no redirect_uri).
-        oauth_state_store = client.app.state.oauth_state_store
-        before = len(oauth_state_store)
+        flow_store = client.app.state.flow_store
+        before = len(flow_store._oauth_states)
 
         client.get("/auth/login", follow_redirects=False)
 
-        assert len(oauth_state_store) == before + 1
+        assert len(flow_store._oauth_states) == before + 1
 
     def test_login_without_redirect_uri_stores_state(self, client):
         """Login without redirect_uri still stores a state entry."""
-        oauth_state_store = client.app.state.oauth_state_store
-        before = len(oauth_state_store)
+        flow_store = client.app.state.flow_store
+        before = len(flow_store._oauth_states)
 
         client.get("/auth/login", follow_redirects=False)
 
-        assert len(oauth_state_store) == before + 1
+        assert len(flow_store._oauth_states) == before + 1
 
     def test_login_rejects_localhost_redirect_uri(self, client):
         """Login with localhost redirect_uri returns 400 — use /auth/cli/login."""

@@ -11,17 +11,15 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel
 
 from dockmaster.auth.dependencies import resolve_session
-from dockmaster.auth.ttl_store import TTLStore
+from dockmaster.auth.oauth_flow_store import LoginTicket, OAuthFlowStore, OAuthState
 from dockmaster.config import Settings, get_settings
+from dockmaster.state import get_flow_store
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["oauth"])
 
 PROFILE_CLAIM_KEYS = ("email", "name", "picture", "given_name", "family_name", "locale")
-
-# OAuth state TTL — 10 minutes is generous for a login flow round-trip
-OAUTH_STATE_TTL = 600
 
 
 def _get_signer(settings: Settings) -> URLSafeSerializer:
@@ -49,6 +47,7 @@ def _validate_redirect_uri(uri: str | None, allowed_redirect_uris: set[str] | No
 async def login(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
     redirect_uri: str | None = None,
 ):
     """Redirect to Google OAuth2 authorization endpoint.
@@ -60,10 +59,11 @@ async def login(
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
-    validated_redirect = _validate_redirect_uri(redirect_uri, settings.allowed_redirect_uris)
+    if flow_store is None:
+        raise HTTPException(status_code=503, detail="Flow store not configured")
 
-    oauth_state_store: TTLStore[dict] = request.app.state.oauth_state_store
-    state = oauth_state_store.create({"redirect_uri": validated_redirect})
+    validated_redirect = _validate_redirect_uri(redirect_uri, settings.allowed_redirect_uris)
+    state = flow_store.create_oauth_state(redirect_uri=validated_redirect)
 
     callback_uri = str(request.url_for("callback"))
     return await oauth.google.authorize_redirect(
@@ -78,17 +78,19 @@ async def login(
 async def callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
 ):
     """Handle Google OAuth2 callback — exchange code for tokens, create session."""
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
+    if flow_store is None:
+        raise HTTPException(status_code=503, detail="Flow store not configured")
 
     # Validate CSRF state
     state = request.query_params.get("state")
-    oauth_state_store: TTLStore[dict] = request.app.state.oauth_state_store
-    state_meta = oauth_state_store.consume(state) if state else None
-    if state_meta is None:
+    state_entry = flow_store.consume(state) if state else None
+    if not isinstance(state_entry, OAuthState):
         raise HTTPException(status_code=401, detail="Invalid OAuth state")
 
     # Exchange code for tokens
@@ -105,11 +107,11 @@ async def callback(
         logger.warning("domain_not_allowed", domain=domain, email=email)
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Redirect flow: allowlisted URI → auth code
-    redirect_target = state_meta.get("redirect_uri")
+    # Redirect flow: allowlisted URI → login ticket
+    redirect_target = state_entry.redirect_uri
     profile_claims = {k: id_token_claims[k] for k in PROFILE_CLAIM_KEYS if k in id_token_claims}
     if redirect_target:
-        return _handle_external_callback(request, email, redirect_target, state, profile_claims)
+        return _handle_external_callback(flow_store, email, redirect_target, state, profile_claims)
 
     # Browser flow: create session and set cookie
     session_store = getattr(request.app.state, "session_store", None)
@@ -140,20 +142,20 @@ async def callback(
 
 
 def _handle_external_callback(
-    request: Request,
+    flow_store: OAuthFlowStore,
     email: str,
     redirect_uri: str,
     state: str,
     profile: dict | None = None,
 ) -> RedirectResponse:
-    """Generate an auth code and redirect to the external service."""
-    auth_code_store = getattr(request.app.state, "auth_code_store", None)
-    if auth_code_store is None:
-        raise HTTPException(status_code=503, detail="Auth code store not configured")
-
-    code = auth_code_store.create(subject=email, redirect_uri=redirect_uri, profile=profile or {})
+    """Generate a login ticket and redirect to the external service."""
+    code = flow_store.create_login_ticket(
+        subject=email,
+        redirect_uri=redirect_uri,
+        profile=profile or {},
+    )
     target = f"{redirect_uri}?{urlencode({'code': code, 'state': state})}"
-    logger.info("auth_code_issued", email=email, redirect_uri=redirect_uri)
+    logger.info("login_ticket_issued", email=email, redirect_uri=redirect_uri)
     return RedirectResponse(url=target, status_code=302)
 
 
@@ -241,22 +243,25 @@ class CodeExchangeRequest(BaseModel):
 
 
 @router.post("/code/exchange")
-async def code_exchange(body: CodeExchangeRequest, request: Request) -> dict:
+async def code_exchange(
+    body: CodeExchangeRequest,
+    request: Request,
+    flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
+) -> dict:
     """Exchange an authorization code for a Type C JWT.
 
     The code must be valid (exists, not expired, not already used) and the
     redirect_uri must match the one used when the code was created.
     """
-    auth_code_store = getattr(request.app.state, "auth_code_store", None)
-    if auth_code_store is None:
-        raise HTTPException(status_code=503, detail="Auth code store not configured")
+    if flow_store is None:
+        raise HTTPException(status_code=503, detail="Flow store not configured")
 
     token_issuer = getattr(request.app.state, "token_issuer", None)
     if token_issuer is None:
         raise HTTPException(status_code=503, detail="Token issuer not configured")
 
-    entry = auth_code_store.consume(body.code, redirect_uri=body.redirect_uri)
-    if entry is None:
+    entry = flow_store.consume(body.code)
+    if not isinstance(entry, LoginTicket) or entry.redirect_uri != body.redirect_uri:
         raise HTTPException(status_code=400, detail="Invalid or expired authorization code")
 
     token = token_issuer.sign(
@@ -291,22 +296,22 @@ async def login_code(
     body: LoginCodeRequest,
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
 ) -> LoginCodeResponse:
     """Exchange an authorization code for a session refresh token + profile.
 
-    Validates the auth code, creates a server-side session, and returns a
+    Validates the login ticket, creates a server-side session, and returns a
     signed refresh_token (for cross-domain clients) plus the user's profile.
     """
-    auth_code_store = getattr(request.app.state, "auth_code_store", None)
-    if auth_code_store is None:
-        raise HTTPException(status_code=503, detail="Auth code store not configured")
+    if flow_store is None:
+        raise HTTPException(status_code=503, detail="Flow store not configured")
 
     session_store = getattr(request.app.state, "session_store", None)
     if session_store is None:
         raise HTTPException(status_code=503, detail="Session store not configured")
 
-    entry = auth_code_store.consume(body.code, redirect_uri=body.redirect_uri)
-    if entry is None:
+    entry = flow_store.consume(body.code)
+    if not isinstance(entry, LoginTicket) or entry.redirect_uri != body.redirect_uri:
         raise HTTPException(status_code=400, detail="Invalid or expired authorization code")
 
     # Create session

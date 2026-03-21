@@ -73,18 +73,18 @@ class TestLogin:
         assert call_kwargs.kwargs.get("prompt") == "select_account"
 
     def test_login_stores_csrf_state(self, mocker, login_client, mock_oauth):
-        """Login should store a CSRF state in the oauth_state_store."""
+        """Login should store a CSRF state in the flow_store."""
         from starlette.responses import RedirectResponse
 
         mock_oauth.google.authorize_redirect = mocker.AsyncMock(
             return_value=RedirectResponse(url="https://accounts.google.com/o/oauth2/auth")
         )
 
-        oauth_state_store = login_client.app.state.oauth_state_store
-        before = len(oauth_state_store)
+        flow_store = login_client.app.state.flow_store
+        before = len(flow_store._oauth_states)
         login_client.get("/auth/login", follow_redirects=False)
 
-        assert len(oauth_state_store) == before + 1
+        assert len(flow_store._oauth_states) == before + 1
 
 
 class TestCallback:
@@ -92,8 +92,8 @@ class TestCallback:
 
     def test_callback_creates_session_and_redirects(self, mocker, login_client, mock_oauth, session_store):
         """Valid callback -> session created, cookie set, redirect to /ui/."""
-        oauth_state_store = login_client.app.state.oauth_state_store
-        state_key = oauth_state_store.create({"redirect_uri": None})
+        flow_store = login_client.app.state.flow_store
+        state_key = flow_store.create_oauth_state(redirect_uri=None)
 
         mock_oauth.google.authorize_access_token = mocker.AsyncMock(
             return_value={
@@ -128,8 +128,8 @@ class TestCallback:
 
     def test_callback_domain_not_allowed_returns_403(self, mocker, login_client, mock_oauth):
         """Callback with unauthorized email domain -> 403."""
-        oauth_state_store = login_client.app.state.oauth_state_store
-        state_key = oauth_state_store.create({"redirect_uri": None})
+        flow_store = login_client.app.state.flow_store
+        state_key = flow_store.create_oauth_state(redirect_uri=None)
 
         mock_oauth.google.authorize_access_token = mocker.AsyncMock(
             return_value={

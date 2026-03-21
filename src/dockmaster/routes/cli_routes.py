@@ -14,8 +14,9 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from dockmaster.auth.dependencies import allow_jwt, get_jwt_claims
-from dockmaster.auth.ttl_store import TTLStore
+from dockmaster.auth.oauth_flow_store import OAuthFlowStore, OAuthState
 from dockmaster.config import Settings, get_settings
+from dockmaster.state import get_flow_store
 
 logger = structlog.get_logger(__name__)
 
@@ -60,6 +61,7 @@ class TokenResponse(BaseModel):
 async def cli_login(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
     redirect_uri: str | None = None,
 ):
     """Start CLI OAuth flow — redirect to Google with localhost callback.
@@ -71,11 +73,11 @@ async def cli_login(
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
+    if flow_store is None:
+        raise HTTPException(status_code=503, detail="Flow store not configured")
 
     validated_redirect = _validate_cli_redirect_uri(redirect_uri)
-
-    oauth_state_store: TTLStore[dict] = request.app.state.oauth_state_store
-    state = oauth_state_store.create({"redirect_uri": validated_redirect})
+    state = flow_store.create_oauth_state(redirect_uri=validated_redirect)
 
     callback_uri = str(request.url_for("cli_callback"))
     return await oauth.google.authorize_redirect(
@@ -90,6 +92,7 @@ async def cli_login(
 async def cli_callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
 ):
     """Handle Google OAuth callback for CLI flow.
 
@@ -100,15 +103,16 @@ async def cli_callback(
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
         raise HTTPException(status_code=503, detail="OAuth not configured")
+    if flow_store is None:
+        raise HTTPException(status_code=503, detail="Flow store not configured")
 
     # Validate CSRF state
     state = request.query_params.get("state")
-    oauth_state_store: TTLStore[dict] = request.app.state.oauth_state_store
-    state_meta = oauth_state_store.consume(state) if state else None
-    if state_meta is None:
+    state_entry = flow_store.consume(state) if state else None
+    if not isinstance(state_entry, OAuthState):
         raise HTTPException(status_code=401, detail="Invalid OAuth state")
 
-    redirect_target = state_meta.get("redirect_uri")
+    redirect_target = state_entry.redirect_uri
     if not redirect_target or not _LOCALHOST_RE.match(redirect_target):
         raise HTTPException(status_code=400, detail="Invalid CLI redirect URI in state")
 

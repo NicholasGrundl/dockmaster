@@ -86,9 +86,9 @@ class TestCodeExchangeEndpoint:
 
     def test_valid_code_exchange(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """Valid code + matching redirect_uri returns a JWT."""
-        auth_code_store = code_exchange_app.state.auth_code_store
+        flow_store = code_exchange_app.state.flow_store
         issuer = code_exchange_app.state.token_issuer
-        code = auth_code_store.create(
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
         )
@@ -116,8 +116,8 @@ class TestCodeExchangeEndpoint:
 
     def test_wrong_redirect_uri_returns_400(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """Mismatched redirect_uri returns 400."""
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
         )
@@ -130,8 +130,8 @@ class TestCodeExchangeEndpoint:
 
     def test_code_single_use(self, code_exchange_app: FastAPI, code_exchange_client: TestClient):
         """Code can only be exchanged once."""
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
         )
@@ -159,8 +159,8 @@ class TestCodeExchangeEndpoint:
         """The returned JWT contains the correct subject from the auth code."""
         import jwt
 
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="alice@example.com",
             redirect_uri="https://app.example.com/callback",
         )
@@ -201,8 +201,8 @@ class TestCallbackExternalRedirect:
         code_exchange_app.state.oauth = mock_oauth
 
         # Plant a pending state with an external redirect_uri
-        oauth_state_store = code_exchange_app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "https://app.example.com/callback"})
+        flow_store = code_exchange_app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="https://app.example.com/callback")
 
         resp = code_exchange_client.get(
             f"/auth/callback?state={state_id}&code=google-auth-code",
@@ -233,8 +233,8 @@ class TestCallbackExternalRedirect:
         # would try _handle_external_callback (since CLI branch is gone).
         # The redirect_uri won't be in allowed_redirect_uris, so this
         # verifies the old CLI path no longer exists on the main callback.
-        oauth_state_store = code_exchange_app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
+        flow_store = code_exchange_app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")
 
         resp = code_exchange_client.get(
             f"/auth/callback?state={state_id}&code=google-auth-code",
@@ -263,8 +263,8 @@ class TestLoginCodeEndpoint:
         self, code_exchange_app: FastAPI, code_exchange_client: TestClient
     ):
         """Valid code + matching redirect_uri returns refresh_token and profile."""
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
             profile={"name": "Test User", "picture": "https://example.com/photo.jpg"},
@@ -287,8 +287,8 @@ class TestLoginCodeEndpoint:
         """The endpoint creates a session that can be resolved via the refresh_token."""
         from itsdangerous import URLSafeSerializer
 
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
             profile={"name": "Test User"},
@@ -329,8 +329,8 @@ class TestLoginCodeEndpoint:
         self, code_exchange_app: FastAPI, code_exchange_client: TestClient
     ):
         """Mismatched redirect_uri returns 400."""
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
         )
@@ -345,8 +345,8 @@ class TestLoginCodeEndpoint:
         self, code_exchange_app: FastAPI, code_exchange_client: TestClient
     ):
         """Code can only be exchanged once."""
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
         )
@@ -367,8 +367,8 @@ class TestLoginCodeEndpoint:
         self, code_exchange_app: FastAPI, code_exchange_client: TestClient
     ):
         """Code without profile data returns empty profile dict."""
-        auth_code_store = code_exchange_app.state.auth_code_store
-        code = auth_code_store.create(
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
             subject="user@example.com",
             redirect_uri="https://app.example.com/callback",
         )

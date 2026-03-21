@@ -123,15 +123,15 @@ class TestCliLogin:
             return_value=RedirectResponse(url="https://accounts.google.com/o/oauth2/auth")
         )
 
-        oauth_state_store = cli_client.app.state.oauth_state_store
-        before = len(oauth_state_store)
+        flow_store = cli_client.app.state.flow_store
+        before = len(flow_store._oauth_states)
 
         cli_client.get(
             "/auth/cli/login?redirect_uri=http://localhost:9876/callback",
             follow_redirects=False,
         )
 
-        assert len(oauth_state_store) == before + 1
+        assert len(flow_store._oauth_states) == before + 1
 
     def test_missing_redirect_uri_returns_400(self, cli_client):
         """CLI login without redirect_uri returns 400."""
@@ -175,8 +175,8 @@ class TestCliCallback:
             }
         )
 
-        oauth_state_store = cli_client.app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
+        flow_store = cli_client.app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")
 
         response = cli_client.get(
             f"/auth/cli/callback?code=google-auth-code&state={state_id}",
@@ -198,8 +198,8 @@ class TestCliCallback:
             }
         )
 
-        oauth_state_store = cli_client.app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
+        flow_store = cli_client.app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")
 
         response = cli_client.get(
             f"/auth/cli/callback?code=google-auth-code&state={state_id}",
@@ -237,8 +237,8 @@ class TestCliCallback:
             }
         )
 
-        oauth_state_store = cli_client.app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
+        flow_store = cli_client.app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")
 
         response = cli_client.get(
             f"/auth/cli/callback?code=google-auth-code&state={state_id}",
@@ -252,8 +252,8 @@ class TestCliCallback:
             return_value={"userinfo": {}}
         )
 
-        oauth_state_store = cli_client.app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
+        flow_store = cli_client.app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")
 
         response = cli_client.get(
             f"/auth/cli/callback?code=google-auth-code&state={state_id}",
@@ -269,8 +269,8 @@ class TestCliCallback:
             }
         )
 
-        oauth_state_store = cli_client.app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "https://evil.com/callback"})
+        flow_store = cli_client.app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="https://evil.com/callback")
 
         response = cli_client.get(
             f"/auth/cli/callback?code=google-auth-code&state={state_id}",
@@ -286,8 +286,8 @@ class TestCliCallback:
             }
         )
 
-        oauth_state_store = cli_client.app.state.oauth_state_store
-        state_id = oauth_state_store.create({"redirect_uri": "http://localhost:9876/callback"})
+        flow_store = cli_client.app.state.flow_store
+        state_id = flow_store.create_oauth_state(redirect_uri="http://localhost:9876/callback")
 
         cli_client.app.state.token_issuer = None
 

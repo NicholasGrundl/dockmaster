@@ -9,10 +9,11 @@ These are **not** auth concerns — they live outside ``auth/dependencies.py``.
 
 from fastapi import Request
 
+from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
+from dockmaster.auth.oauth_flow_store import OAuthFlowStore
 from dockmaster.rbac.authority import Authority
 from dockmaster.rbac.storage import AdminSecretsStorage
 from dockmaster.sessions.protocol import SessionStore
-from dockmaster.auth.jwt_signers import EphemeralKeypairSigner
 from dockmaster.ui.config import UIConfig
 
 def get_admin_storage(request: Request) -> AdminSecretsStorage | None:
@@ -34,3 +35,8 @@ def get_ui_config(request: Request) -> UIConfig:
 
 def get_token_issuer(request: Request) -> EphemeralKeypairSigner | None:
     return getattr(request.app.state, "token_issuer", None)
+
+
+def get_flow_store(request: Request) -> OAuthFlowStore | None:
+    """Bridge: OAuth flow store from app.state."""
+    return getattr(request.app.state, "flow_store", None)
