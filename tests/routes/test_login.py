@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from itsdangerous import URLSafeSerializer
 
 from dockmaster.config import Settings
+from dockmaster.routes.login import _validate_cookie_return_to, _validate_external_return_to
 from dockmaster.sessions.memory import InMemorySessionStore
 
 
@@ -144,6 +145,119 @@ class TestCallback:
 
         assert response.status_code == 403
         assert response.json()["detail"] == "Access denied"
+
+
+class TestValidateCookieReturnTo:
+    """Unit tests for _validate_cookie_return_to."""
+
+    def test_none_defaults_to_ui(self):
+        assert _validate_cookie_return_to(None) == "/ui/"
+
+    def test_empty_defaults_to_ui(self):
+        assert _validate_cookie_return_to("") == "/ui/"
+
+    def test_relative_path_accepted(self):
+        assert _validate_cookie_return_to("/dashboard") == "/dashboard"
+
+    def test_relative_path_with_segments(self):
+        assert _validate_cookie_return_to("/ui/roles") == "/ui/roles"
+
+    def test_absolute_url_rejected(self):
+        assert _validate_cookie_return_to("https://evil.com/steal") == "/ui/"
+
+    def test_protocol_relative_rejected(self):
+        assert _validate_cookie_return_to("//evil.com/steal") == "/ui/"
+
+    def test_bare_domain_rejected(self):
+        assert _validate_cookie_return_to("evil.com") == "/ui/"
+
+
+class TestValidateExternalReturnTo:
+    """Unit tests for _validate_external_return_to."""
+
+    def test_none_returns_none(self):
+        assert _validate_external_return_to(None) is None
+
+    def test_empty_returns_none(self):
+        assert _validate_external_return_to("") is None
+
+    def test_relative_path_accepted(self):
+        assert _validate_external_return_to("/settings") == "/settings"
+
+    def test_absolute_url_accepted(self):
+        assert _validate_external_return_to("https://app.example.com/dash") == "https://app.example.com/dash"
+
+    def test_blocklisted_uri_rejected(self):
+        blocklist = {"https://bad.com/phish"}
+        assert _validate_external_return_to("https://bad.com/phish", blocklist) is None
+
+    def test_non_blocklisted_uri_accepted(self):
+        blocklist = {"https://bad.com/phish"}
+        assert _validate_external_return_to("https://good.com/ok", blocklist) == "https://good.com/ok"
+
+    def test_empty_blocklist_accepts_all(self):
+        assert _validate_external_return_to("https://anything.com", set()) == "https://anything.com"
+
+
+class TestReturnTo:
+    """return_to support in cookie flow callback."""
+
+    def test_cookie_flow_uses_return_to(self, mocker, login_client, mock_oauth, session_store):
+        """Cookie flow callback redirects to return_to instead of /ui/."""
+        flow_store = login_client.app.state.flow_store
+        state_key = flow_store.create_oauth_state(redirect_uri=None, return_to="/dashboard")
+
+        mock_oauth.google.authorize_access_token = mocker.AsyncMock(
+            return_value={
+                "userinfo": {"email": "user@example.com", "name": "Test User"},
+            }
+        )
+
+        response = login_client.get(
+            f"/auth/login/callback?code=auth-code&state={state_key}",
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/dashboard"
+
+    def test_cookie_flow_defaults_to_ui(self, mocker, login_client, mock_oauth, session_store):
+        """Cookie flow callback defaults to /ui/ when no return_to."""
+        flow_store = login_client.app.state.flow_store
+        state_key = flow_store.create_oauth_state(redirect_uri=None)
+
+        mock_oauth.google.authorize_access_token = mocker.AsyncMock(
+            return_value={
+                "userinfo": {"email": "user@example.com", "name": "Test User"},
+            }
+        )
+
+        response = login_client.get(
+            f"/auth/login/callback?code=auth-code&state={state_key}",
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/ui/"
+
+    def test_cookie_flow_rejects_absolute_return_to(self, mocker, login_client, mock_oauth, session_store):
+        """Cookie flow ignores absolute URL return_to and defaults to /ui/."""
+        flow_store = login_client.app.state.flow_store
+        state_key = flow_store.create_oauth_state(redirect_uri=None, return_to="https://evil.com")
+
+        mock_oauth.google.authorize_access_token = mocker.AsyncMock(
+            return_value={
+                "userinfo": {"email": "user@example.com", "name": "Test User"},
+            }
+        )
+
+        response = login_client.get(
+            f"/auth/login/callback?code=auth-code&state={state_key}",
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/ui/"
 
 
 class TestLogout:

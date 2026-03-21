@@ -26,6 +26,37 @@ def _get_signer(settings: Settings) -> URLSafeSerializer:
     return URLSafeSerializer(settings.session_secret_key)
 
 
+def _validate_cookie_return_to(uri: str | None) -> str:
+    """Validate return_to for cookie flow — relative paths only.
+
+    Rejects absolute URLs to prevent open redirects. The browser will be
+    redirected to this path on the same origin after login.
+    Returns /ui/ if not provided or invalid.
+    """
+    if not uri:
+        return "/ui/"
+    if uri.startswith("/") and not uri.startswith("//"):
+        return uri
+    return "/ui/"
+
+
+def _validate_external_return_to(
+    uri: str | None,
+    blocklist: set[str] | None = None,
+) -> str | None:
+    """Validate return_to for refresh token flow.
+
+    The external app controls how it uses this value — dockmaster passes it
+    through in the exchange response. Rejects values in the blocklist.
+    Returns None if not provided.
+    """
+    if not uri:
+        return None
+    if blocklist and uri in blocklist:
+        return None
+    return uri
+
+
 def _validate_redirect_uri(uri: str | None, allowed_redirect_uris: set[str] | None = None) -> str | None:
     """Validate and return the redirect URI, or None if not provided.
 
@@ -49,12 +80,17 @@ async def login(
     settings: Annotated[Settings, Depends(get_settings)],
     flow_store: Annotated[OAuthFlowStore | None, Depends(get_flow_store)],
     redirect_uri: str | None = None,
+    return_to: str | None = None,
 ):
     """Redirect to Google OAuth2 authorization endpoint.
 
     If redirect_uri is provided (external app flow), the callback will redirect
     there with an auth code. Otherwise, creates a session cookie (browser flow).
     CLI flow uses /auth/cli/login instead.
+
+    return_to is an optional post-login redirect target:
+    - Cookie flow: browser redirects to this relative path after login (default /ui/)
+    - Refresh token flow: passed through in the exchange response for the app to use
     """
     oauth = getattr(request.app.state, "oauth", None)
     if oauth is None:
@@ -63,7 +99,7 @@ async def login(
         raise HTTPException(status_code=503, detail="Flow store not configured")
 
     validated_redirect = _validate_redirect_uri(redirect_uri, settings.allowed_redirect_uris)
-    state = flow_store.create_oauth_state(redirect_uri=validated_redirect)
+    state = flow_store.create_oauth_state(redirect_uri=validated_redirect, return_to=return_to)
 
     # GCP OAuth config: /auth/login/callback must be an authorized redirect URI
     # in the Google Cloud Console OAuth client configuration.
@@ -113,7 +149,10 @@ async def login_callback(
     redirect_target = state_entry.redirect_uri
     profile_claims = {k: id_token_claims[k] for k in PROFILE_CLAIM_KEYS if k in id_token_claims}
     if redirect_target:
-        return _handle_external_callback(flow_store, email, redirect_target, state, profile_claims)
+        validated_return_to = _validate_external_return_to(state_entry.return_to)
+        return _handle_external_callback(
+            flow_store, email, redirect_target, state, profile_claims, return_to=validated_return_to,
+        )
 
     # Browser flow: create session and set cookie
     session_store = getattr(request.app.state, "session_store", None)
@@ -129,7 +168,8 @@ async def login_callback(
     signer = _get_signer(settings)
     signed_session_id = signer.dumps(session_id)
 
-    response = RedirectResponse(url="/ui/", status_code=302)
+    cookie_return_to = _validate_cookie_return_to(state_entry.return_to)
+    response = RedirectResponse(url=cookie_return_to, status_code=302)
     response.set_cookie(
         key="session_id",
         value=signed_session_id,
@@ -149,12 +189,14 @@ def _handle_external_callback(
     redirect_uri: str,
     state: str,
     profile: dict | None = None,
+    return_to: str | None = None,
 ) -> RedirectResponse:
     """Generate a login ticket and redirect to the external service."""
     code = flow_store.create_login_ticket(
         subject=email,
         redirect_uri=redirect_uri,
         profile=profile or {},
+        return_to=return_to,
     )
     target = f"{redirect_uri}?{urlencode({'code': code, 'state': state})}"
     logger.info("login_ticket_issued", email=email, redirect_uri=redirect_uri)
@@ -291,6 +333,7 @@ class LoginCodeResponse(BaseModel):
 
     refresh_token: str
     profile: dict
+    return_to: str | None = None
 
 
 @router.post("/login/code", response_model=LoginCodeResponse)
@@ -330,4 +373,5 @@ async def login_code(
     return LoginCodeResponse(
         refresh_token=refresh_token,
         profile=entry.profile,
+        return_to=entry.return_to,
     )

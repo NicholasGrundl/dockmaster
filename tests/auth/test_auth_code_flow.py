@@ -380,3 +380,40 @@ class TestLoginCodeEndpoint:
 
         assert resp.status_code == 200
         assert resp.json()["profile"] == {}
+
+    def test_return_to_forwarded_in_response(
+        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
+        """return_to from the login ticket is included in the exchange response."""
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
+            subject="user@example.com",
+            redirect_uri="https://app.example.com/callback",
+            return_to="/settings",
+        )
+
+        resp = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["return_to"] == "/settings"
+
+    def test_return_to_defaults_to_none(
+        self, code_exchange_app: FastAPI, code_exchange_client: TestClient
+    ):
+        """return_to is null when not set on the login ticket."""
+        flow_store = code_exchange_app.state.flow_store
+        code = flow_store.create_login_ticket(
+            subject="user@example.com",
+            redirect_uri="https://app.example.com/callback",
+        )
+
+        resp = code_exchange_client.post(
+            "/auth/login/code",
+            json={"code": code, "redirect_uri": "https://app.example.com/callback"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["return_to"] is None
