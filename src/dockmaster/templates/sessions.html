@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Sessions — {{ ui.brand_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-semibold">Sessions</h1>
+        <span class="text-sm" style="color: #6b7280;">{{ sessions | length }} active session{{ 's' if sessions | length != 1 }}</span>
+    </div>
+
+    {# ── Flash messages ── #}
+    {% if error %}
+    <div class="rounded-md border px-4 py-3 text-sm" style="background-color: #fef2f2; border-color: #fecaca; color: #991b1b;">
+        {{ error }}
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="rounded-md border px-4 py-3 text-sm" style="background-color: #f0fdf4; border-color: #bbf7d0; color: #166534;">
+        {{ success }}
+    </div>
+    {% endif %}
+
+    {# ── Revoke by email form ── #}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <h2 class="text-sm font-medium mb-3" style="color: #6b7280;">Revoke by Email</h2>
+        <form method="post" action="/ui/sessions/revoke-by-email" class="flex flex-col sm:flex-row gap-3"
+              onsubmit="return confirm('Revoke all sessions for this email?')">
+            <input type="email" name="email" placeholder="user@example.com" required
+                   class="rounded-md border px-3 py-2 text-sm flex-1"
+                   style="border-color: var(--color-border); background-color: var(--color-bg);">
+            <button type="submit"
+                    class="rounded-md px-4 py-2 text-sm font-medium text-white"
+                    style="background-color: #991b1b;">
+                Revoke All
+            </button>
+        </form>
+    </section>
+
+    {# ── Sessions table ── #}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        {% if sessions %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b text-left" style="border-color: var(--color-border);">
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Email</th>
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Name</th>
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Expires</th>
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Session ID</th>
+                        <th class="pb-2 font-medium text-right" style="color: #6b7280;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sid, sdata in sessions.items() %}
+                    <tr class="border-b last:border-0" style="border-color: var(--color-border);">
+                        <td class="py-3 pr-4">{{ sdata.get('email', '—') }}</td>
+                        <td class="py-3 pr-4">{{ sdata.get('name', '—') }}</td>
+                        <td class="py-3 pr-4 text-xs" style="color: #6b7280;">
+                            {% if sdata.get('_expiry') %}
+                            {{ sdata['_expiry'] | int | timestamp_to_datetime }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="py-3 pr-4 font-mono text-xs" style="color: #6b7280;">{{ sid[:12] }}…</td>
+                        <td class="py-3 text-right">
+                            <form method="post" action="/ui/sessions/{{ sid }}/revoke"
+                                  onsubmit="return confirm('Revoke this session?')">
+                                <button type="submit"
+                                        class="rounded-md border px-3 py-1 text-xs font-medium"
+                                        style="color: #991b1b; border-color: #fecaca;"
+                                        onmouseover="this.style.backgroundColor='#fef2f2'"
+                                        onmouseout="this.style.backgroundColor='transparent'">
+                                    Revoke
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm" style="color: #9ca3af;">No active sessions.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

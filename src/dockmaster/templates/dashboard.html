@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — {{ ui.brand_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-semibold">Dashboard</h1>
+
+    {# ── User info card ── #}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <h2 class="text-sm font-medium mb-3" style="color: #6b7280;">Your Session</h2>
+        <div class="flex items-center gap-4">
+            {% if user.picture %}
+            <img src="{{ user.picture }}" alt="" class="h-14 w-14 rounded-full border" style="border-color: var(--color-border);">
+            {% else %}
+            <div class="h-14 w-14 rounded-full flex items-center justify-center text-white text-lg font-bold" style="background-color: var(--color-primary);">
+                {{ user.email[0] | upper }}
+            </div>
+            {% endif %}
+            <div>
+                <div class="font-medium">{{ user.name or user.email }}</div>
+                <div class="text-sm" style="color: #6b7280;">{{ user.email }}</div>
+            </div>
+        </div>
+    </section>
+
+    {# ── Active sessions table ── #}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <h2 class="text-sm font-medium mb-3" style="color: #6b7280;">Your Sessions ({{ sessions | length }})</h2>
+        {% if sessions %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm whitespace-nowrap">
+                <thead>
+                    <tr class="border-b text-left" style="border-color: var(--color-border);">
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Email</th>
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Name</th>
+                        <th class="pb-2 pr-4 font-medium" style="color: #6b7280;">Expires</th>
+                        <th class="pb-2 font-medium" style="color: #6b7280;">Session ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sid, sdata in sessions.items() %}
+                    <tr class="border-b last:border-0" style="border-color: var(--color-border);">
+                        <td class="py-2 pr-4">{{ sdata.get('email', '—') }}</td>
+                        <td class="py-2 pr-4">{{ sdata.get('name', '—') }}</td>
+                        <td class="py-2 pr-4 text-xs" style="color: #6b7280;">
+                            {% if sdata.get('_expiry') %}
+                            {{ sdata['_expiry'] | int | timestamp_to_datetime }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="py-2 font-mono text-xs" style="color: #6b7280;">{{ sid[:12] }}…</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm" style="color: #9ca3af;">No active sessions.</p>
+        {% endif %}
+    </section>
+
+    {# ── Service status ── #}
+    <section class="rounded-lg border p-5" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <h2 class="text-sm font-medium mb-3" style="color: #6b7280;">Service Status</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {% for name, configured in services.items() %}
+            <div class="rounded-md border px-3 py-2 text-center text-sm"
+                 style="border-color: var(--color-border);">
+                <div class="font-mono text-xs mb-1" style="color: #6b7280;">{{ name }}</div>
+                {% if configured %}
+                <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                <span class="text-green-700 text-xs">OK</span>
+                {% else %}
+                <span class="inline-block w-2 h-2 rounded-full bg-gray-300"></span>
+                <span class="text-xs" style="color: #9ca3af;">—</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+</div>
+{% endblock %}

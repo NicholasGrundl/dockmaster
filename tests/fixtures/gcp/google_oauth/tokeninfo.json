@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://oauth2.googleapis.com/tokeninfo?access_token=REDACTED",
+    "headers": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "azp": "REDACTED_CLIENT_ID",
+      "aud": "REDACTED_CLIENT_ID",
+      "sub": "REDACTED_SUB",
+      "scope": "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid",
+      "exp": "1773260664",
+      "expires_in": "3475",
+      "email": "nicholasgrundl@insilicostrategy.com",
+      "email_verified": "true",
+      "access_type": "offline"
+    }
+  }
+}

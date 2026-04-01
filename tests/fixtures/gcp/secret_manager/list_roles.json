@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "gRPC",
+    "service": "google.cloud.secretmanager.v1.SecretManagerService",
+    "rpc": "ListSecrets",
+    "parent": "projects/insilicostrategy-platform",
+    "filter": "name:role-"
+  },
+  "response": {
+    "status": "OK",
+    "secrets": [
+      {
+        "name": "projects/525956676695/secrets/role-admin"
+      }
+    ],
+    "notes": "Each secret .name is the full resource path. Code strips 'role-' prefix to get role name."
+  }
+}

@@ -11,28 +11,46 @@ default:
 install:
     uv sync --extra dev
 
-# Run tests
-test:
-    uv run pytest tests/ -v
+# Run all tests
+test: test-core test-integration
 
-# Lint source and tests
-lint:
-    uv run ruff check --fix src/ tests/
+# Run core tests (excludes integration)
+test-core:
+    uv run pytest tests/ -v -m "not integration"
 
-# Format source and tests
-format:
-    uv run ruff format src/ tests/
+# Run only integration tests (requires real GCP credentials)
+test-integration:
+    uv run pytest tests/ -v -m "integration"
+
+# --- Checks (read-only verification) ---
+
+# Run all checks (lint + format + types + core tests)
+check: check-lint check-format check-types test-core
+
+# Check for lint issues (no auto-fix)
+check-lint:
+    uv run ruff check src/ tests/
+
+# Check formatting (no changes)
+check-format:
+    uv run ruff format --check src/ tests/
 
 # Type check (informational)
-typecheck:
+check-types:
     uv run ty check src/ || true
 
-# Run all checks (lint + format check + typecheck + test)
-check:
-    uv run ruff check src/ tests/
-    uv run ruff format --check src/ tests/
-    uv run ty check src/ || true
-    uv run pytest tests/ -v
+# --- Fixes (auto-fix) ---
+
+# Run all auto-fixes (lint + format)
+fix: fix-lint fix-format
+
+# Fix lint issues
+fix-lint:
+    uv run ruff check --fix src/ tests/
+
+# Fix formatting
+fix-format:
+    uv run ruff format src/ tests/
 
 # Run FastAPI dev server
 dev:

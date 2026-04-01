@@ -4,17 +4,17 @@ Ideas and deferred features not yet scheduled for implementation. When an item i
 committed, create a spec in [`_blueprint/features/`](../features/) and link it from
 [`ROADMAP.md`](./ROADMAP.md).
 
-*Last updated: 2026-03-09*
+*Last updated: 2026-03-13*
 
 ---
 
 ## Deferred Items (from Gap Analysis — 2026-03-09)
 
-### CLI UX Redesign
-- **Context**: Phase 6 CLI uses positional arguments (`dockmaster service grant <service> <subject> <role1> [role2...]`). The argument order is functional but not intuitive — easy to misremember which position is service vs subject vs role. The legacy CLI had the same issue with its `subject:role1,role2` embedded-syntax approach.
+### CLI UX Refinement
+- **Context**: Phase 6c CLI already uses named flags (`-p/--permission` for roles, `-r/--role` for grants) with positional args for subject/target (D14). The original concern about unintuitive positional-only args was partially addressed. Remaining UX considerations: interactive prompting for required args, a YAML/JSON config file approach for bulk operations, tab completion.
 - **When**: Before the CLI is widely adopted by other developers or documented externally.
-- **Options**: Named flags (`--service`, `--subject`, `--role`), interactive prompting for required args, a YAML/JSON config file approach for bulk operations.
-- **Effort**: Medium — Typer supports both positionals and named options; the underlying API calls don't change.
+- **Options**: Interactive prompting, bulk YAML/JSON operations, shell completion via Typer.
+- **Effort**: Small-Medium — Typer has built-in completion support; bulk ops require a new command or `--file` flag.
 
 ---
 
@@ -46,7 +46,7 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **Effort**: Small — add a structural check before fallback.
 
 ### InMemorySessionStore Cleanup
-- **Context**: Phase 4 `InMemorySessionStore` has no max-size protection or periodic cleanup. Sessions accumulate if never re-accessed. Acceptable for single-user MVP.
+- **Context**: Phase 4 `InMemorySessionStore` has no max-size protection. `list_all()` (Phase 4c) does lazy cleanup of expired sessions on access, which partially addresses accumulation. Still no periodic cleanup or max-size cap.
 - **When**: If running multi-user or long-lived instances where memory growth is a concern.
 - **Options**: Periodic cleanup task, max-size cap with LRU eviction, or just use Redis.
 
@@ -55,9 +55,11 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **When**: When building a more polished browser experience.
 - **Effort**: Small — store refresh token in session during callback, retrieve on refresh.
 
-### Redirect URI Validation / Open Redirect Prevention
-- **Context**: Phase 4 OAuth callback hardcodes redirect to `/ui/test`. Configurable redirects would need an allowlist to prevent open redirect attacks.
-- **When**: When adding multiple UIs or configurable post-login destinations.
+### OAuth Redirect-Back for External SPAs + Open Redirect Prevention
+- **Context**: Phase 6c added `redirect_uri` support on `/auth/login` — but only for localhost callbacks (CLI use case). The callback mints a short-lived JWT and redirects to the provided URI. For external SPAs, we need: (1) an allowlist of permitted redirect origins (per-service), (2) a token delivery mechanism suitable for browser clients (query param, fragment, or POST), (3) open redirect prevention. This is the "auth service as IdP" pattern.
+- **Partial progress (Phase 6c)**: `redirect_uri` param accepted, localhost-only validation, JWT minting on callback. Server-side infrastructure exists — needs extension for non-localhost URIs.
+- **Scheduled**: Phase 7 (Redirect URI + Ephemeral Keypair).
+- **Planning needed**: Per-service redirect URI allowlist (Settings or SM?), token delivery mechanism for SPAs, PKCE for public clients.
 
 ### Wildcard Target Matching for RBAC
 - **Context**: Phase 5 uses exact string matching for targets. Both audits recommend glob/wildcard support (e.g., `projects/*`). Legacy also uses exact match.
@@ -69,10 +71,8 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **When**: When multiple users manage RBAC and accidental deletion is a risk.
 - **Options**: Block deletion if in use (409 Conflict), warn but allow, cascade revocation.
 
-### Admin UI (Web Dashboard)
-- **Context**: Phase 6 originally included a Jinja2+HTMX admin UI. Deferred because the CLI handles 100% of management tasks. Legacy admin UI was also never completed.
-- **When**: When visual management is needed for non-CLI users.
-- **Route**: Should live at `/ui/` or `/console/`, not `/admin/` (which is the API prefix).
+### ~~Admin UI — RBAC Management Pages~~ ✅ DONE
+- **Resolved**: Phase 6 (COMPLETE). Admin UI pages for roles, grants, and sessions are live at `/ui/roles`, `/ui/grants`, `/ui/sessions`. Includes create/edit/delete forms, read-only mode when admin SA not configured.
 
 ### Distributed Cache Invalidation
 - **Context**: Phase 6 clears the Authority cache on the instance handling the admin request. Other instances keep stale cache for up to TTL (300s).
@@ -104,18 +104,29 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 
 ---
 
+## Future Features
+
+### User Whitelisting via Secret Manager
+- **Context**: Currently access control is domain-level (`AUTHORIZED_DOMAINS`) + admin email list (`DOCKMASTER_ADMIN_EMAILS`). No per-user whitelist for non-admin users outside the authorized domain.
+- **Approach**: Option B — SM-based allowed-users secret, admin-manageable via UI. Needs a proper design session to make it flexible (not just a flat list — consider groups, expiry, invitation flow).
+- **When**: After core features are deployed and real multi-user access patterns emerge.
+- **Planning needed**: Data model (flat list vs structured), admin UI for managing users, how it interacts with domain-level auth, invitation/onboarding flow.
+
+---
+
 ## Previously Deferred Items
 
 ### Redis Session Store
-- **Context**: Phase 4 ships with in-memory `SessionStore`. Redis implementation uses the same `SessionStore` protocol.
-- **When**: After Phase 4 in-memory is working, or when multi-instance deployment is needed.
+- **Context**: Phase 4 ships with in-memory `SessionStore`. Redis implementation uses the same `SessionStore` protocol. Single Docker Compose instance is fine for now — in-memory store works since there's only one process.
+- **When**: When multi-instance deployment is needed (load balancer, horizontal scaling).
 - **Effort**: Small — implement `RedisSessionStore` against existing protocol.
 - **Dependency**: `redis[hiredis]`
+- **Note (2026-03-12)**: Also needed for session revocation to work across instances. Phase 6b session revocation works fine in-memory for single-instance. Phase 6b `revoke_sessions_by_email` uses list_all + filter + delete loop — Redis could optimize this with native SCAN+DEL or secondary index by email. Consider adding `delete_by_email(email) -> int` to the protocol when implementing Redis backend.
 
 ### FastHTML + MonsterUI Admin Dashboard Evaluation
-- **Context**: Phase 6 ships with Jinja2+HTMX admin UI. FastHTML+MonsterUI could provide a richer SPA-like experience with Python-only components.
+- **Context**: Admin UI uses Jinja2 + Tailwind CSS (no HTMX). FastHTML+MonsterUI could provide a richer SPA-like experience with Python-only components.
 - **When**: After Phase 6 ships and we have real usage feedback on the admin UI.
-- **Decision needed**: Whether the Jinja2+HTMX approach is sufficient or warrants replacement.
+- **Decision needed**: Whether the Jinja2 + Tailwind approach is sufficient or warrants replacement.
 
 ### SecretManagerAsyncClient Evaluation
 - **Context**: Currently using sync client with `run_in_executor` + TTL cache. Google may stabilize an async client.
@@ -131,3 +142,34 @@ committed, create a spec in [`_blueprint/features/`](../features/) and link it f
 - **Context**: Need operational guides for various deployment targets.
 - **When**: After Phase 5+ when the service is feature-complete enough to deploy.
 - **Scope**: Docker standalone, GCP Cloud Run, Kubernetes (Helm chart), Caddy reverse proxy integration.
+
+### Ephemeral Key Retention Tied to Token TTL
+- **Context**: Phase 7 EphemeralKeyCache uses a fixed 12h retention for old public keys. Could optionally be configured to use `DOCKMASTER_TOKEN_TTL` as the retention period (with safety padding) for tighter key lifecycle management.
+- **When**: If operational requirements demand tighter key hygiene or shorter retention windows.
+- **Effort**: Small — `EphemeralKeyCache` already accepts `retention` param, just needs a setting to wire it.
+
+### JWKS Endpoint + OIDC Discovery
+- **Context**: Phase 7 spec included `GET /.well-known/jwks.json`, `GET /auth/jwks`, and `GET /.well-known/openid-configuration`. Deferred because: (1) consumers will use dockmaster's own SDK/middleware which calls `/auth/key/{kid}` directly, (2) serving SA keys in JWK format requires PEM→JWK conversion that no consumer needs today, (3) ephemeral-only JWKS would be incomplete.
+- **When**: When external services need standard OIDC/JWT middleware integration (auto-discovery via JWKS URL).
+- **Effort**: Small-Medium — ephemeral keys have JWK data natively, SA keys need PEM→JWK conversion. Consider adding `get_all_jwks()` to base `KeyCache` at that time.
+- **Prerequisite**: Decide scope (ephemeral-only vs all keys) and whether to add JWK conversion to `KeyCache` base class.
+
+### ~~Middleware Consolidation~~ → Phase 8e
+- **Resolved**: Middleware wiring consolidation is included in Phase 8e (App Architecture Conventions). The `setup_middleware()` helper and module structure are planned there.
+
+### SessionMiddleware Removal Investigation
+- **Context**: Starlette's `SessionMiddleware` (which creates a separate `session` cookie) may no longer be needed — it was added for Authlib's OAuth state management, but OAuth CSRF state is now handled by `TTLStore` (S-005). Authlib's `authorize_redirect()` and `authorize_access_token()` may still use `request.session` internally even when `state=` is passed explicitly. No application code reads `request.session` directly.
+- **When**: After Phase 8e, low priority. Not blocking deployment.
+- **Effort**: Small — remove SessionMiddleware, run OAuth flow tests, check if Authlib fails.
+- **Risk**: If Authlib needs it, we keep it. Safe to investigate.
+
+### Vocab Unification: ServiceUser.get_token() vs JWTTokenIssuer.sign()
+- **Context**: Two JWT signing classes exist with different method names: `ServiceUser.get_token(subject, service_name, expiry, payload)` and `JWTTokenIssuer.sign(subject, audience, ttl, extra_claims)`. Both do the same thing (sign a JWT), but the naming divergence adds cognitive load. Parameters also differ (`service_name` vs `audience`, `expiry` vs `ttl`, `payload` vs `extra_claims`).
+- **When**: Phase 8a (Audit — Endpoint Inventory). Fits naturally into the naming consistency pass.
+- **Effort**: Small — rename methods and params to a consistent convention, update all callers and tests.
+- **Options**: (1) Unify both to `.sign()` with consistent param names, (2) keep `ServiceUser` as-is since it's legacy/GCP-facing, only document the mapping, (3) extract a shared `TokenSigner` protocol.
+
+### Mid-Process Ephemeral Key Rotation
+- **Context**: Phase 7 ephemeral keypair lives for the lifetime of the process. No mid-process rotation. For long-running instances, rotation would limit blast radius of a memory dump.
+- **When**: When dockmaster runs as a long-lived process (weeks+) in production.
+- **Effort**: Medium — JWTTokenIssuer.rotate() + EphemeralKeyCache.add_key() + background timer.

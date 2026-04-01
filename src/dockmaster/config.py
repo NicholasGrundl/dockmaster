@@ -1,10 +1,17 @@
 """Dockmaster service configuration via pydantic-settings."""
 
-from functools import lru_cache
+import secrets
 from typing import Any
+
+from starlette.requests import Request
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _generate_session_secret() -> str:
+    """Generate a random session secret key for single-instance use."""
+    return secrets.token_urlsafe(64)
 
 
 def _parse_comma_separated(v: Any) -> set[str]:
@@ -30,9 +37,11 @@ class Settings(BaseSettings):
     )
 
     # --- Service ---
-    issuer: str | None = None
+    sa_key_file: str | None = None
     secrets_project: str | None = None
     log_level: str = "INFO"
+    enable_docs: bool = False
+    security_headers: bool = True
 
     # --- Authorization ---
     # Typed as str to prevent pydantic-settings from attempting JSON decode on env vars.
@@ -44,25 +53,63 @@ class Settings(BaseSettings):
     # --- OAuth ---
     client_id: str | None = None
     client_secret: SecretStr | None = None
-    default_client_id: str | None = None
     client_id_suffix: str = ".apps.googleusercontent.com"
 
     # --- Google Endpoints ---
-    access_token_endpoint: str = "https://www.googleapis.com/oauth2/v1/tokeninfo"
-    refresh_token_endpoint: str = "https://www.googleapis.com/oauth2/v4/token"
+    access_token_endpoint: str = "https://oauth2.googleapis.com/tokeninfo"
     userinfo_endpoint: str = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+    # --- UI ---
+    ui_config_path: str | None = None
+
+    # --- RBAC ---
+    rbac_cache_ttl: int = 300
+
+    # --- Dockmaster Token Issuance (Phase 7) ---
+    dockmaster_token_ttl: int = 900
+    max_token_ttl: int = 3600
+    allowed_redirect_uris: str | set[str] = ""
+    allowed_origins: str | set[str] = ""
+    jwks_registry_path: str | None = None
+
+    # --- Admin ---
+    admin_sa_key_file: str | None = None
+    dockmaster_admin_emails: str | set[str] = ""
+
+    # --- Deployment ---
+    require_proxy_headers: bool = False
+
+    # --- Logging ---
+    log_file: str | None = None
+    log_file_max_bytes: int = 10_485_760  # 10 MB
+    log_file_backup_count: int = 5
 
     # --- Session ---
     redis_url: str | None = None
-    session_secret_key: str = "change-me-in-production"
+    session_secret_key: str = ""  # Empty → auto-generated; sessions won't survive restarts
+    session_ttl: int = 3600
 
     @model_validator(mode="after")
     def postprocess(self) -> "Settings":
         # Parse comma-separated authorization fields into sets
-        for field in ("authorized_issuers", "authorized_domains", "authorized_audience"):
+        for field in (
+            "authorized_issuers",
+            "authorized_domains",
+            "authorized_audience",
+            "dockmaster_admin_emails",
+            "allowed_redirect_uris",
+            "allowed_origins",
+        ):
             raw = getattr(self, field)
             parsed = _parse_comma_separated(raw)
             object.__setattr__(self, field, parsed)
+
+        # Auto-generate session secret if not provided
+        if not self.session_secret_key:
+            object.__setattr__(self, "session_secret_key", _generate_session_secret())
+            object.__setattr__(self, "_session_secret_auto_generated", True)
+        else:
+            object.__setattr__(self, "_session_secret_auto_generated", False)
 
         # Normalize log_level to uppercase
         if isinstance(self.log_level, str):
@@ -71,7 +118,19 @@ class Settings(BaseSettings):
         return self
 
 
-@lru_cache
-def get_settings() -> Settings:
-    """Return cached Settings instance. Override in tests via dependency_overrides."""
+def get_settings(request: Request) -> Settings:
+    """Read settings from app.state — FastAPI dependency bridge.
+
+    Used as ``Annotated[Settings, Depends(get_settings)]`` in route signatures.
+    The ``request`` parameter is injected by FastAPI automatically.
+
+    Source of truth is ``app.state.settings``, set once by ``create_app()``.
+    In tests, set ``app.state.settings = Settings(...)`` — no ``lru_cache``,
+    no ``dependency_overrides`` needed.
+    """
+    return request.app.state.settings
+
+
+def create_settings() -> Settings:
+    """Create a Settings instance from environment variables / .env file."""
     return Settings()
